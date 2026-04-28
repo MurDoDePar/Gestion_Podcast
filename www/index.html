@@ -29,9 +29,15 @@
                 <span class="material-symbols-rounded">podcasts</span>
                 <h1>PodStream</h1>
             </div>
-            <div class="header-actions" id="header-actions">
-                <button id="btn-settings" class="icon-btn" aria-label="Paramètres">
-                    <span class="material-symbols-rounded">language</span>
+            <div class="header-actions" id="header-actions" style="gap: 8px;">
+                <button class="icon-btn nav-item active" data-target="view-home" aria-label="Accueil" title="Accueil" style="flex: none; flex-direction: row;">
+                    <span class="material-symbols-rounded">home</span>
+                </button>
+                <button class="icon-btn nav-item" data-target="view-search" aria-label="Recherche" title="Recherche" style="flex: none; flex-direction: row;">
+                    <span class="material-symbols-rounded">search</span>
+                </button>
+                <button id="btn-settings" class="icon-btn" aria-label="Paramètres" title="Paramètres">
+                    <span class="material-symbols-rounded">settings</span>
                 </button>
             </div>
         </header>
@@ -160,18 +166,6 @@
         </main>
 
 
-
-        <!-- Bottom Navigation -->
-        <nav class="bottom-nav">
-            <button class="nav-item active" data-target="view-home">
-                <span class="material-symbols-rounded">home</span>
-                <span>Accueil</span>
-            </button>
-            <button class="nav-item" data-target="view-search">
-                <span class="material-symbols-rounded">search</span>
-                <span>Recherche</span>
-            </button>
-        </nav>
     </div>
 
     <script src="app.js"></script>

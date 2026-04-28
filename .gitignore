@@ -24,3 +24,8 @@ desktop.ini
 .idea/
 *.suo
 *.user
+
+# 🔐 Signature Android — NE JAMAIS COMMITTER
+android/keystore.properties
+*.jks
+*.keystore

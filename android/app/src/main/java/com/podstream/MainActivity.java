@@ -1,4 +1,4 @@
-package com.podstream.app;
+package com.PodStream;
 
 import com.getcapacitor.BridgeActivity;
 

@@ -26,47 +26,58 @@ const themePodcastList = document.getElementById('theme-podcast-list');
 
 const themesList = [
   {
-    cat: "Création & Arts", icon: "palette",
-    desc: "Nourrir l'imaginaire et la créativité.",
+    cat: "Culture & Arts", icon: "palette",
+    desc: "Découvrez le meilleur de la création culturelle et artistique.",
     subs: [
-      { name: "Architecture & Design", icon: "architecture", desc: "L'esthétique au service du fonctionnel." },
-      { name: "Arts Visuels", icon: "brush", desc: "Peinture, sculpture et art contemporain." },
-      { name: "Cinéma & Séries", icon: "movie", desc: "Analyse de films, séries et interviews de réalisateurs." },
-      { name: "Littérature", icon: "menu_book", desc: "Classiques, polars ou fantasy." },
-      { name: "Musique & Audio", icon: "music_note", desc: "Albums et histoires de genres (Jazz, Rap, Rock)." }
+      { name: "Cinéma & Séries", icon: "movie", desc: "Analyse de films, séries et interviews." },
+      { name: "Littérature & BD", icon: "menu_book", desc: "Classiques, romans et bandes dessinées." },
+      { name: "Musique & Radio", icon: "music_note", desc: "Histoire musicale, genres et radio." },
+      { name: "Histoire & Patrimoine", icon: "history_edu", desc: "Exploration du passé et du patrimoine." },
+      { name: "Humour & Stand-up", icon: "sentiment_very_satisfied", desc: "Stand-up, comédie et divertissement." }
     ]
   },
   {
-    cat: "Société & Enquêtes", icon: "policy",
-    desc: "Le frisson du réel et la psychologie du mal.",
+    cat: "Société & Récits", icon: "policy",
+    desc: "Comprendre la société à travers ses histoires et ses débats.",
     subs: [
-      { name: "Affaires Criminelles", icon: "gavel", desc: "Crimes, procès et psychologie du mal." },
-      { name: "Stand-up & Comédie", icon: "sentiment_very_satisfied", desc: "Stand-up, sketchs et chroniques drôles." },
-      { name: "Investigations", icon: "newspaper", desc: "Coulisses de l'info et enquêtes de terrain." },
-      { name: "Espionnage & Histoire", icon: "visibility", desc: "Agents secrets, trahisons et grands événements historiques." },
-      { name: "Mystères", icon: "help_outline", desc: "Affaires non résolues et énigmes persistantes." }
+      { name: "Affaires Criminelles", icon: "gavel", desc: "Crimes, enquêtes et true crime." },
+      { name: "Témoignages & Vie", icon: "record_voice_over", desc: "Parcours de vie et récits intimes." },
+      { name: "Grandes Enquêtes", icon: "newspaper", desc: "Investigations et journalisme de fond." },
+      { name: "Politique & Médias", icon: "campaign", desc: "Analyse politique et décryptage média." },
+      { name: "Mystères & Paranormal", icon: "help_outline", desc: "Phénomènes inexpliqués et mystères." }
     ]
   },
   {
-    cat: "Sciences & Avenir", icon: "science",
-    desc: "Comprendre le fonctionnement de l'univers et du futur.",
+    cat: "Business & Tech", icon: "business_center",
+    desc: "Les enjeux économiques et les innovations technologiques.",
     subs: [
-      { name: "IA & Algorithmes", icon: "smart_toy", desc: "Intelligence artificielle, enjeux éthiques et futur numérique." },
-      { name: "Espace & Astronomie", icon: "rocket_launch", desc: "Exploration spatiale et cosmologie." },
-      { name: "Nature & Écologie", icon: "eco", desc: "Biodiversité, faune, flore et environnement." },
-      { name: "Mathématiques", icon: "calculate", desc: "Logique, chiffres et beauté des maths." },
-      { name: "Psychologie", icon: "psychology", desc: "Les secrets du cerveau humain." }
+      { name: "Entrepreneuriat", icon: "lightbulb", desc: "Création d'entreprise et leadership." },
+      { name: "Finance & Économie", icon: "attach_money", desc: "Marchés, investissement et économie." },
+      { name: "Intelligence Artificielle", icon: "smart_toy", desc: "IA, algorithmes et technologies futures." },
+      { name: "Culture Numérique", icon: "devices", desc: "Impact du web et des réseaux sociaux." },
+      { name: "Innovations & Futur", icon: "rocket_launch", desc: "Prospective et nouvelles tendances." }
     ]
   },
   {
-    cat: "Santé & Sports", icon: "sports",
-    desc: "L'effort, la stratégie et le dépassement de soi.",
+    cat: "Savoirs & Vie", icon: "science",
+    desc: "Apprendre, comprendre et mieux vivre au quotidien.",
     subs: [
-      { name: "Aventure Extrême", icon: "travel_explore", desc: "Exploits extrêmes et récits d'explorateurs." },
-      { name: "Coaching Mental", icon: "stars", desc: "Développement personnel, mental et coaching sportif." },
-      { name: "Sports Collectifs", icon: "groups", desc: "Football, basketball, rugby et sports d'équipe." },
-      { name: "Sports Individuels", icon: "sports_mma", desc: "Athlétisme, natation, arts martiaux et sports solo." },
-      { name: "Santé & Médecine", icon: "healing", desc: "Innovations médicales et fonctionnement du corps." }
+      { name: "Psychologie & Mental", icon: "psychology", desc: "Fonctionnement de l'esprit et bien-être." },
+      { name: "Santé & Nutrition", icon: "health_and_safety", desc: "Médecine, alimentation et forme." },
+      { name: "Écologie & Nature", icon: "eco", desc: "Environnement, faune et flore." },
+      { name: "Parentalité & Famille", icon: "family_restroom", desc: "Éducation, enfants et vie de famille." },
+      { name: "Vulgarisation Scientifique", icon: "school", desc: "Sciences accessibles à tous." }
+    ]
+  },
+  {
+    cat: "Loisirs & Action", icon: "sports_esports",
+    desc: "Le monde du sport, des passions et du divertissement.",
+    subs: [
+      { name: "Football & Collectifs", icon: "sports_soccer", desc: "Football, basket et sports d'équipe." },
+      { name: "Sports Individuels", icon: "sports_martial_arts", desc: "Athlétisme, natation et sports solo." },
+      { name: "Gastronomie & Vin", icon: "restaurant", desc: "Cuisine, chefs et œnologie." },
+      { name: "Voyage & Aventure", icon: "flight", desc: "Exploration, carnets de voyage et évasion." },
+      { name: "Jeux Vidéo & Geek", icon: "sports_esports", desc: "Gaming, pop culture et tech ludique." }
     ]
   }
 ];
@@ -172,6 +183,51 @@ async function fetchXmlCrossDomain(url) {
   throw new Error("Unable to fetch feed");
 }
 
+function isPlayablePodcast(podcast) {
+  if (!podcast.feedUrl) return false;
+  const feedUrl = podcast.feedUrl.toLowerCase();
+  // Filtrer les podcasts exclusifs qui ne fournissent pas de flux RSS public jouable
+  const blockedDomains = ['radiofrance.fr', 'spotify.com'];
+  if (blockedDomains.some(domain => feedUrl.includes(domain))) {
+    return false;
+  }
+  return true;
+}
+
+async function filterByLanguage(results, expectedLang, limit = 15) {
+    if (expectedLang === 'all') return results.slice(0, limit);
+    
+    // On prend un peu plus de résultats au cas où certains seraient filtrés
+    const candidates = results.slice(0, 30);
+    const valid = [];
+    const batchSize = 5; // Requêtes en parallèle par lots
+    
+    for (let i = 0; i < candidates.length; i += batchSize) {
+        const batch = candidates.slice(i, i + batchSize);
+        const checks = await Promise.all(batch.map(async p => {
+            try {
+                const text = await fetchXmlCrossDomain(p.feedUrl);
+                // On cherche la balise <language> dans le XML
+                const match = text.match(/<language>\s*([^<\s]+)\s*<\/language>/i);
+                if (match && match[1]) {
+                    const lang = match[1].toLowerCase();
+                    return lang.startsWith(expectedLang) ? p : null;
+                }
+                // Si la balise est absente, on le garde par précaution
+                return p;
+            } catch(e) {
+                // Si le flux est injoignable, on le filtre
+                return null;
+            }
+        }));
+        
+        valid.push(...checks.filter(p => p !== null));
+        if (valid.length >= limit) break; // On arrête dès qu'on a le nombre requis
+    }
+    
+    return valid.slice(0, limit);
+}
+
 // iTunes API Search
 let searchTimeout;
 searchInput.addEventListener('input', (e) => {
@@ -200,7 +256,9 @@ async function performSearch(query) {
 
     const res = await fetchWithTimeout(url, { timeout: 8000 });
     const data = await res.json();
-    renderSearchResults(data.results);
+    const validPlayable = data.results.filter(p => isPlayablePodcast(p));
+    const finalResults = await filterByLanguage(validPlayable, settings.lang, 15);
+    renderSearchResults(finalResults);
   } catch (err) {
     console.error(err);
     searchResults.innerHTML = '<p class="empty-state">Erreur de recherche.</p>';
@@ -211,11 +269,12 @@ async function performSearch(query) {
 
 function renderSearchResults(results) {
   searchResults.innerHTML = '';
-  if (results.length === 0) {
-    searchResults.innerHTML = '<p class="empty-state">Aucun résultat trouvé.</p>';
+  const validResults = results;
+  if (validResults.length === 0) {
+    searchResults.innerHTML = '<p class="empty-state">Aucun résultat jouable trouvé.</p>';
     return;
   }
-  results.forEach(p => {
+  validResults.forEach(p => {
     const card = document.createElement('div');
     card.className = 'podcast-card';
     card.innerHTML = `
@@ -275,7 +334,11 @@ async function openPodcastDetails(podcastInfo) {
     renderEpisodesList(episodes, podcastEpisodesList);
   } catch(err) {
     console.error(err);
-    podcastEpisodesList.innerHTML = '<p class="empty-state">Impossible de charger les épisodes.</p>';
+    if(err.message === "No feed URL") {
+      podcastEpisodesList.innerHTML = '<p class="empty-state" style="color:var(--danger); text-align:center; padding: 20px;">Ce podcast exclusif (Radio France, Spotify...) ne fournit pas de flux RSS public. Il est impossible de le lire ici.</p>';
+    } else {
+      podcastEpisodesList.innerHTML = '<p class="empty-state">Impossible de charger les épisodes.</p>';
+    }
   }
 }
 
@@ -389,23 +452,36 @@ async function renderHome() {
   fetchThemePodcasts();
 }
 
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
 async function renderPopular() {
   if (!popularList) return;
-  const langToCountry = {
-      'fr': 'FR',
-      'en': 'US',
-      'es': 'ES',
-      'de': 'DE'
-  };
-  let country = langToCountry[settings.lang] || 'FR'; 
-  const url = `https://itunes.apple.com/search?media=podcast&term=podcast&limit=15&country=${country}`;
+  popularList.innerHTML = '<div class="loader"></div>';
+  const langToCountry = { 'fr': 'FR', 'en': 'US', 'es': 'ES', 'de': 'DE' };
+  
+  let url = `https://itunes.apple.com/search?media=podcast&term=podcast&limit=50`;
+  if (settings.lang !== 'all' && langToCountry[settings.lang]) {
+      url += `&country=${langToCountry[settings.lang]}`;
+  }
+
   
   try {
      const res = await fetchWithTimeout(url, { timeout: 8000 });
      const data = await res.json();
      popularList.innerHTML = '';
      
-     data.results.forEach(p => {
+     const validResults = data.results.filter(p => isPlayablePodcast(p));
+     const randomResults = shuffleArray(validResults);
+     
+     const finalResults = await filterByLanguage(randomResults, settings.lang, 15);
+     
+     finalResults.forEach(p => {
         const card = document.createElement('div');
         card.className = 'podcast-card';
         card.innerHTML = `
@@ -479,19 +555,69 @@ async function fetchThemePodcasts() {
   if(!themePodcastList) return;
   themePodcastList.innerHTML = '<div class="loader"></div>';
   const langToCountry = { 'fr': 'FR', 'en': 'US', 'es': 'ES', 'de': 'DE' };
-  let country = langToCountry[settings.lang] || 'FR'; 
   
-  const url = `https://itunes.apple.com/search?media=podcast&term=${encodeURIComponent(currentSelectedTheme)}&limit=15&country=${country}`;
+  const themeTranslations = {
+    // Culture & Arts
+    "Cinéma & Séries": { en: "Movies TV", es: "Cine Series", de: "Filme Serien" },
+    "Littérature & BD": { en: "Literature Comics", es: "Literatura Cómics", de: "Literatur Comics" },
+    "Musique & Radio": { en: "Music Radio", es: "Música Radio", de: "Musik Radio" },
+    "Histoire & Patrimoine": { en: "History Heritage", es: "Historia Patrimonio", de: "Geschichte Erbe" },
+    "Humour & Stand-up": { en: "Comedy Stand-up", es: "Comedia Stand-up", de: "Comedy Stand-up" },
+    
+    // Société & Récits
+    "Affaires Criminelles": { en: "True Crime", es: "Crimen Real", de: "Wahre Verbrechen" },
+    "Témoignages & Vie": { en: "Testimonies Life", es: "Testimonios Vida", de: "Zeugnisse Leben" },
+    "Grandes Enquêtes": { en: "Investigations", es: "Investigaciones", de: "Untersuchungen" },
+    "Politique & Médias": { en: "Politics Media", es: "Política Medios", de: "Politik Medien" },
+    "Mystères & Paranormal": { en: "Mysteries Paranormal", es: "Misterios Paranormal", de: "Mysterien Paranormal" },
+    
+    // Business & Tech
+    "Entrepreneuriat": { en: "Entrepreneurship", es: "Emprendimiento", de: "Unternehmertum" },
+    "Finance & Économie": { en: "Finance Economy", es: "Finanzas Economía", de: "Finanzen Wirtschaft" },
+    "Intelligence Artificielle": { en: "Artificial Intelligence", es: "Inteligencia Artificial", de: "Künstliche Intelligenz" },
+    "Culture Numérique": { en: "Digital Culture", es: "Cultura Digital", de: "Digitale Kultur" },
+    "Innovations & Futur": { en: "Innovation Future", es: "Innovación Futuro", de: "Innovation Zukunft" },
+
+    // Savoirs & Vie
+    "Psychologie & Mental": { en: "Psychology Mental", es: "Psicología Mental", de: "Psychologie Mental" },
+    "Santé & Nutrition": { en: "Health Nutrition", es: "Salud Nutrición", de: "Gesundheit Ernährung" },
+    "Écologie & Nature": { en: "Ecology Nature", es: "Ecología Naturaleza", de: "Ökologie Natur" },
+    "Parentalité & Famille": { en: "Parenting Family", es: "Crianza Familia", de: "Elternschaft Familie" },
+    "Vulgarisation Scientifique": { en: "Science Popularization", es: "Divulgación Científica", de: "Wissenschaftspopularisierung" },
+
+    // Loisirs & Action
+    "Football & Collectifs": { en: "Team Sports", es: "Deportes de Equipo", de: "Mannschaftssportarten" },
+    "Sports Individuels": { en: "Individual Sports", es: "Deportes Individuales", de: "Einzelsportarten" },
+    "Gastronomie & Vin": { en: "Gastronomy Wine", es: "Gastronomía Vino", de: "Gastronomie Wein" },
+    "Voyage & Aventure": { en: "Travel Adventure", es: "Viajes Aventura", de: "Reisen Abenteuer" },
+    "Jeux Vidéo & Geek": { en: "Video Games Geek", es: "Videojuegos Geek", de: "Videospiele Geek" }
+  };
+
+  let searchTerm = currentSelectedTheme;
+  if (settings.lang !== 'fr' && settings.lang !== 'all' && themeTranslations[currentSelectedTheme] && themeTranslations[currentSelectedTheme][settings.lang]) {
+    searchTerm = themeTranslations[currentSelectedTheme][settings.lang];
+  }
+
+  let url = `https://itunes.apple.com/search?media=podcast&term=${encodeURIComponent(searchTerm)}&limit=50`;
+  if (settings.lang !== 'all' && langToCountry[settings.lang]) {
+      url += `&country=${langToCountry[settings.lang]}`;
+  }
   
   try {
      const res = await fetchWithTimeout(url, { timeout: 8000 });
      const data = await res.json();
      themePodcastList.innerHTML = '';
-     if(data.results.length === 0) {
-         themePodcastList.innerHTML = '<p class="empty-state">Aucun résultat trouvé.</p>';
+     const validResults = data.results.filter(p => isPlayablePodcast(p));
+     const randomResults = shuffleArray(validResults);
+     
+     const finalResults = await filterByLanguage(randomResults, settings.lang, 15);
+     
+     if(finalResults.length === 0) {
+         themePodcastList.innerHTML = '<p class="empty-state">Aucun résultat jouable trouvé.</p>';
          return;
      }
-     data.results.forEach(p => {
+     
+     finalResults.forEach(p => {
         const card = document.createElement('div');
         card.className = 'podcast-card';
         card.innerHTML = `
