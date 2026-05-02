@@ -20,10 +20,10 @@ echo Ajout des fichiers...
 git add .
 
 echo Commit...
-git commit -m "Livraison version 1.2"
+git commit -m "Livraison version 1.3"
 
 echo Tag de la version...
-git tag -a v1.2 -m "Version 1.2"
+git tag -a v1.3 -m "Version 1.3"
 
 echo Configuration du remote GitHub...
 git remote remove origin 2>nul
@@ -32,7 +32,7 @@ git remote add origin https://github.com/MurDoDePar/Gestion_Podcast.git
 echo Push vers GitHub...
 git branch -M main
 git push -u origin main
-git push origin v1.2
+git push origin v1.3
 
 echo.
 echo === Termine ! ===
