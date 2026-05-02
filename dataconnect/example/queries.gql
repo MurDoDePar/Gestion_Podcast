@@ -1,0 +1,50 @@
+query FindUserByGoogleId($googleId: String!) @auth(level: USER) {
+  users(where: { googleId: { eq: $googleId } }, limit: 1) {
+    id
+    googleId
+    displayName
+    email
+  }
+}
+
+query GetMySubscriptions($userId: UUID!) @auth(level: USER) {
+  subscriptionTypes(where: { userId: { eq: $userId } }) {
+    listOrder
+    podcast {
+      id
+      title
+      feedUrl
+      imageUrl
+      author
+      categories
+    }
+  }
+}
+
+query GetListenHistory($userId: UUID!) @auth(level: USER) {
+  listenHistories(where: { userId: { eq: $userId } }) {
+    episode {
+      id
+      audioUrl
+    }
+    progressSeconds
+    finishedListening
+  }
+}
+
+query GetRecommendations($podcastId: UUID!) @auth(level: USER) {
+  subscriptionTypes(where: { podcastId: { eq: $podcastId } }) {
+    user {
+      subscriptionTypes_on_user {
+        podcast {
+          id
+          title
+          imageUrl
+          feedUrl
+          author
+          categories
+        }
+      }
+    }
+  }
+}

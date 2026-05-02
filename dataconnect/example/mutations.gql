@@ -1,0 +1,63 @@
+mutation UpsertUser($id: UUID, $googleId: String!, $displayName: String!, $email: String, $photoUrl: String, $createdAt: Timestamp!) @auth(level: USER) {
+  user_upsert(data: {
+    id: $id,
+    googleId: $googleId,
+    displayName: $displayName,
+    email: $email,
+    photoUrl: $photoUrl,
+    createdAt: $createdAt
+  })
+}
+
+mutation UpsertPodcast($id: UUID, $title: String!, $feedUrl: String!, $description: String, $imageUrl: String, $author: String, $categories: [String!], $createdAt: Timestamp!) @auth(level: USER) {
+  podcast_upsert(data: {
+    id: $id,
+    title: $title,
+    feedUrl: $feedUrl,
+    description: $description,
+    imageUrl: $imageUrl,
+    author: $author,
+    categories: $categories,
+    createdAt: $createdAt
+  })
+}
+
+mutation UpsertEpisode($id: UUID, $podcastId: UUID!, $title: String!, $audioUrl: String!, $duration: Int64!, $description: String, $imageUrl: String, $publishedAt: Timestamp!) @auth(level: USER) {
+  episode_upsert(data: {
+    id: $id,
+    podcastId: $podcastId,
+    title: $title,
+    audioUrl: $audioUrl,
+    duration: $duration,
+    description: $description,
+    imageUrl: $imageUrl,
+    publishedAt: $publishedAt
+  })
+}
+
+mutation SubscribeToPodcast($userId: UUID!, $podcastId: UUID!, $subscribedAt: Timestamp!, $listOrder: Int) @auth(level: USER) {
+  subscriptionType_upsert(data: {
+    userId: $userId,
+    podcastId: $podcastId,
+    subscribedAt: $subscribedAt,
+    listOrder: $listOrder
+  })
+}
+
+mutation UpdateSubscriptionOrder($userId: UUID!, $podcastId: UUID!, $listOrder: Int!) @auth(level: USER) {
+  subscriptionType_update(key: { userId: $userId, podcastId: $podcastId }, data: { listOrder: $listOrder })
+}
+
+mutation UnsubscribeFromPodcast($userId: UUID!, $podcastId: UUID!) @auth(level: USER) {
+  subscriptionType_delete(key: { userId: $userId, podcastId: $podcastId })
+}
+
+mutation UpdateListenHistory($userId: UUID!, $episodeId: UUID!, $progressSeconds: Int64!, $finishedListening: Boolean!, $listenedAt: Timestamp!) @auth(level: USER) {
+  listenHistory_upsert(data: {
+    userId: $userId,
+    episodeId: $episodeId,
+    progressSeconds: $progressSeconds,
+    finishedListening: $finishedListening,
+    listenedAt: $listenedAt
+  })
+}

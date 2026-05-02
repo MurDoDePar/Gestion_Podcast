@@ -1,10 +1,10 @@
 @echo off
-echo Arret du serveur (s'il est en cours d'execution)...
+echo Arret du serveur (s'il est en cours d'execution)...    ./run.bat
 
-:: Recherche et tue le processus qui utilise le port 80
-FOR /F "tokens=5" %%T IN ('netstat -a -n -o ^| findstr :80') DO (
+:: Recherche et tue le processus qui utilise le port 8080
+FOR /F "tokens=5" %%T IN ('netstat -a -n -o ^| findstr :8080') DO (
     taskkill /pid %%T /f >nul 2>&1
 )
 
-echo Lancement du serveur...
-cmd /c npx serve www -l 80
+echo Lancement du serveur Vite... http://localhost:5173/
+cmd /c "npm run dev"

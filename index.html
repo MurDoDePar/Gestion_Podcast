@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>PodStream - Gestion de Podcasts</title>
     <meta name="description" content="Gérez et écoutez vos podcasts favoris avec PodStream.">
-    <link rel="icon" href="icon.svg" type="image/svg+xml">
-    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="/src/icon.svg" type="image/svg+xml">
+    <link rel="manifest" href="/src/manifest.json">
     <meta name="theme-color" content="#1a1a2e">
     
     <!-- Google Fonts -->
@@ -17,12 +17,23 @@
     <!-- Material Icons (Rounded) -->
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" rel="stylesheet" />
 
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="/src/styles.css">
     
 </head>
 <body>
     <div id="app" class="app-container">
-        
+        <!-- View: Login -->
+        <section id="view-login" class="view" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 100vh; background: var(--bg-color); position: fixed; top: 0; left: 0; width: 100%; z-index: 10000;">
+            <div class="logo" style="margin-bottom: 2rem; display: flex; flex-direction: column; align-items: center;">
+                <span class="material-symbols-rounded" style="font-size: 64px; color: var(--primary-color);">podcasts</span>
+                <h1 style="font-size: 2.5rem; margin-top: 1rem;">PodStream</h1>
+            </div>
+            <p style="text-align: center; margin-bottom: 2rem; color: var(--text-secondary); max-width: 80%;">Connectez-vous avec Google pour sauvegarder et synchroniser vos podcasts sur le Cloud.</p>
+            <button id="btn-google-login" class="btn" style="background: white; color: #333; display: flex; align-items: center; gap: 10px; font-weight: bold; font-size: 1.1rem; padding: 12px 24px; border-radius: 30px;">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style="width: 24px; height: 24px;">
+                Continuer avec Google
+            </button>
+        </section>
         <!-- Header -->
         <header class="app-header">
             <div class="logo">
@@ -36,6 +47,7 @@
                 <button class="icon-btn nav-item" data-target="view-search" aria-label="Recherche" title="Recherche" style="flex: none; flex-direction: row;">
                     <span class="material-symbols-rounded">search</span>
                 </button>
+                <span id="user-display-name" style="font-size: 0.9rem; color: var(--text-secondary); margin-right: 8px; display: none; align-items: center; font-weight: 500;"></span>
                 <button id="btn-settings" class="icon-btn" aria-label="Paramètres" title="Paramètres">
                     <span class="material-symbols-rounded">settings</span>
                 </button>
@@ -72,6 +84,7 @@
                     <button class="top-tab active" data-target="tab-mes-podcasts">Mes podcasts</button>
                     <button class="top-tab" data-target="tab-theme">Par thème</button>
                     <button class="top-tab" data-target="tab-popular">Populaires</button>
+                    <button class="top-tab" data-target="tab-affinities">Affinités</button>
                 </div>
 
                 <!-- Tab: Mes Podcasts -->
@@ -85,7 +98,7 @@
                     </div>
 
                     <div class="section-title mt-4">
-                        <h2>Nouveautés</h2>
+                        <h2>A écouter</h2>
                     </div>
                     <ul id="new-episodes-list" class="episode-list">
                     </ul>
@@ -108,6 +121,13 @@
                 <div id="tab-popular" class="tab-content hidden">
                     <div id="popular-list" class="multi-grid mt-2">
                         <div class="loader"></div>
+                    </div>
+                </div>
+
+                <!-- Tab: Affinités -->
+                <div id="tab-affinities" class="tab-content hidden">
+                    <div id="affinities-list" class="multi-grid mt-2">
+                        <p class="empty-state">Abonnez-vous à des podcasts pour voir les recommandations basées sur ce que les autres auditeurs écoutent !</p>
                     </div>
                 </div>
             </section>
@@ -162,12 +182,16 @@
                         <option value="asc">Du plus ancien au plus récent</option>
                     </select>
                 </div>
+                
+                <div class="settings-group" style="margin-top: 30px;">
+                    <button id="btn-logout" class="btn" style="background: #e74c3c; width: 100%; border-radius: 8px;">Se déconnecter</button>
+                </div>
             </section>
         </main>
 
 
     </div>
-
-    <script src="app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <script type="module" src="/src/app.js"></script>
 </body>
 </html>

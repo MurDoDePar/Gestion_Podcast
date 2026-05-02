@@ -1,4 +1,38 @@
 // app.js
+import { initializeApp } from "firebase/app";
+import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "firebase/auth";
+import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
+import { getDataConnect } from "firebase/data-connect";
+import { connectorConfig, findUserByGoogleId, upsertUser, upsertPodcast, subscribeToPodcast, unsubscribeFromPodcast, updateSubscriptionOrder, upsertEpisode, updateListenHistory, getRecommendations, getMySubscriptions } from './dataconnect-generated/esm/index.esm.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAaKYdi1vEgQ7JZ3WOwwu4sFgTdRMlFtZw",
+  authDomain: "podstream-a980a.firebaseapp.com",
+  projectId: "podstream-a980a",
+  storageBucket: "podstream-a980a.firebasestorage.app",
+  messagingSenderId: "237480080047",
+  appId: "1:237480080047:web:3b73f870a728bea5919a5a",
+  measurementId: "G-4HBMBCQ1TL"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const dataConnect = getDataConnect(app, connectorConfig);
+
+let currentUser = null;
+let currentUserId = null;
+
+function getPodcastUUID(collectionId) {
+  return `00000000-0000-0000-0000-${String(collectionId).padStart(12, '0')}`;
+}
+
+function getEpisodeUUID(audioUrl) {
+  let hash = 0;
+  for (let i = 0; i < audioUrl.length; i++) hash = Math.imul(31, hash) + audioUrl.charCodeAt(i) | 0;
+  const hex = Math.abs(hash).toString(16).padStart(8, '0');
+  return `${hex}-0000-0000-0000-000000000000`;
+}
 
 // Registers Service Worker for PWA
 if ('serviceWorker' in navigator) {
@@ -17,6 +51,7 @@ const navItems = document.querySelectorAll('.nav-item');
 const searchInput = document.getElementById('search-input');
 const searchResults = document.getElementById('search-results');
 const searchLoader = document.getElementById('search-loader');
+const userDisplayName = document.getElementById('user-display-name');
 
 const subscribedList = document.getElementById('subscribed-list');
 const newEpisodesList = document.getElementById('new-episodes-list');
@@ -120,9 +155,24 @@ topTabs.forEach(tab => {
     tabContents.forEach(c => c.classList.add('hidden'));
     tab.classList.add('active');
     document.getElementById(tab.dataset.target).classList.remove('hidden');
+    // Render subscribed podcasts when 'Mes podcasts' tab is selected
+    if (tab.dataset.target === 'tab-mes-podcasts') {
+      renderSubscribedPodcasts();
+    }
+    
     // Render theme chips when the 'Par thème' tab is selected
     if (tab.dataset.target === 'tab-theme') {
       renderThemeChips();
+    }
+    
+    // Render Popular podcasts when 'Populaires' tab is selected
+    if (tab.dataset.target === 'tab-popular') {
+      renderPopular();
+    }
+
+    // Render Affinities when 'Affinités' tab is selected
+    if (tab.dataset.target === 'tab-affinities') {
+      renderAffinities();
     }
   });
 });
@@ -146,6 +196,9 @@ orderSelect.addEventListener('change', (e) => { settings.order = e.target.value;
 
 function saveSettings() {
   localStorage.setItem('podstream_settings', JSON.stringify(settings));
+  if (currentUser) {
+    setDoc(doc(db, "users", currentUser.uid), { settings: settings }, { merge: true }).catch(console.error);
+  }
   renderHome();
 }
 async function fetchWithTimeout(resource, options = {}) {
@@ -326,7 +379,8 @@ async function openPodcastDetails(podcastInfo) {
       let title = item.querySelector('title')?.textContent || 'Sans Titre';
       let pubDate = new Date(item.querySelector('pubDate')?.textContent).getTime() || 0;
       let img = item.getElementsByTagName('itunes:image')[0]?.getAttribute('href') || podcastInfo.artworkUrl100;
-      return { title, audioUrl, pubDate, img, podcast: podcastInfo.collectionName };
+      let description = item.querySelector('description')?.textContent || '';
+      return { title, audioUrl, pubDate, img, podcast: podcastInfo.collectionName, collectionId: podcastInfo.collectionId, description };
     });
 
     if (settings.order === 'asc') episodes.reverse();
@@ -344,12 +398,17 @@ async function openPodcastDetails(podcastInfo) {
 
 function updateSubscribeButton() {
   const isSub = subscribedPodcasts.find(p => p.collectionId === currentViewPodcast.collectionId);
+  const podId = getPodcastUUID(currentViewPodcast.collectionId);
+
   if (isSub) {
     btnSubscribe.textContent = "Se désabonner";
     btnSubscribe.style.background = 'var(--surface-color)';
     btnSubscribe.onclick = () => {
       subscribedPodcasts = subscribedPodcasts.filter(p => p.collectionId !== currentViewPodcast.collectionId);
       saveSubs();
+      if(currentUserId) {
+        unsubscribeFromPodcast(dataConnect, { userId: currentUserId, podcastId: podId }).catch(console.error);
+      }
       updateSubscribeButton();
     };
   } else {
@@ -358,6 +417,25 @@ function updateSubscribeButton() {
     btnSubscribe.onclick = () => {
       subscribedPodcasts.push(currentViewPodcast);
       saveSubs();
+      if(currentUserId) {
+        upsertPodcast(dataConnect, {
+           id: podId,
+           title: currentViewPodcast.collectionName || 'Unknown',
+           feedUrl: currentViewPodcast.feedUrl || '',
+           description: currentViewPodcast.description || '',
+           imageUrl: currentViewPodcast.artworkUrl600 || currentViewPodcast.artworkUrl100 || '',
+           author: currentViewPodcast.artistName || '',
+           categories: currentViewPodcast.genres || [],
+           createdAt: new Date().toISOString()
+        }).then(() => {
+           subscribeToPodcast(dataConnect, {
+             userId: currentUserId,
+             podcastId: podId,
+             subscribedAt: new Date().toISOString(),
+             listOrder: subscribedPodcasts.length - 1
+           });
+        }).catch(console.error);
+      }
       updateSubscribeButton();
     };
   }
@@ -365,6 +443,9 @@ function updateSubscribeButton() {
 
 function saveSubs() {
   localStorage.setItem('podstream_subs', JSON.stringify(subscribedPodcasts));
+  if (currentUser) {
+    setDoc(doc(db, "users", currentUser.uid), { subscriptions: subscribedPodcasts }, { merge: true }).catch(console.error);
+  }
 }
 
 function renderEpisodesList(episodes, container) {
@@ -391,14 +472,10 @@ function renderEpisodesList(episodes, container) {
 }
 
 // Home Rendering
-async function renderHome() {
+function renderSubscribedPodcasts() {
   subscribedList.innerHTML = '';
   if (subscribedPodcasts.length === 0) {
     subscribedList.innerHTML = '<p class="empty-state">Aucun podcast. Ajoutez-en un !</p>';
-    newEpisodesList.innerHTML = '';
-    renderPopular();
-    renderThemeChips();
-    fetchThemePodcasts();
     return;
   }
   
@@ -413,6 +490,50 @@ async function renderHome() {
     card.addEventListener('click', () => openPodcastDetails(p));
     subscribedList.appendChild(card);
   });
+
+  if (window.Sortable) {
+    if (window.subscribedListSortable) {
+       window.subscribedListSortable.destroy();
+    }
+    window.subscribedListSortable = new Sortable(subscribedList, {
+      animation: 150,
+      delay: 200,
+      delayOnTouchOnly: true,
+      onEnd: function (evt) {
+        const oldIndex = evt.oldIndex;
+        const newIndex = evt.newIndex;
+        
+        if (oldIndex !== newIndex) {
+            const movedItem = subscribedPodcasts.splice(oldIndex, 1)[0];
+            subscribedPodcasts.splice(newIndex, 0, movedItem);
+            saveSubs();
+            
+            // Mettre à jour l'ordre dans SQL Connect
+            if (currentUserId) {
+                subscribedPodcasts.forEach((p, index) => {
+                    updateSubscriptionOrder(dataConnect, {
+                        userId: currentUserId,
+                        podcastId: getPodcastUUID(p.collectionId),
+                        listOrder: index
+                    }).catch(console.error);
+                });
+            }
+        }
+      }
+    });
+  }
+}
+
+async function renderHome() {
+  renderSubscribedPodcasts();
+  
+  if (subscribedPodcasts.length === 0) {
+    newEpisodesList.innerHTML = '';
+    renderPopular();
+    renderThemeChips();
+    fetchThemePodcasts();
+    return;
+  }
   
   // Minimal fetching for new episodes (just the first feed as demo to be fast)
   // In a real app we would Promise.all limit to fetch all feeds.
@@ -440,7 +561,13 @@ async function renderHome() {
              }
           } catch(e){}
         }
-        allEps.sort((a,b) => b.pubDate - a.pubDate); // Always newest for "Nouveautés"
+        
+        if (settings.order === 'asc') {
+          allEps.sort((a,b) => a.pubDate - b.pubDate); // Oldest first
+        } else {
+          allEps.sort((a,b) => b.pubDate - a.pubDate); // Newest first
+        }
+        
         renderEpisodesList(allEps, newEpisodesList);
      } catch(e){
         newEpisodesList.innerHTML = '';
@@ -494,6 +621,94 @@ async function renderPopular() {
      });
   } catch(e) {
      popularList.innerHTML = '<p class="empty-state">Impossible de charger les suggestions.</p>';
+  }
+}
+
+async function renderAffinities() {
+  const affinitiesList = document.getElementById('affinities-list');
+  if (!affinitiesList) return;
+  
+  if (subscribedPodcasts.length === 0) {
+    affinitiesList.innerHTML = '<p class="empty-state">Abonnez-vous à des podcasts pour voir les recommandations basées sur ce que les autres auditeurs écoutent !</p>';
+    return;
+  }
+  
+  if (!currentUserId) {
+    affinitiesList.innerHTML = '<p class="empty-state">Connectez-vous pour voir les affinités.</p>';
+    return;
+  }
+  
+  affinitiesList.innerHTML = '<div class="loader"></div>';
+  
+  try {
+    // Get recommendations for up to the first 5 subscribed podcasts
+    const topSubs = subscribedPodcasts.slice(0, 5);
+    const allRecommendations = [];
+    
+    for (let p of topSubs) {
+      const podId = getPodcastUUID(p.collectionId);
+      const res = await getRecommendations(dataConnect, { podcastId: podId });
+      if (res.data && res.data.subscriptionTypes) {
+        res.data.subscriptionTypes.forEach(st => {
+          if (st.user && st.user.subscriptionTypes_on_user) {
+            st.user.subscriptionTypes_on_user.forEach(uSub => {
+              allRecommendations.push(uSub.podcast);
+            });
+          }
+        });
+      }
+    }
+    
+    // Count frequencies and filter out already subscribed
+    const recCounts = {};
+    const subscribedIds = subscribedPodcasts.map(p => getPodcastUUID(p.collectionId));
+    
+    allRecommendations.forEach(p => {
+      if (!subscribedIds.includes(p.id)) {
+        if (!recCounts[p.id]) {
+          recCounts[p.id] = { count: 0, podcast: p };
+        }
+        recCounts[p.id].count++;
+      }
+    });
+    
+    // Sort by count descending
+    const sortedRecs = Object.values(recCounts)
+      .sort((a, b) => b.count - a.count)
+      .map(item => item.podcast);
+      
+    affinitiesList.innerHTML = '';
+    
+    if (sortedRecs.length === 0) {
+      affinitiesList.innerHTML = '<p class="empty-state">Pas assez de données pour le moment. Découvrez plus de podcasts !</p>';
+      return;
+    }
+    
+    // Convert to format expected by openPodcastDetails
+    sortedRecs.slice(0, 15).forEach(p => {
+      const card = document.createElement('div');
+      card.className = 'podcast-card';
+      card.innerHTML = `
+        <img src="${p.imageUrl}" class="podcast-img" loading="lazy">
+        <h3>${p.title}</h3>
+        <p class="genre-tag">${p.author || 'Recommandé'}</p>
+      `;
+      card.addEventListener('click', () => {
+         openPodcastDetails({
+            collectionId: p.id.split('-').pop(), // Approximation for UI consistency
+            collectionName: p.title,
+            artworkUrl600: p.imageUrl,
+            artworkUrl100: p.imageUrl,
+            feedUrl: p.feedUrl,
+            artistName: p.author,
+            genres: p.categories || []
+         });
+      });
+      affinitiesList.appendChild(card);
+    });
+  } catch (e) {
+    console.error("Affinities Error:", e);
+    affinitiesList.innerHTML = '<p class="empty-state">Erreur lors du chargement des recommandations.</p>';
   }
 }
 
@@ -687,11 +902,47 @@ audioEl.addEventListener('timeupdate', () => {
   }
 });
 
+function syncProgressToCloud() {
+  if (currentUser) {
+    setDoc(doc(db, "users", currentUser.uid), { progress: listeningProgress }, { merge: true }).catch(console.error);
+    
+    if (currentUserId && currentEpisodePlaying && currentEpisodePlaying.collectionId) {
+        const podId = getPodcastUUID(currentEpisodePlaying.collectionId);
+        const epId = getEpisodeUUID(currentEpisodePlaying.audioUrl);
+        const prog = listeningProgress[currentEpisodePlaying.audioUrl];
+        
+        if (prog) {
+            upsertEpisode(dataConnect, {
+                id: epId,
+                podcastId: podId,
+                title: currentEpisodePlaying.title || 'Unknown',
+                audioUrl: currentEpisodePlaying.audioUrl,
+                duration: Math.floor(prog.duration || 0),
+                description: currentEpisodePlaying.description ? currentEpisodePlaying.description.substring(0, 500) : '',
+                imageUrl: currentEpisodePlaying.img || '',
+                publishedAt: new Date(currentEpisodePlaying.pubDate || Date.now()).toISOString()
+            }).then(() => {
+                updateListenHistory(dataConnect, {
+                    userId: currentUserId,
+                    episodeId: epId,
+                    progressSeconds: Math.floor(prog.time || 0),
+                    finishedListening: !!prog.completed,
+                    listenedAt: new Date().toISOString()
+                }).catch(console.error);
+            }).catch(console.error);
+        }
+    }
+  }
+}
+
+audioEl.addEventListener('pause', syncProgressToCloud);
+
 audioEl.addEventListener('ended', () => {
     playIcon.textContent = 'play_arrow';
     if(currentEpisodePlaying) {
         listeningProgress[currentEpisodePlaying.audioUrl].completed = true;
         localStorage.setItem('podstream_progress', JSON.stringify(listeningProgress));
+        syncProgressToCloud();
     }
 });
 
@@ -704,5 +955,145 @@ progressContainer.addEventListener('click', (e) => {
   audioEl.currentTime = pct * audioEl.duration;
 });
 
-// Initial Render
-renderHome();
+// Firebase Auth & UI Logic
+const viewLogin = document.getElementById('view-login');
+const btnGoogleLogin = document.getElementById('btn-google-login');
+const btnLogout = document.getElementById('btn-logout');
+
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    currentUser = user;
+    viewLogin.classList.add('hidden');
+    
+    if (userDisplayName) {
+      userDisplayName.textContent = user.displayName || user.email || 'Utilisateur';
+      userDisplayName.style.display = 'flex';
+    }
+    
+    // Configure Data Connect User
+    try {
+      const res = await findUserByGoogleId(dataConnect, { googleId: user.uid });
+      if (res.data.users.length > 0) {
+        currentUserId = res.data.users[0].id;
+      } else {
+        currentUserId = crypto.randomUUID();
+        await upsertUser(dataConnect, {
+          id: currentUserId,
+          googleId: user.uid,
+          displayName: user.displayName || 'Utilisateur',
+          email: user.email || '',
+          photoUrl: user.photoURL || '',
+          createdAt: new Date().toISOString()
+        });
+      }
+    } catch(e) {
+      console.error("DataConnect User Error:", e);
+    }
+    
+    // Fetch subscriptions from Data Connect regardless of Firestore doc
+    if (currentUserId) {
+      try {
+        const subRes = await getMySubscriptions(dataConnect, { userId: currentUserId }, { fetchPolicy: 'network-only' });
+        if (subRes.data && subRes.data.subscriptionTypes && subRes.data.subscriptionTypes.length > 0) {
+          const subs = subRes.data.subscriptionTypes.map(st => {
+             return {
+                collectionId: parseInt(st.podcast.id.split('-').pop(), 10) || Date.now(),
+                collectionName: st.podcast.title,
+                feedUrl: st.podcast.feedUrl,
+                artworkUrl100: st.podcast.imageUrl,
+                artworkUrl600: st.podcast.imageUrl,
+                artistName: st.podcast.author,
+                genres: st.podcast.categories || [],
+                _listOrder: st.listOrder
+             };
+          });
+          
+          subs.sort((a, b) => (a._listOrder || 0) - (b._listOrder || 0));
+          subs.forEach(s => delete s._listOrder);
+          
+          subscribedPodcasts = subs;
+          localStorage.setItem('podstream_subs', JSON.stringify(subscribedPodcasts));
+        } else {
+          // If Data Connect is empty, try to migrate from Firestore
+          const docSnap = await getDoc(doc(db, "users", user.uid));
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            if (data.subscriptions && data.subscriptions.length > 0) {
+              subscribedPodcasts = data.subscriptions;
+              localStorage.setItem('podstream_subs', JSON.stringify(subscribedPodcasts));
+              
+              subscribedPodcasts.forEach((p, index) => {
+                const podId = getPodcastUUID(p.collectionId);
+                upsertPodcast(dataConnect, {
+                  id: podId,
+                  title: p.collectionName || 'Unknown',
+                  feedUrl: p.feedUrl || '',
+                  description: p.description || '',
+                  imageUrl: p.artworkUrl600 || p.artworkUrl100 || '',
+                  author: p.artistName || '',
+                  categories: p.genres || [],
+                  createdAt: new Date().toISOString()
+                }).then(() => {
+                  subscribeToPodcast(dataConnect, {
+                    userId: currentUserId,
+                    podcastId: podId,
+                    subscribedAt: new Date().toISOString(),
+                    listOrder: index
+                  });
+                }).catch(console.error);
+              });
+            }
+          }
+        }
+      } catch(e) {
+        console.error("DataConnect Subscriptions Error:", e);
+      }
+    }
+
+    // Fetch progress and settings from firestore
+    try {
+      const docSnap = await getDoc(doc(db, "users", user.uid));
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.progress) {
+          listeningProgress = data.progress;
+          localStorage.setItem('podstream_progress', JSON.stringify(listeningProgress));
+        }
+        if (data.settings) {
+          settings = data.settings;
+          localStorage.setItem('podstream_settings', JSON.stringify(settings));
+          document.getElementById('language-select').value = settings.lang || 'all';
+          document.getElementById('order-select').value = settings.order || 'desc';
+        }
+      }
+    } catch(e) { console.error("Error fetching data", e); }
+    
+    switchView('view-home');
+  } else {
+    currentUser = null;
+    viewLogin.classList.remove('hidden');
+    if (userDisplayName) {
+      userDisplayName.style.display = 'none';
+      userDisplayName.textContent = '';
+    }
+  }
+});
+
+btnGoogleLogin.addEventListener('click', () => {
+  const provider = new GoogleAuthProvider();
+  // Utilisation de popup pour le Web (PWA)
+  signInWithPopup(auth, provider).catch(error => {
+    console.error("Auth Error", error);
+    alert("Erreur de connexion : " + error.message);
+  });
+});
+
+btnLogout.addEventListener('click', () => {
+  signOut(auth).then(() => {
+    subscribedPodcasts = [];
+    listeningProgress = {};
+    localStorage.clear();
+    location.reload();
+  });
+});
+

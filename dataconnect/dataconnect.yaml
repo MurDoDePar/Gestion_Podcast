@@ -1,0 +1,13 @@
+specVersion: "v1"
+serviceId: "podstream-a980a-service"
+location: "europe-west9"
+schemas:
+  - source: "./schema"
+    datasource:
+      postgresql:
+        database: "podstream-a980a-database"
+        cloudSql:
+          instanceId: "podstream-a980a-instance"
+          # schemaValidation: "STRICT"     # STRICT mode makes Postgres schema match Data Connect exactly.
+          # schemaValidation: "COMPATIBLE" # COMPATIBLE mode makes Postgres schema compatible with Data Connect.
+connectorDirs: ["./example"]

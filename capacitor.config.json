@@ -1,5 +1,5 @@
 {
   "appId": "com.PodStream",
   "appName": " PodStream",
-  "webDir": "www"
+  "webDir": "dist"
 }
