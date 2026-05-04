@@ -1,4 +1,5 @@
 @echo off
+set GIT_ASK_YESNO=false
 echo === Livraison sur GitHub ===
 
 :: Recuperation de la version
