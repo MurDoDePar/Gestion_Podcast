@@ -11,3 +11,6 @@ generate:
       react: false
       angular: false
       clientCache: {}
+  dartSdk:
+    - outputDir: ..\..\podcast_app\lib\dataconnect-generated
+      package: podcast_app

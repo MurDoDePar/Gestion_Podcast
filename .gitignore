@@ -25,7 +25,9 @@ desktop.ini
 *.suo
 *.user
 
-# 🔐 Signature Android — NE JAMAIS COMMITTER
-android/keystore.properties
+# 🔐 Signature Android et Firebase — NE JAMAIS COMMITTER
+**/key.properties
+**/keystore.properties
 *.jks
 *.keystore
+**/google-services.json
