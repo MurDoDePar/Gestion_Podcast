@@ -23,7 +23,13 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
   String _description = '';
   
   // DataConnect ID extraction (using collectionId as UUID base like in JS)
-  String get podcastId => widget.podcast['collectionId'].toString();
+  String get podcastId {
+    final rawId = widget.podcast['collectionId'].toString();
+    if (rawId.contains('-')) return rawId;
+    // Ensure valid UUID format for PostgreSQL (8-4-4-4-12)
+    final paddedId = rawId.padLeft(12, '0');
+    return '00000000-0000-0000-0000-$paddedId';
+  }
 
   @override
   void initState() {
@@ -87,7 +93,7 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
         await ExampleConnector.instance.upsertPodcast(
           title: title,
           feedUrl: feedUrl,
-          createdAt: Timestamp(0, DateTime.now().millisecondsSinceEpoch ~/ 1000),
+          createdAt: Timestamp(DateTime.now().millisecondsSinceEpoch ~/ 1000, 0),
         ).id(podcastId)
          .description(_description.substring(0, _description.length > 500 ? 500 : _description.length))
          .imageUrl(widget.podcast['artworkUrl600'] ?? widget.podcast['imageUrl'])
@@ -98,7 +104,7 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
         await ExampleConnector.instance.subscribeToPodcast(
           userId: postgresUuid,
           podcastId: podcastId,
-          subscribedAt: Timestamp(0, DateTime.now().millisecondsSinceEpoch ~/ 1000),
+          subscribedAt: Timestamp(DateTime.now().millisecondsSinceEpoch ~/ 1000, 0),
         ).execute();
 
         setState(() {

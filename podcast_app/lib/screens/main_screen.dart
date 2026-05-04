@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'home/home_screen.dart';
 import 'settings_screen.dart';
+import 'search_screen.dart';
 import '../widgets/audio_player_widget.dart';
 
 class MainScreen extends StatefulWidget {
@@ -16,7 +17,7 @@ class _MainScreenState extends State<MainScreen> {
 
   final List<Widget> _screens = [
     const HomeScreen(),
-    const Center(child: Text('Recherche (En construction)')),
+    const SearchScreen(),
     const SettingsScreen(),
   ];
 
