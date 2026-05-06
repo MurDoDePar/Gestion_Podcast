@@ -17,74 +17,146 @@ class ThemeCategory {
 class SubTheme {
   final String name;
   final IconData icon;
-  final String description;
+  final String searchTerm;
+  final String genreId;
 
   const SubTheme({
     required this.name,
     required this.icon,
-    required this.description,
+    required this.searchTerm,
+    required this.genreId,
   });
 }
 
 const List<ThemeCategory> themesList = [
   ThemeCategory(
-    name: "Culture & Arts",
-    icon: Icons.palette,
-    description: "Découvrez le meilleur de la création culturelle et artistique.",
+    name: "Actualités",
+    icon: Icons.newspaper,
+    description: "Les informations et l'actualité mondiale.",
     subThemes: [
-      SubTheme(name: "Cinéma & Séries", icon: Icons.movie, description: "Analyse de films, séries et interviews."),
-      SubTheme(name: "Littérature & BD", icon: Icons.menu_book, description: "Classiques, romans et bandes dessinées."),
-      SubTheme(name: "Musique & Radio", icon: Icons.music_note, description: "Histoire musicale, genres et radio."),
-      SubTheme(name: "Histoire & Patrimoine", icon: Icons.history_edu, description: "Exploration du passé et du patrimoine."),
-      SubTheme(name: "Humour & Stand-up", icon: Icons.sentiment_very_satisfied, description: "Stand-up, comédie et divertissement."),
+      SubTheme(
+          name: "Actualités",
+          icon: Icons.article,
+          searchTerm: "News",
+          genreId: "1489"),
+      SubTheme(
+          name: "Affaires",
+          icon: Icons.business_center,
+          searchTerm: "Business",
+          genreId: "1321"),
+      SubTheme(
+          name: "Gouvernement",
+          icon: Icons.account_balance,
+          searchTerm: "Government",
+          genreId: "1511"),
+      SubTheme(
+          name: "Technologies",
+          icon: Icons.computer,
+          searchTerm: "Technology",
+          genreId: "1318"),
     ],
   ),
   ThemeCategory(
-    name: "Société & Récits",
+    name: "Loisirs",
+    icon: Icons.sports_esports,
+    description: "Divertissement, arts et temps libre.",
+    subThemes: [
+      SubTheme(
+          name: "Arts",
+          icon: Icons.palette,
+          searchTerm: "Arts",
+          genreId: "1301"),
+      SubTheme(
+          name: "Humour",
+          icon: Icons.sentiment_very_satisfied,
+          searchTerm: "Comedy",
+          genreId: "1303"),
+      SubTheme(
+          name: "Loisirs",
+          icon: Icons.videogame_asset,
+          searchTerm: "Leisure",
+          genreId: "1502"),
+      SubTheme(
+          name: "Musique",
+          icon: Icons.music_note,
+          searchTerm: "Music",
+          genreId: "1310"),
+      SubTheme(
+          name: "Romans et nouvelles",
+          icon: Icons.menu_book,
+          searchTerm: "Fiction",
+          genreId: "1483"),
+      SubTheme(
+          name: "Télévision et cinéma",
+          icon: Icons.movie,
+          searchTerm: "TV & Film",
+          genreId: "1309"),
+    ],
+  ),
+  ThemeCategory(
+    name: "Savoirs",
+    icon: Icons.school,
+    description: "Apprentissage, éducation et sciences.",
+    subThemes: [
+      SubTheme(
+          name: "Éducation",
+          icon: Icons.menu_book,
+          searchTerm: "Education",
+          genreId: "1304"),
+      SubTheme(
+          name: "Sciences",
+          icon: Icons.science,
+          searchTerm: "Science",
+          genreId: "1533"),
+    ],
+  ),
+  ThemeCategory(
+    name: "Société",
     icon: Icons.policy,
     description: "Comprendre la société à travers ses histoires et ses débats.",
     subThemes: [
-      SubTheme(name: "Affaires Criminelles", icon: Icons.gavel, description: "Crimes, enquêtes et true crime."),
-      SubTheme(name: "Témoignages & Vie", icon: Icons.record_voice_over, description: "Parcours de vie et récits intimes."),
-      SubTheme(name: "Grandes Enquêtes", icon: Icons.newspaper, description: "Investigations et journalisme de fond."),
-      SubTheme(name: "Politique & Médias", icon: Icons.campaign, description: "Analyse politique et décryptage média."),
-      SubTheme(name: "Mystères & Paranormal", icon: Icons.help_outline, description: "Phénomènes inexpliqués et mystères."),
+      SubTheme(
+          name: "Criminologie",
+          icon: Icons.local_police,
+          searchTerm: "True Crime",
+          genreId: "1488"),
+      SubTheme(
+          name: "Culture et société",
+          icon: Icons.groups,
+          searchTerm: "Society & Culture",
+          genreId: "1324"),
+      SubTheme(
+          name: "Histoire",
+          icon: Icons.history_edu,
+          searchTerm: "History",
+          genreId: "1487"),
+      SubTheme(
+          name: "Religion et spiritualité",
+          icon: Icons.self_improvement,
+          searchTerm: "Religion & Spirituality",
+          genreId: "1314"),
     ],
   ),
   ThemeCategory(
-    name: "Business & Tech",
-    icon: Icons.business_center,
-    description: "Les enjeux économiques et les innovations technologiques.",
+    name: "Vie Pratique",
+    icon: Icons.favorite,
+    description: "Forme, santé, sport et vie de famille.",
     subThemes: [
-      SubTheme(name: "Entrepreneuriat", icon: Icons.lightbulb, description: "Création d'entreprise et leadership."),
-      SubTheme(name: "Finance & Économie", icon: Icons.attach_money, description: "Marchés, investissement et économie."),
-      SubTheme(name: "Intelligence Artificielle", icon: Icons.smart_toy, description: "IA, algorithmes et technologies futures."),
-      SubTheme(name: "Culture Numérique", icon: Icons.devices, description: "Impact du web et des réseaux sociaux."),
-      SubTheme(name: "Innovations & Futur", icon: Icons.rocket_launch, description: "Prospective et nouvelles tendances."),
-    ],
-  ),
-  ThemeCategory(
-    name: "Savoirs & Vie",
-    icon: Icons.science,
-    description: "Apprendre, comprendre et mieux vivre au quotidien.",
-    subThemes: [
-      SubTheme(name: "Psychologie & Mental", icon: Icons.psychology, description: "Fonctionnement de l'esprit et bien-être."),
-      SubTheme(name: "Santé & Nutrition", icon: Icons.health_and_safety, description: "Médecine, alimentation et forme."),
-      SubTheme(name: "Écologie & Nature", icon: Icons.eco, description: "Environnement, faune et flore."),
-      SubTheme(name: "Parentalité & Famille", icon: Icons.family_restroom, description: "Éducation, enfants et vie de famille."),
-      SubTheme(name: "Vulgarisation Scientifique", icon: Icons.school, description: "Sciences accessibles à tous."),
-    ],
-  ),
-  ThemeCategory(
-    name: "Loisirs & Action",
-    icon: Icons.sports_esports,
-    description: "Le monde du sport, des passions et du divertissement.",
-    subThemes: [
-      SubTheme(name: "Football & Collectifs", icon: Icons.sports_soccer, description: "Football, basket et sports d'équipe."),
-      SubTheme(name: "Sports Individuels", icon: Icons.sports_martial_arts, description: "Athlétisme, natation et sports solo."),
-      SubTheme(name: "Gastronomie & Vin", icon: Icons.restaurant, description: "Cuisine, chefs et œnologie."),
-      SubTheme(name: "Voyage & Aventure", icon: Icons.flight, description: "Exploration, carnets de voyage et évasion."),
-      SubTheme(name: "Jeux Vidéo & Geek", icon: Icons.sports_esports, description: "Gaming, pop culture et tech ludique."),
+      SubTheme(
+          name: "Enfants et parents",
+          icon: Icons.family_restroom,
+          searchTerm: "Kids & Family",
+          genreId: "1305"),
+      SubTheme(
+          name: "Forme et santé",
+          icon: Icons.health_and_safety,
+          searchTerm: "Health & Fitness",
+          genreId: "1512"),
+      SubTheme(
+          name: "Sports",
+          icon: Icons.sports_soccer,
+          searchTerm: "Sports",
+          genreId: "1545"),
     ],
   ),
 ];

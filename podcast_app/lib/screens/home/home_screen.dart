@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_data_connect/firebase_data_connect.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xml/xml.dart' as xml;
 import '../../theme/app_theme.dart';
 import '../../dataconnect-generated/example.dart';
 import '../../data/themes_data.dart';
@@ -74,69 +76,94 @@ class _ByThemeTabState extends State<_ByThemeTab> {
       _podcasts = [];
     });
 
-    final currentSubTheme = themesList[_selectedCategoryIndex].subThemes[_selectedSubThemeIndex];
-    final term = Uri.encodeComponent(currentSubTheme.name);
-    
+    final currentSubTheme =
+        themesList[_selectedCategoryIndex].subThemes[_selectedSubThemeIndex];
+    final genreId = currentSubTheme.genreId;
+
     // Obtenir la langue depuis les paramètres
     final prefs = await SharedPreferences.getInstance();
     final lang = prefs.getString('podstream_lang') ?? 'fr';
-    
-    String countryParam = '';
+
+    String rssCountry = 'fr';
     if (lang != 'all') {
-      final langToCountry = {
-        'fr': 'FR',
-        'en': 'US',
-        'es': 'ES',
-        'de': 'DE',
-      };
+      final langToCountry = {'fr': 'fr', 'en': 'us', 'es': 'es', 'de': 'de'};
       if (langToCountry.containsKey(lang)) {
-        countryParam = '&country=${langToCountry[lang]}';
+        rssCountry = langToCountry[lang]!;
       }
+    } else {
+      rssCountry = 'us';
     }
 
-    final url = Uri.parse('https://itunes.apple.com/search?media=podcast&term=$term&limit=50$countryParam');
+    final topUrl = Uri.parse(
+        'https://itunes.apple.com/$rssCountry/rss/toppodcasts/limit=50/genre=$genreId/json');
 
     try {
-      final response = await http.get(url);
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        List<dynamic> results = data['results'] ?? [];
+      final topResponse = await http.get(topUrl);
+      if (topResponse.statusCode == 200) {
+        final topData = json.decode(topResponse.body);
+        final entries = topData['feed']['entry'] as List<dynamic>? ?? [];
 
-        if (lang == 'all') {
-          setState(() {
-            _podcasts = results.take(20).toList();
-          });
-        } else {
-           // Filtrage strict par langue via RSS
-           List<dynamic> validPodcasts = [];
-           
-           for (var p in results) {
-             if (validPodcasts.length >= 20) break; // Limite à 20 résultats
-             final feedUrl = p['feedUrl'];
-             if (feedUrl == null) continue;
+        List<String> ids = [];
+        for (var entry in entries) {
+          final id = entry['id']?['attributes']?['im:id'];
+          if (id != null) {
+            ids.add(id.toString());
+          }
+        }
 
-             try {
-               final feedRes = await http.get(Uri.parse(feedUrl)).timeout(const Duration(seconds: 3));
-               if (feedRes.statusCode == 200) {
-                 final body = feedRes.body.toLowerCase();
-                 final langMatch = RegExp(r'<language>\s*([^<\s]+)\s*<\/language>').firstMatch(body);
-                 if (langMatch != null) {
-                   final podcastLang = langMatch.group(1)?.toLowerCase() ?? '';
-                   if (podcastLang.startsWith(lang)) {
-                     validPodcasts.add(p);
-                   }
-                 } else {
-                   validPodcasts.add(p);
-                 }
-               }
-             } catch (e) {
-               // Ignorer l'erreur réseau pour un feed spécifique
-             }
-           }
-           
-           setState(() {
-             _podcasts = validPodcasts;
-           });
+        if (ids.isNotEmpty) {
+          final lookupUrl =
+              Uri.parse('https://itunes.apple.com/lookup?id=${ids.join(',')}');
+          final lookupResponse = await http.get(lookupUrl);
+
+          if (lookupResponse.statusCode == 200) {
+            final lookupData = json.decode(lookupResponse.body);
+            List<dynamic> results = lookupData['results'] ?? [];
+
+            if (lang == 'all') {
+              setState(() {
+                _podcasts = results.take(20).toList();
+              });
+            } else {
+              // Filtrage strict par langue via RSS
+              List<dynamic> validPodcasts = [];
+
+              for (var p in results) {
+                if (validPodcasts.length >= 20) {
+                  break; // Limite à 20 résultats
+                }
+                final feedUrl = p['feedUrl'];
+                if (feedUrl == null) continue;
+
+                try {
+                  final feedRes = await http
+                      .get(Uri.parse(feedUrl))
+                      .timeout(const Duration(seconds: 3));
+                  if (feedRes.statusCode == 200) {
+                    final body = feedRes.body.toLowerCase();
+                    final langMatch =
+                        RegExp(r'<language>\s*([^<\s]+)\s*<\/language>')
+                            .firstMatch(body);
+                    if (langMatch != null) {
+                      final podcastLang =
+                          langMatch.group(1)?.toLowerCase() ?? '';
+                      if (podcastLang.startsWith(lang)) {
+                        validPodcasts.add(p);
+                      }
+                    } else {
+                      validPodcasts.add(p);
+                    }
+                  }
+                } catch (e) {
+                  // Ignorer l'erreur réseau pour un feed spécifique
+                }
+              }
+
+              setState(() {
+                _podcasts = validPodcasts;
+              });
+            }
+          }
         }
       }
     } catch (e) {
@@ -172,7 +199,11 @@ class _ByThemeTabState extends State<_ByThemeTab> {
                   label: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(category.icon, size: 16, color: isSelected ? Colors.white : AppTheme.textSecondary),
+                      Icon(category.icon,
+                          size: 16,
+                          color: isSelected
+                              ? Colors.white
+                              : AppTheme.textSecondary),
                       const SizedBox(width: 4),
                       Text(category.name),
                     ],
@@ -182,7 +213,8 @@ class _ByThemeTabState extends State<_ByThemeTab> {
                   backgroundColor: AppTheme.surfaceColor,
                   labelStyle: TextStyle(
                     color: isSelected ? Colors.white : AppTheme.textSecondary,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    fontWeight:
+                        isSelected ? FontWeight.bold : FontWeight.normal,
                   ),
                   onSelected: (selected) {
                     if (!isSelected) {
@@ -198,7 +230,7 @@ class _ByThemeTabState extends State<_ByThemeTab> {
             },
           ),
         ),
-        
+
         // Sub-Themes
         Container(
           height: 50,
@@ -216,7 +248,11 @@ class _ByThemeTabState extends State<_ByThemeTab> {
                   label: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(subTheme.icon, size: 14, color: isSelected ? Colors.white : AppTheme.textSecondary),
+                      Icon(subTheme.icon,
+                          size: 14,
+                          color: isSelected
+                              ? Colors.white
+                              : AppTheme.textSecondary),
                       const SizedBox(width: 4),
                       Text(subTheme.name, style: const TextStyle(fontSize: 12)),
                     ],
@@ -246,10 +282,12 @@ class _ByThemeTabState extends State<_ByThemeTab> {
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
               : _podcasts.isEmpty
-                  ? Center(
+                  ? const Center(
                       child: Text(
                         'Aucun podcast trouvé.',
-                        style: TextStyle(color: AppTheme.textSecondary, fontStyle: FontStyle.italic),
+                        style: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontStyle: FontStyle.italic),
                       ),
                     )
                   : ListView.builder(
@@ -257,14 +295,16 @@ class _ByThemeTabState extends State<_ByThemeTab> {
                       itemCount: _podcasts.length,
                       itemBuilder: (context, index) {
                         final p = _podcasts[index];
-                        final imageUrl = p['artworkUrl600'] ?? p['artworkUrl100'];
+                        final imageUrl =
+                            p['artworkUrl600'] ?? p['artworkUrl100'];
                         final title = p['collectionName'] ?? 'Sans titre';
                         final author = p['artistName'] ?? 'Inconnu';
 
                         return Card(
                           color: AppTheme.surfaceColor,
                           margin: const EdgeInsets.only(bottom: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16)),
                           child: ListTile(
                             contentPadding: const EdgeInsets.all(12),
                             leading: Container(
@@ -274,19 +314,33 @@ class _ByThemeTabState extends State<_ByThemeTab> {
                                 borderRadius: BorderRadius.circular(12),
                                 color: AppTheme.bgColor,
                                 image: imageUrl != null
-                                    ? DecorationImage(image: NetworkImage(imageUrl), fit: BoxFit.cover)
+                                    ? DecorationImage(
+                                        image: NetworkImage(imageUrl),
+                                        fit: BoxFit.cover)
                                     : null,
                               ),
-                              child: imageUrl == null ? const Icon(Icons.podcasts) : null,
+                              child: imageUrl == null
+                                  ? const Icon(Icons.podcasts)
+                                  : null,
                             ),
-                            title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
-                            subtitle: Text(author, style: TextStyle(color: AppTheme.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis),
-                            trailing: const Icon(Icons.add_circle_outline, color: AppTheme.primaryColor),
+                            title: Text(title,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis),
+                            subtitle: Text(author,
+                                style: const TextStyle(
+                                    color: AppTheme.textSecondary),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                            trailing: const Icon(Icons.add_circle_outline,
+                                color: AppTheme.primaryColor),
                             onTap: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => PodcastDetailsScreen(podcast: p),
+                                  builder: (context) =>
+                                      PodcastDetailsScreen(podcast: p),
                                 ),
                               );
                             },
@@ -308,6 +362,50 @@ class _MyPodcastsTab extends StatefulWidget {
 }
 
 class _MyPodcastsTabState extends State<_MyPodcastsTab> {
+  late Future<List<GetMySubscriptionsSubscriptionTypes>> _subsFuture;
+  late Future<List<Map<String, dynamic>>> _episodesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  void _loadData() {
+    final uid = userId;
+    if (uid != null) {
+      _subsFuture = _fetchSubscriptions(uid);
+      _episodesFuture = _fetchNewEpisodesAndSync(uid);
+    } else {
+      _subsFuture = Future.value([]);
+      _episodesFuture = Future.value([]);
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchNewEpisodesAndSync(
+      String googleId) async {
+    // 1. Démarrer la synchro en arrière plan et rafraîchir quand c'est fini
+    _syncPodcastsBackground(googleId).then((_) {
+      if (mounted) {
+        setState(() {
+          _episodesFuture = _fetchNewEpisodes(googleId);
+        });
+      }
+    });
+
+    // 2. Lire ce qui est déjà en DB pour afficher tout de suite
+    return _fetchNewEpisodes(googleId);
+  }
+
+  Future<void> _handleRefresh() async {
+    setState(() {
+      _loadData();
+    });
+    if (userId != null) {
+      await Future.wait([_subsFuture, _episodesFuture]);
+    }
+  }
+
   String? get userId {
     if (Firebase.apps.isEmpty) return null;
     return FirebaseAuth.instance.currentUser?.uid;
@@ -318,302 +416,470 @@ class _MyPodcastsTabState extends State<_MyPodcastsTab> {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16.0),
-      children: [
-        // Section: Mes Podcasts
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Mes Podcasts',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            IconButton(
-              onPressed: () {
-                // Action pour ajouter un podcast
-              },
-              icon: Container(
-                decoration: const BoxDecoration(
-                  gradient: AppTheme.primaryGradient,
-                  shape: BoxShape.circle,
+    return RefreshIndicator(
+      onRefresh: _handleRefresh,
+      child: ListView(
+        padding: const EdgeInsets.all(16.0),
+        children: [
+          // Section: Mes Podcasts
+          const Text(
+            'Mes Podcasts',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+
+          if (userId == null)
+            const SizedBox(
+              height: 140,
+              child: Center(
+                child: Text(
+                  'Veuillez vous connecter pour voir vos podcasts.',
+                  style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontStyle: FontStyle.italic),
                 ),
-                padding: const EdgeInsets.all(8),
-                child: const Icon(Icons.add, color: Colors.white, size: 20),
+              ),
+            )
+          else
+            SizedBox(
+              height: 180,
+              child: FutureBuilder(
+                future: _subsFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Text('Erreur: ${snapshot.error}',
+                          style: const TextStyle(color: Colors.red)),
+                    );
+                  }
+
+                  final subs = snapshot.data ?? [];
+
+                  if (subs.isEmpty) {
+                    return const Center(
+                      child: Text(
+                        'Aucun podcast. Ajoutez-en un !',
+                        style: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontStyle: FontStyle.italic),
+                      ),
+                    );
+                  }
+
+                  return _DraggablePodcastList(
+                    initialSubs: subs,
+                    googleId: userId!,
+                  );
+                },
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        
-        if (userId == null)
-          SizedBox(
-            height: 140,
-            child: Center(
+
+          const SizedBox(height: 32),
+          // Section: A écouter
+          const Text(
+            'A écouter',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+
+          if (userId == null)
+            const Center(
               child: Text(
-                'Veuillez vous connecter pour voir vos podcasts.',
-                style: TextStyle(color: AppTheme.textSecondary, fontStyle: FontStyle.italic),
+                'Connectez-vous pour voir votre historique.',
+                style: TextStyle(
+                    color: AppTheme.textSecondary, fontStyle: FontStyle.italic),
               ),
-            ),
-          )
-        else
-          SizedBox(
-            height: 180,
-            child: FutureBuilder(
-              future: _fetchSubscriptions(userId!),
+            )
+          else
+            FutureBuilder(
+              future: _episodesFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (snapshot.hasError) {
-                  return Center(
-                    child: Text('Erreur: ${snapshot.error}', style: const TextStyle(color: Colors.red)),
-                  );
+                  return Text('Erreur: ${snapshot.error}',
+                      style: const TextStyle(color: Colors.red));
                 }
-                
-                final subs = snapshot.data ?? [];
 
-                if (subs.isEmpty) {
-                  return Center(
+                final history = snapshot.data ?? [];
+
+                if (history.isEmpty) {
+                  return const Center(
                     child: Text(
-                      'Aucun podcast. Ajoutez-en un !',
-                      style: TextStyle(color: AppTheme.textSecondary, fontStyle: FontStyle.italic),
+                      'Pas d\'épisodes à écouter pour le moment.',
+                      style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontStyle: FontStyle.italic),
                     ),
                   );
                 }
 
                 return ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: subs.length,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: history.length,
                   itemBuilder: (context, index) {
-                    final sub = subs[index];
-                    return GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => PodcastDetailsScreen(
-                              podcast: {
-                                'collectionId': sub.podcast.id,
-                                'collectionName': sub.podcast.title,
-                                'artistName': sub.podcast.author,
-                                'artworkUrl600': sub.podcast.imageUrl,
-                                'feedUrl': sub.podcast.feedUrl,
-                              },
-                            ),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        width: 140,
-                        margin: const EdgeInsets.only(right: 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              width: 140,
-                              height: 140,
-                              decoration: BoxDecoration(
-                                color: AppTheme.surfaceColor,
-                                borderRadius: BorderRadius.circular(20),
-                                image: sub.podcast.imageUrl != null 
-                                    ? DecorationImage(
-                                        image: NetworkImage(sub.podcast.imageUrl!),
-                                        fit: BoxFit.cover,
-                                      )
-                                    : null,
-                              ),
-                              child: sub.podcast.imageUrl == null 
-                                  ? const Icon(Icons.podcasts, size: 50, color: Colors.grey)
-                                  : null,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              sub.podcast.title,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Text(
-                              sub.podcast.author ?? 'Inconnu',
-                              style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
+                    final item = history[index];
+                    // Extraction d'un nom de fichier approximatif depuis l'URL audio si le titre n'est pas dispo
+                    final fallbackTitle = item['audioUrl']
+                        .toString()
+                        .split('/')
+                        .last
+                        .split('?')
+                        .first;
+
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceColor,
+                          borderRadius: BorderRadius.circular(8),
+                          image: item['imageUrl'] != null
+                              ? DecorationImage(
+                                  image: NetworkImage(item['imageUrl']),
+                                  fit: BoxFit.cover,
+                                )
+                              : null,
                         ),
+                        child: item['imageUrl'] == null
+                            ? const Icon(Icons.play_circle_fill,
+                                color: AppTheme.primaryColor)
+                            : null,
                       ),
+                      title: Text(item['title'] ?? fallbackTitle,
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                      subtitle: Text(item['podcastName'] ?? '',
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                      trailing: const Icon(Icons.more_vert,
+                          color: AppTheme.textSecondary),
+                      onTap: () {
+                        final playlist = history
+                            .map((e) => AudioEpisode(
+                                  id: e['audioUrl'],
+                                  title: e['title'] ?? fallbackTitle,
+                                  podcastName:
+                                      e['podcastName'] ?? 'Mon Podcast',
+                                  imageUrl: e['imageUrl'],
+                                  audioUrl: e['audioUrl'],
+                                ))
+                            .toList();
+
+                        AudioService()
+                            .playEpisode(playlist[index], playlist: playlist);
+                      },
                     );
                   },
                 );
               },
             ),
-          ),
-
-        const SizedBox(height: 32),
-        // Section: A écouter
-        const Text(
-          'A écouter',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-        
-        if (userId == null)
-          Center(
-            child: Text(
-              'Connectez-vous pour voir votre historique.',
-              style: TextStyle(color: AppTheme.textSecondary, fontStyle: FontStyle.italic),
-            ),
-          )
-        else
-          FutureBuilder(
-            future: _fetchNewEpisodes(userId!),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                return Text('Erreur: ${snapshot.error}', style: const TextStyle(color: Colors.red));
-              }
-
-              final history = snapshot.data ?? [];
-
-              if (history.isEmpty) {
-                return Center(
-                  child: Text(
-                    'Pas d\'épisodes à écouter pour le moment.',
-                    style: TextStyle(color: AppTheme.textSecondary, fontStyle: FontStyle.italic),
-                  ),
-                );
-              }
-
-              return ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: history.length,
-                itemBuilder: (context, index) {
-                  final item = history[index];
-                  // Extraction d'un nom de fichier approximatif depuis l'URL audio si le titre n'est pas dispo
-                  final fallbackTitle = item['audioUrl'].toString().split('/').last.split('?').first;
-                  
-                  return ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: AppTheme.surfaceColor,
-                        borderRadius: BorderRadius.circular(8),
-                        image: item['imageUrl'] != null
-                            ? DecorationImage(
-                                image: NetworkImage(item['imageUrl']),
-                                fit: BoxFit.cover,
-                              )
-                            : null,
-                      ),
-                      child: item['imageUrl'] == null
-                          ? const Icon(Icons.play_circle_fill, color: AppTheme.primaryColor)
-                          : null,
-                    ),
-                    title: Text(item['title'] ?? fallbackTitle, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    subtitle: Text(item['podcastName'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis),
-                    trailing: const Icon(Icons.more_vert, color: AppTheme.textSecondary),
-                    onTap: () {
-                      final audioEpisode = AudioEpisode(
-                        id: item['audioUrl'],
-                        title: item['title'] ?? fallbackTitle,
-                        podcastName: item['podcastName'] ?? 'Mon Podcast',
-                        imageUrl: item['imageUrl'],
-                        audioUrl: item['audioUrl'],
-                      );
-                      AudioService().playEpisode(audioEpisode);
-                    },
-                  );
-                },
-              );
-            },
-          ),
-      ],
+        ],
+      ),
     );
   }
 
-  Future<List<GetMySubscriptionsSubscriptionTypes>> _fetchSubscriptions(String googleId) async {
-    final userResult = await ExampleConnector.instance.findUserByGoogleId(googleId: googleId).execute();
+  Future<List<GetMySubscriptionsSubscriptionTypes>> _fetchSubscriptions(
+      String googleId) async {
+    final userResult = await ExampleConnector.instance
+        .findUserByGoogleId(googleId: googleId)
+        .execute();
     final users = userResult.data.users;
     if (users.isEmpty) return [];
     final postgresUuid = users.first.id;
-    final subsResult = await ExampleConnector.instance.getMySubscriptions(userId: postgresUuid).execute();
-    return subsResult.data.subscriptionTypes;
+    final subsResult = await ExampleConnector.instance
+        .getMySubscriptions(userId: postgresUuid)
+        .execute();
+    final subs = subsResult.data.subscriptionTypes.toList();
+    subs.sort((a, b) {
+      final orderA = a.listOrder ?? 9999;
+      final orderB = b.listOrder ?? 9999;
+      if (orderA == orderB) return a.podcast.title.compareTo(b.podcast.title);
+      return orderA.compareTo(orderB);
+    });
+    return subs;
+  }
+}
+
+class _DraggablePodcastList extends StatefulWidget {
+  final List<GetMySubscriptionsSubscriptionTypes> initialSubs;
+  final String googleId;
+
+  const _DraggablePodcastList(
+      {required this.initialSubs, required this.googleId});
+
+  @override
+  State<_DraggablePodcastList> createState() => _DraggablePodcastListState();
+}
+
+class _DraggablePodcastListState extends State<_DraggablePodcastList> {
+  late List<GetMySubscriptionsSubscriptionTypes> _subs;
+
+  @override
+  void initState() {
+    super.initState();
+    _subs = List.from(widget.initialSubs);
   }
 
-  Future<List<Map<String, dynamic>>> _fetchNewEpisodes(String googleId) async {
-    // 1. Obtenir les abonnements
-    final subs = await _fetchSubscriptions(googleId);
-    if (subs.isEmpty) return [];
-    
-    // Prendre les 3 premiers pour ne pas trop ralentir
-    final topSubs = subs.take(3).toList();
+  @override
+  void didUpdateWidget(covariant _DraggablePodcastList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialSubs.length != widget.initialSubs.length) {
+      _subs = List.from(widget.initialSubs);
+    }
+  }
+
+  Future<void> _onReorder(int oldIndex, int newIndex) async {
+    if (newIndex > oldIndex) newIndex -= 1;
+    setState(() {
+      final item = _subs.removeAt(oldIndex);
+      _subs.insert(newIndex, item);
+    });
+
+    try {
+      final userResult = await ExampleConnector.instance
+          .findUserByGoogleId(googleId: widget.googleId)
+          .execute();
+      if (userResult.data.users.isEmpty) return;
+      final postgresUuid = userResult.data.users.first.id;
+
+      for (int i = 0; i < _subs.length; i++) {
+        final sub = _subs[i];
+        await ExampleConnector.instance
+            .updateSubscriptionOrder(
+              userId: postgresUuid,
+              podcastId: sub.podcast.id,
+              listOrder: i,
+            )
+            .execute();
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Ordre des podcasts sauvegardé'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      print("Erreur update order: $e");
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Un proxyDecorator peut être utilisé pour customiser l'apparence de l'élément pendant le drag.
+    // Par défaut, ReorderableListView fait le job très bien.
+    return ReorderableListView.builder(
+      scrollDirection: Axis.horizontal,
+      itemCount: _subs.length,
+      onReorder: _onReorder,
+      itemBuilder: (context, index) {
+        final sub = _subs[index];
+        return Container(
+          key: ValueKey(sub.podcast.id),
+          width: 140,
+          margin: const EdgeInsets.only(right: 16),
+          child: GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PodcastDetailsScreen(
+                    podcast: {
+                      'collectionId': sub.podcast.id,
+                      'collectionName': sub.podcast.title,
+                      'artistName': sub.podcast.author,
+                      'artworkUrl600': sub.podcast.imageUrl,
+                      'feedUrl': sub.podcast.feedUrl,
+                    },
+                  ),
+                ),
+              );
+            },
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 140,
+                  height: 140,
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceColor,
+                    borderRadius: BorderRadius.circular(20),
+                    image: sub.podcast.imageUrl != null
+                        ? DecorationImage(
+                            image: NetworkImage(sub.podcast.imageUrl!),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
+                  ),
+                  child: sub.podcast.imageUrl == null
+                      ? const Icon(Icons.podcasts, size: 50, color: Colors.grey)
+                      : null,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  sub.podcast.title,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 14),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  sub.podcast.author ?? 'Inconnu',
+                  style: const TextStyle(
+                      color: AppTheme.textSecondary, fontSize: 12),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+Future<List<Map<String, dynamic>>> _fetchNewEpisodes(String googleId) async {
+  // Lire depuis DataConnect
+  try {
+    final userResult = await ExampleConnector.instance
+        .findUserByGoogleId(googleId: googleId)
+        .execute();
+    if (userResult.data.users.isEmpty) return [];
+    final postgresUuid = userResult.data.users.first.id;
+
+    final result = await ExampleConnector.instance
+        .getLatestSubscribedEpisodes(userId: postgresUuid)
+        .execute();
+
+    final prefs = await SharedPreferences.getInstance();
+    final order = prefs.getString('podstream_order') ?? 'desc';
+
     List<Map<String, dynamic>> allEpisodes = [];
 
-    // 2. Parser le flux RSS pour chaque podcast
-    for (var sub in topSubs) {
-      final feedUrl = sub.podcast.feedUrl;
-      if (feedUrl == null || feedUrl.isEmpty) continue;
+    // 1. Trier les podcasts par leur ordre défini (drag & drop)
+    final subs = result.data.subscriptionTypes.toList();
+    subs.sort((a, b) {
+      final orderA = a.listOrder ?? 9999;
+      final orderB = b.listOrder ?? 9999;
+      if (orderA == orderB) return a.podcast.title.compareTo(b.podcast.title);
+      return orderA.compareTo(orderB);
+    });
 
-      try {
-        final response = await http.get(Uri.parse(feedUrl)).timeout(const Duration(seconds: 5));
-        if (response.statusCode == 200) {
-          // Utilisation d'une regex simple au lieu d'un parseur XML lourd pour aller vite
-          final body = response.body;
-          
-          // Chercher le premier <item>
-          final itemStart = body.indexOf('<item>');
-          final itemEnd = body.indexOf('</item>', itemStart);
-          
-          if (itemStart != -1 && itemEnd != -1) {
-            final itemBlock = body.substring(itemStart, itemEnd);
-            
-            // Extraire le titre de l'épisode
-            String? title;
-            final titleMatch = RegExp(r'<title>(.*?)<\/title>', dotAll: true).firstMatch(itemBlock);
-            if (titleMatch != null) {
-              title = titleMatch.group(1)?.replaceAll('<![CDATA[', '').replaceAll(']]>', '').trim();
-            }
+    // 2. Ajouter les épisodes de chaque podcast (les podcasts les mieux classés apparaissent d'abord)
+    for (var sub in subs) {
+      final podcastName = sub.podcast.title;
+      final podcastImageUrl = sub.podcast.imageUrl;
 
-            // Extraire l'URL audio (enclosure)
-            String? audioUrl;
-            final encMatch = RegExp(r'<enclosure[^>]+url="([^"]+)"').firstMatch(itemBlock);
-            if (encMatch != null) {
-              audioUrl = encMatch.group(1);
-            } else {
-              // Parfois media:content
-              final mediaMatch = RegExp(r'<media:content[^>]+url="([^"]+)"').firstMatch(itemBlock);
-              if (mediaMatch != null) {
-                audioUrl = mediaMatch.group(1);
-              }
-            }
+      final eps = sub.podcast.episodes_on_podcast.toList();
+      // Trier chronologiquement au sein de chaque podcast
+      eps.sort((a, b) {
+        final dateA = a.publishedAt.toDateTime();
+        final dateB = b.publishedAt.toDateTime();
+        return order == 'asc' ? dateA.compareTo(dateB) : dateB.compareTo(dateA);
+      });
 
-            if (audioUrl != null) {
-              allEpisodes.add({
-                'title': title ?? 'Nouvel épisode',
-                'audioUrl': audioUrl,
-                'imageUrl': sub.podcast.imageUrl,
-                'podcastName': sub.podcast.title,
-              });
-            }
-          }
-        }
-      } catch (e) {
-        print("Erreur de parsing RSS pour ${sub.podcast.title}: $e");
+      for (var ep in eps) {
+        allEpisodes.add({
+          'title': ep.title,
+          'audioUrl': ep.audioUrl,
+          'imageUrl': ep.imageUrl ?? podcastImageUrl,
+          'podcastName': podcastName,
+          'publishedAt': ep.publishedAt.toDateTime(),
+        });
       }
     }
 
     return allEpisodes;
+  } catch (e) {
+    print("Erreur _fetchNewEpisodes DB: $e");
+    return [];
   }
 }
 
+Future<void> _syncPodcastsBackground(String googleId) async {
+  try {
+    final userResult = await ExampleConnector.instance
+        .findUserByGoogleId(googleId: googleId)
+        .execute();
+    if (userResult.data.users.isEmpty) return;
+    final postgresUuid = userResult.data.users.first.id;
+
+    final subsResult = await ExampleConnector.instance
+        .getMySubscriptions(userId: postgresUuid)
+        .execute();
+    final subs = subsResult.data.subscriptionTypes;
+
+    for (var sub in subs) {
+      final feedUrl = sub.podcast.feedUrl;
+      if (feedUrl.isEmpty) continue;
+
+      try {
+        final response = await http
+            .get(Uri.parse(feedUrl))
+            .timeout(const Duration(seconds: 10));
+        if (response.statusCode == 200) {
+          final document = xml.XmlDocument.parse(response.body);
+          final items = document
+              .findAllElements('item')
+              .take(5); // On synchro juste les 5 derniers pour l'accueil
+
+          for (var item in items) {
+            final title = item.findElements('title').firstOrNull?.innerText ??
+                'Épisode inconnu';
+            final enclosure = item.findElements('enclosure').firstOrNull;
+
+            if (enclosure != null) {
+              final audioUrl = enclosure.getAttribute('url');
+              if (audioUrl != null) {
+                DateTime pubDate = DateTime.now();
+
+                final stableId = _generateStableUuid(audioUrl);
+
+                await ExampleConnector.instance
+                    .upsertEpisode(
+                      podcastId: sub.podcast.id,
+                      title: title,
+                      audioUrl: audioUrl,
+                      duration: BigInt.zero,
+                      publishedAt:
+                          Timestamp(pubDate.millisecondsSinceEpoch ~/ 1000, 0),
+                    )
+                    .id(stableId)
+                    .description(
+                        item.findElements('description').firstOrNull?.innerText)
+                    .imageUrl(sub.podcast.imageUrl)
+                    .execute();
+              }
+            }
+          }
+        }
+      } catch (e) {
+        print("Erreur background sync pour ${sub.podcast.title}: $e");
+      }
+    }
+  } catch (e) {
+    print("Erreur générale _syncPodcastsBackground: $e");
+  }
+}
+
+String _generateStableUuid(String input) {
+  String hash = input.hashCode.abs().toString().padLeft(12, '0');
+  if (hash.length > 12) hash = hash.substring(0, 12);
+  String hash2 = (input.length * 31).toString().padLeft(3, '0');
+  if (hash2.length > 3) hash2 = hash2.substring(0, 3);
+  return '11111111-2222-4000-8$hash2-$hash';
+}
+
 class _PopularTab extends StatefulWidget {
-  const _PopularTab({super.key});
+  const _PopularTab();
 
   @override
   State<_PopularTab> createState() => _PopularTabState();
@@ -633,63 +899,91 @@ class _PopularTabState extends State<_PopularTab> {
     final prefs = await SharedPreferences.getInstance();
     final lang = prefs.getString('podstream_lang') ?? 'fr';
 
-    String countryParam = '';
+    String rssCountry = 'fr';
     if (lang != 'all') {
-      final langToCountry = {'fr': 'FR', 'en': 'US', 'es': 'ES', 'de': 'DE'};
+      final langToCountry = {'fr': 'fr', 'en': 'us', 'es': 'es', 'de': 'de'};
       if (langToCountry.containsKey(lang)) {
-        countryParam = '&country=${langToCountry[lang]}';
+        rssCountry = langToCountry[lang]!;
       }
+    } else {
+      rssCountry = 'us';
     }
 
-    // Requête iTunes large avec limit 50 pour avoir un bon échantillon de "populaires"
-    final url = Uri.parse('https://itunes.apple.com/search?media=podcast&term=podcast&limit=50$countryParam');
+    // Récupérer les top podcasts d'iTunes pour le pays donné
+    final topUrl = Uri.parse(
+        'https://itunes.apple.com/$rssCountry/rss/toppodcasts/limit=50/json');
 
     try {
-      final response = await http.get(url);
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        List<dynamic> results = data['results'] ?? [];
-        
-        // Mélanger un peu les résultats
-        results.shuffle();
+      final topResponse = await http.get(topUrl);
+      if (topResponse.statusCode == 200) {
+        final topData = json.decode(topResponse.body);
+        final entries = topData['feed']['entry'] as List<dynamic>? ?? [];
 
-        if (lang == 'all') {
-           setState(() {
-             _podcasts = results.take(20).toList();
-           });
-        } else {
-           // Filtrage strict par langue via RSS (Identique à l'ancienne version JS)
-           List<dynamic> validPodcasts = [];
-           
-           for (var p in results) {
-             if (validPodcasts.length >= 10) break; // Limite à 10 pour ne pas surcharger le réseau
-             final feedUrl = p['feedUrl'];
-             if (feedUrl == null) continue;
+        List<String> ids = [];
+        for (var entry in entries) {
+          final id = entry['id']?['attributes']?['im:id'];
+          if (id != null) {
+            ids.add(id.toString());
+          }
+        }
 
-             try {
-               final feedRes = await http.get(Uri.parse(feedUrl)).timeout(const Duration(seconds: 3));
-               if (feedRes.statusCode == 200) {
-                 final body = feedRes.body.toLowerCase();
-                 // Recherche simple de la balise language
-                 final langMatch = RegExp(r'<language>\s*([^<\s]+)\s*<\/language>').firstMatch(body);
-                 if (langMatch != null) {
-                   final podcastLang = langMatch.group(1)?.toLowerCase() ?? '';
-                   if (podcastLang.startsWith(lang)) {
-                     validPodcasts.add(p);
-                   }
-                 } else {
-                   // Si pas de balise language, on l'accepte par défaut
-                   validPodcasts.add(p);
-                 }
-               }
-             } catch (e) {
-               // Ignorer l'erreur réseau pour un feed spécifique
-             }
-           }
-           
-           setState(() {
-             _podcasts = validPodcasts;
-           });
+        if (ids.isNotEmpty) {
+          final lookupUrl =
+              Uri.parse('https://itunes.apple.com/lookup?id=${ids.join(',')}');
+          final lookupResponse = await http.get(lookupUrl);
+
+          if (lookupResponse.statusCode == 200) {
+            final lookupData = json.decode(lookupResponse.body);
+            List<dynamic> results = lookupData['results'] ?? [];
+
+            // On garde l'ordre de popularité d'iTunes
+
+            if (lang == 'all') {
+              setState(() {
+                _podcasts = results.take(20).toList();
+              });
+            } else {
+              // Filtrage strict par langue via RSS (Identique à l'ancienne version JS)
+              List<dynamic> validPodcasts = [];
+
+              for (var p in results) {
+                if (validPodcasts.length >= 20) {
+                  break; // Limite à 20 résultats
+                }
+                final feedUrl = p['feedUrl'];
+                if (feedUrl == null) continue;
+
+                try {
+                  final feedRes = await http
+                      .get(Uri.parse(feedUrl))
+                      .timeout(const Duration(seconds: 3));
+                  if (feedRes.statusCode == 200) {
+                    final body = feedRes.body.toLowerCase();
+                    // Recherche simple de la balise language
+                    final langMatch =
+                        RegExp(r'<language>\s*([^<\s]+)\s*<\/language>')
+                            .firstMatch(body);
+                    if (langMatch != null) {
+                      final podcastLang =
+                          langMatch.group(1)?.toLowerCase() ?? '';
+                      if (podcastLang.startsWith(lang)) {
+                        validPodcasts.add(p);
+                      }
+                    } else {
+                      // Si pas de balise language, on l'accepte par défaut
+                      validPodcasts.add(p);
+                    }
+                  }
+                } catch (e) {
+                  // Ignorer l'erreur réseau pour un feed spécifique
+                }
+              }
+
+              setState(() {
+                _podcasts = validPodcasts;
+              });
+            }
+          }
         }
       }
     } catch (e) {
@@ -710,10 +1004,11 @@ class _PopularTabState extends State<_PopularTab> {
     }
 
     if (_podcasts.isEmpty) {
-      return Center(
+      return const Center(
         child: Text(
           'Impossible de charger les suggestions.',
-          style: TextStyle(color: AppTheme.textSecondary, fontStyle: FontStyle.italic),
+          style: TextStyle(
+              color: AppTheme.textSecondary, fontStyle: FontStyle.italic),
         ),
       );
     }
@@ -753,14 +1048,18 @@ class _PopularTabState extends State<_PopularTab> {
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                      borderRadius:
+                          const BorderRadius.vertical(top: Radius.circular(16)),
                       image: imageUrl != null
-                          ? DecorationImage(image: NetworkImage(imageUrl), fit: BoxFit.cover)
+                          ? DecorationImage(
+                              image: NetworkImage(imageUrl), fit: BoxFit.cover)
                           : null,
                       color: AppTheme.bgColor,
                     ),
                     child: imageUrl == null
-                        ? const Center(child: Icon(Icons.podcasts, size: 40, color: Colors.grey))
+                        ? const Center(
+                            child: Icon(Icons.podcasts,
+                                size: 40, color: Colors.grey))
                         : null,
                   ),
                 ),
@@ -771,20 +1070,23 @@ class _PopularTabState extends State<_PopularTab> {
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 13),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: AppTheme.primaryColor.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           genre,
-                          style: const TextStyle(color: AppTheme.primaryColor, fontSize: 10),
+                          style: const TextStyle(
+                              color: AppTheme.primaryColor, fontSize: 10),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -802,7 +1104,7 @@ class _PopularTabState extends State<_PopularTab> {
 }
 
 class _AffinitiesTab extends StatefulWidget {
-  const _AffinitiesTab({super.key});
+  const _AffinitiesTab();
 
   @override
   State<_AffinitiesTab> createState() => _AffinitiesTabState();
@@ -830,41 +1132,56 @@ class _AffinitiesTabState extends State<_AffinitiesTab> {
       }
 
       // 1. Récupérer l'ID Postgres de l'utilisateur
-      final userResult = await ExampleConnector.instance.findUserByGoogleId(googleId: googleId).execute();
+      final userResult = await ExampleConnector.instance
+          .findUserByGoogleId(googleId: googleId)
+          .execute();
       if (userResult.data.users.isEmpty) {
-         setState(() => _isLoading = false);
-         return;
+        setState(() => _isLoading = false);
+        return;
       }
       final postgresUuid = userResult.data.users.first.id;
 
       // 2. Obtenir ses propres abonnements
-      final subsResult = await ExampleConnector.instance.getMySubscriptions(userId: postgresUuid).execute();
+      final subsResult = await ExampleConnector.instance
+          .getMySubscriptions(userId: postgresUuid)
+          .execute();
       final mySubs = subsResult.data.subscriptionTypes;
-      
+
       if (mySubs.isEmpty) {
         setState(() => _isLoading = false);
         return;
       }
 
-      final mySubIds = mySubs.map((s) => s.podcast.id).toSet();
-      
+      final mySubFeeds = mySubs
+          .map((s) => s.podcast.feedUrl.toLowerCase())
+          .where((u) => u.isNotEmpty)
+          .toSet();
+
       // 3. Obtenir les recommandations pour les 5 premiers abonnements
       final topSubs = mySubs.take(5).toList();
+
       Map<String, Map<String, dynamic>> recommendationCounts = {};
 
       for (var sub in topSubs) {
-        final recResult = await ExampleConnector.instance.getRecommendations(podcastId: sub.podcast.id).execute();
-        
+        final feedUrl = sub.podcast.feedUrl;
+        if (feedUrl.isEmpty) continue;
+
+        final recResult = await ExampleConnector.instance
+            .getRecommendations(feedUrl: feedUrl)
+            .execute();
+
         for (var st in recResult.data.subscriptionTypes) {
           for (var userSub in st.user.subscriptionTypes_on_user) {
             final recPodcast = userSub.podcast;
-            
-            // Exclure les podcasts qu'on a déjà
-            if (!mySubIds.contains(recPodcast.id)) {
-              if (recommendationCounts.containsKey(recPodcast.id)) {
-                recommendationCounts[recPodcast.id]!['count'] = (recommendationCounts[recPodcast.id]!['count'] as int) + 1;
+            final recFeedUrl = recPodcast.feedUrl.toLowerCase();
+
+            // Exclure les podcasts qu'on a déjà (comparaison sur feedUrl)
+            if (recFeedUrl.isNotEmpty && !mySubFeeds.contains(recFeedUrl)) {
+              if (recommendationCounts.containsKey(recFeedUrl)) {
+                recommendationCounts[recFeedUrl]!['count'] =
+                    (recommendationCounts[recFeedUrl]!['count'] as int) + 1;
               } else {
-                recommendationCounts[recPodcast.id] = {
+                recommendationCounts[recFeedUrl] = {
                   'count': 1,
                   'podcast': recPodcast,
                 };
@@ -880,39 +1197,47 @@ class _AffinitiesTabState extends State<_AffinitiesTab> {
 
       List<dynamic> validPodcasts = [];
       if (lang == 'all') {
-         validPodcasts = sortedRecs.map((e) => e['podcast']).take(15).toList();
+        validPodcasts = sortedRecs.map((e) => e['podcast']).take(15).toList();
       } else {
-         for (var rec in sortedRecs) {
-           if (validPodcasts.length >= 15) break;
-           final p = rec['podcast'];
-           final feedUrl = p.feedUrl;
-           if (feedUrl == null) continue;
-           
-           try {
-             final feedRes = await http.get(Uri.parse(feedUrl)).timeout(const Duration(seconds: 3));
-             if (feedRes.statusCode == 200) {
-                 final body = feedRes.body.toLowerCase();
-                 final langMatch = RegExp(r'<language>\s*([^<\s]+)\s*<\/language>').firstMatch(body);
-                 if (langMatch != null) {
-                   final podcastLang = langMatch.group(1)?.toLowerCase() ?? '';
-                   if (podcastLang.startsWith(lang)) {
-                     validPodcasts.add(p);
-                   }
-                 } else {
-                   validPodcasts.add(p);
-                 }
-             }
-           } catch (e) {
-             // Ignorer l'erreur réseau
-           }
-         }
+        for (var rec in sortedRecs) {
+          if (validPodcasts.length >= 15) break;
+          final p = rec['podcast'];
+          final feedUrl = p.feedUrl;
+          if (feedUrl == null) {
+            continue;
+          }
+
+          try {
+            final feedRes = await http
+                .get(Uri.parse(feedUrl))
+                .timeout(const Duration(seconds: 3));
+            if (feedRes.statusCode == 200) {
+              final body = feedRes.body.toLowerCase();
+              final langMatch = RegExp(r'<language>\s*([^<\s]+)\s*<\/language>')
+                  .firstMatch(body);
+              if (langMatch != null) {
+                final podcastLang = langMatch.group(1)?.toLowerCase() ?? '';
+                if (podcastLang.startsWith(lang)) {
+                  validPodcasts.add(p);
+                }
+              } else {
+                validPodcasts.add(p);
+              }
+            } else {
+              // On accepte par défaut si le flux n'est pas accessible (ex: test)
+              validPodcasts.add(p);
+            }
+          } catch (e) {
+            // Ignorer l'erreur réseau mais accepter le podcast par défaut
+            validPodcasts.add(p);
+          }
+        }
       }
 
       setState(() {
         _recommendedPodcasts = validPodcasts;
         _isLoading = false;
       });
-
     } catch (e) {
       print("Erreur Affinités: $e");
       if (mounted) {
@@ -924,10 +1249,11 @@ class _AffinitiesTabState extends State<_AffinitiesTab> {
   @override
   Widget build(BuildContext context) {
     if (FirebaseAuth.instance.currentUser == null) {
-      return Center(
+      return const Center(
         child: Text(
           'Connectez-vous pour voir les recommandations basées sur vos goûts.',
-          style: TextStyle(color: AppTheme.textSecondary, fontStyle: FontStyle.italic),
+          style: TextStyle(
+              color: AppTheme.textSecondary, fontStyle: FontStyle.italic),
           textAlign: TextAlign.center,
         ),
       );
@@ -938,12 +1264,13 @@ class _AffinitiesTabState extends State<_AffinitiesTab> {
     }
 
     if (_recommendedPodcasts.isEmpty) {
-      return Center(
+      return const Center(
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: EdgeInsets.all(16.0),
           child: Text(
             'Abonnez-vous à plus de podcasts pour voir ce que d\'autres auditeurs aux mêmes goûts écoutent !',
-            style: TextStyle(color: AppTheme.textSecondary, fontStyle: FontStyle.italic),
+            style: TextStyle(
+                color: AppTheme.textSecondary, fontStyle: FontStyle.italic),
             textAlign: TextAlign.center,
           ),
         ),
@@ -960,7 +1287,8 @@ class _AffinitiesTabState extends State<_AffinitiesTab> {
       ),
       itemCount: _recommendedPodcasts.length,
       itemBuilder: (context, index) {
-        final p = _recommendedPodcasts[index] as GetRecommendationsSubscriptionTypesUserSubscriptionTypesOnUserPodcast;
+        final p = _recommendedPodcasts[index]
+            as GetRecommendationsSubscriptionTypesUserSubscriptionTypesOnUserPodcast;
         final imageUrl = p.imageUrl;
         final title = p.title;
         final author = p.author ?? 'Recommandé pour vous';
@@ -993,14 +1321,18 @@ class _AffinitiesTabState extends State<_AffinitiesTab> {
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                      borderRadius:
+                          const BorderRadius.vertical(top: Radius.circular(16)),
                       image: imageUrl != null
-                          ? DecorationImage(image: NetworkImage(imageUrl), fit: BoxFit.cover)
+                          ? DecorationImage(
+                              image: NetworkImage(imageUrl), fit: BoxFit.cover)
                           : null,
                       color: AppTheme.bgColor,
                     ),
                     child: imageUrl == null
-                        ? const Center(child: Icon(Icons.podcasts, size: 40, color: Colors.grey))
+                        ? const Center(
+                            child: Icon(Icons.podcasts,
+                                size: 40, color: Colors.grey))
                         : null,
                   ),
                 ),
@@ -1011,14 +1343,16 @@ class _AffinitiesTabState extends State<_AffinitiesTab> {
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 13),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
                       Text(
                         author,
-                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 11),
+                        style: const TextStyle(
+                            color: AppTheme.textSecondary, fontSize: 11),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),

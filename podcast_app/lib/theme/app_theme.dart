@@ -58,7 +58,8 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: primaryColor, // On utilisera un container pour le gradient
+          backgroundColor:
+              primaryColor, // On utilisera un container pour le gradient
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
           shape: RoundedRectangleBorder(

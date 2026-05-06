@@ -42,7 +42,7 @@ class _SearchScreenState extends State<SearchScreen> {
       });
       return;
     }
-    
+
     if (query == _lastQuery && _podcasts.isNotEmpty) return;
 
     setState(() {
@@ -63,7 +63,8 @@ class _SearchScreenState extends State<SearchScreen> {
       }
     }
 
-    final url = Uri.parse('https://itunes.apple.com/search?media=podcast&term=$term&limit=50$countryParam');
+    final url = Uri.parse(
+        'https://itunes.apple.com/search?media=podcast&term=$term&limit=50$countryParam');
 
     try {
       final response = await http.get(url);
@@ -76,36 +77,40 @@ class _SearchScreenState extends State<SearchScreen> {
             _podcasts = results.take(20).toList();
           });
         } else {
-           // Filtrage strict par langue via RSS (Identique à HomeScreen)
-           List<dynamic> validPodcasts = [];
-           
-           for (var p in results) {
-             if (validPodcasts.length >= 15) break; 
-             final feedUrl = p['feedUrl'];
-             if (feedUrl == null) continue;
+          // Filtrage strict par langue via RSS (Identique à HomeScreen)
+          List<dynamic> validPodcasts = [];
 
-             try {
-               final feedRes = await http.get(Uri.parse(feedUrl)).timeout(const Duration(seconds: 3));
-               if (feedRes.statusCode == 200) {
-                 final body = feedRes.body.toLowerCase();
-                 final langMatch = RegExp(r'<language>\s*([^<\s]+)\s*<\/language>').firstMatch(body);
-                 if (langMatch != null) {
-                   final podcastLang = langMatch.group(1)?.toLowerCase() ?? '';
-                   if (podcastLang.startsWith(lang)) {
-                     validPodcasts.add(p);
-                   }
-                 } else {
-                   validPodcasts.add(p);
-                 }
-               }
-             } catch (e) {
-               // Ignorer l'erreur réseau pour un feed spécifique
-             }
-           }
-           
-           setState(() {
-             _podcasts = validPodcasts;
-           });
+          for (var p in results) {
+            if (validPodcasts.length >= 15) break;
+            final feedUrl = p['feedUrl'];
+            if (feedUrl == null) continue;
+
+            try {
+              final feedRes = await http
+                  .get(Uri.parse(feedUrl))
+                  .timeout(const Duration(seconds: 3));
+              if (feedRes.statusCode == 200) {
+                final body = feedRes.body.toLowerCase();
+                final langMatch =
+                    RegExp(r'<language>\s*([^<\s]+)\s*<\/language>')
+                        .firstMatch(body);
+                if (langMatch != null) {
+                  final podcastLang = langMatch.group(1)?.toLowerCase() ?? '';
+                  if (podcastLang.startsWith(lang)) {
+                    validPodcasts.add(p);
+                  }
+                } else {
+                  validPodcasts.add(p);
+                }
+              }
+            } catch (e) {
+              // Ignorer l'erreur réseau pour un feed spécifique
+            }
+          }
+
+          setState(() {
+            _podcasts = validPodcasts;
+          });
         }
       }
     } catch (e) {
@@ -133,8 +138,9 @@ class _SearchScreenState extends State<SearchScreen> {
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
               hintText: 'Rechercher un podcast, un auteur...',
-              hintStyle: TextStyle(color: AppTheme.textSecondary),
-              prefixIcon: const Icon(Icons.search, color: AppTheme.primaryColor),
+              hintStyle: const TextStyle(color: AppTheme.textSecondary),
+              prefixIcon:
+                  const Icon(Icons.search, color: AppTheme.primaryColor),
               suffixIcon: IconButton(
                 icon: const Icon(Icons.clear, color: Colors.grey),
                 onPressed: () {
@@ -150,7 +156,8 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(30),
-                borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
+                borderSide:
+                    const BorderSide(color: AppTheme.primaryColor, width: 2),
               ),
             ),
           ),
@@ -164,7 +171,9 @@ class _SearchScreenState extends State<SearchScreen> {
                         _lastQuery.isEmpty
                             ? 'Saisissez un terme pour rechercher.'
                             : 'Aucun résultat trouvé pour "$_lastQuery".',
-                        style: TextStyle(color: AppTheme.textSecondary, fontStyle: FontStyle.italic),
+                        style: const TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontStyle: FontStyle.italic),
                       ),
                     )
                   : ListView.builder(
@@ -172,14 +181,16 @@ class _SearchScreenState extends State<SearchScreen> {
                       itemCount: _podcasts.length,
                       itemBuilder: (context, index) {
                         final p = _podcasts[index];
-                        final imageUrl = p['artworkUrl600'] ?? p['artworkUrl100'];
+                        final imageUrl =
+                            p['artworkUrl600'] ?? p['artworkUrl100'];
                         final title = p['collectionName'] ?? 'Sans titre';
                         final author = p['artistName'] ?? 'Inconnu';
 
                         return Card(
                           color: AppTheme.surfaceColor,
                           margin: const EdgeInsets.only(bottom: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16)),
                           child: ListTile(
                             contentPadding: const EdgeInsets.all(12),
                             leading: Container(
@@ -189,19 +200,33 @@ class _SearchScreenState extends State<SearchScreen> {
                                 borderRadius: BorderRadius.circular(12),
                                 color: AppTheme.bgColor,
                                 image: imageUrl != null
-                                    ? DecorationImage(image: NetworkImage(imageUrl), fit: BoxFit.cover)
+                                    ? DecorationImage(
+                                        image: NetworkImage(imageUrl),
+                                        fit: BoxFit.cover)
                                     : null,
                               ),
-                              child: imageUrl == null ? const Icon(Icons.podcasts) : null,
+                              child: imageUrl == null
+                                  ? const Icon(Icons.podcasts)
+                                  : null,
                             ),
-                            title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
-                            subtitle: Text(author, style: TextStyle(color: AppTheme.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis),
-                            trailing: const Icon(Icons.chevron_right, color: AppTheme.primaryColor),
+                            title: Text(title,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis),
+                            subtitle: Text(author,
+                                style: const TextStyle(
+                                    color: AppTheme.textSecondary),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                            trailing: const Icon(Icons.chevron_right,
+                                color: AppTheme.primaryColor),
                             onTap: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => PodcastDetailsScreen(podcast: p),
+                                  builder: (context) =>
+                                      PodcastDetailsScreen(podcast: p),
                                 ),
                               );
                             },

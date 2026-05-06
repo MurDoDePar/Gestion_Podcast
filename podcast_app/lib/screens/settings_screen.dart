@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../theme/app_theme.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -15,6 +16,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _language = 'fr';
   String _order = 'asc';
   bool _isLoading = true;
+  String _appVersion = '';
 
   @override
   void initState() {
@@ -24,9 +26,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
+    final packageInfo = await PackageInfo.fromPlatform();
+
     setState(() {
       _language = prefs.getString('podstream_lang') ?? 'fr';
       _order = prefs.getString('podstream_order') ?? 'asc';
+      _appVersion = '${packageInfo.version} (${packageInfo.buildNumber})';
       _isLoading = false;
     });
   }
@@ -56,23 +61,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // Profil
           Card(
             color: AppTheme.surfaceColor,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Row(
                 children: [
                   CircleAvatar(
                     radius: 30,
-                    backgroundImage: user.photoURL != null ? NetworkImage(user.photoURL!) : null,
-                    child: user.photoURL == null ? const Icon(Icons.person) : null,
+                    backgroundImage: user.photoURL != null
+                        ? NetworkImage(user.photoURL!)
+                        : null,
+                    child:
+                        user.photoURL == null ? const Icon(Icons.person) : null,
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(user.displayName ?? 'Utilisateur', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                        Text(user.email ?? '', style: TextStyle(color: AppTheme.textSecondary)),
+                        Text(user.displayName ?? 'Utilisateur',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 18)),
+                        Text(user.email ?? '',
+                            style:
+                                const TextStyle(color: AppTheme.textSecondary)),
                       ],
                     ),
                   ),
@@ -86,17 +99,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
         // Préférences
         const Text(
           'Préférences d\'écoute',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+          style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.primaryColor),
         ),
         const SizedBox(height: 16),
-        
+
         Card(
           color: AppTheme.surfaceColor,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: Column(
             children: [
               ListTile(
-                leading: const Icon(Icons.language, color: AppTheme.textPrimary),
+                leading:
+                    const Icon(Icons.language, color: AppTheme.textPrimary),
                 title: const Text('Langue des podcasts'),
                 trailing: DropdownButton<String>(
                   value: _language,
@@ -128,8 +146,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   dropdownColor: AppTheme.surfaceColor,
                   underline: const SizedBox(),
                   items: const [
-                    DropdownMenuItem(value: 'desc', child: Text('Plus récent d\'abord')),
-                    DropdownMenuItem(value: 'asc', child: Text('Plus ancien d\'abord')),
+                    DropdownMenuItem(
+                        value: 'desc', child: Text('Plus récent d\'abord')),
+                    DropdownMenuItem(
+                        value: 'asc', child: Text('Plus ancien d\'abord')),
                   ],
                   onChanged: (val) {
                     if (val != null) {
@@ -156,9 +176,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
             backgroundColor: Colors.red.withOpacity(0.2),
             foregroundColor: Colors.redAccent,
             padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           ),
         ),
+
+        const SizedBox(height: 24),
+
+        // Version de l'application
+        Center(
+          child: Text(
+            'Version $_appVersion',
+            style: const TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 12,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
       ],
     );
   }

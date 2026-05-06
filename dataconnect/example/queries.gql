@@ -32,8 +32,8 @@ query GetListenHistory($userId: UUID!) @auth(level: USER) {
   }
 }
 
-query GetRecommendations($podcastId: UUID!) @auth(level: USER) {
-  subscriptionTypes(where: { podcastId: { eq: $podcastId } }) {
+query GetRecommendations($feedUrl: String!) @auth(level: USER) {
+  subscriptionTypes(where: { podcast: { feedUrl: { eq: $feedUrl } } }) {
     user {
       subscriptionTypes_on_user {
         podcast {
@@ -44,6 +44,36 @@ query GetRecommendations($podcastId: UUID!) @auth(level: USER) {
           author
           categories
         }
+      }
+    }
+  }
+}
+
+query GetEpisodesByPodcast($podcastId: UUID!) @auth(level: USER) {
+  episodes(where: { podcastId: { eq: $podcastId } }, orderBy: { publishedAt: DESC }) {
+    id
+    title
+    audioUrl
+    duration
+    description
+    imageUrl
+    publishedAt
+  }
+}
+
+query GetLatestSubscribedEpisodes($userId: UUID!) @auth(level: USER) {
+  subscriptionTypes(where: { userId: { eq: $userId } }) {
+    listOrder
+    podcast {
+      id
+      title
+      imageUrl
+      episodes_on_podcast(orderBy: { publishedAt: DESC }, limit: 5) {
+        id
+        title
+        audioUrl
+        publishedAt
+        imageUrl
       }
     }
   }

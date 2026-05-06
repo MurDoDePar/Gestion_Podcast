@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/app_theme.dart';
 import 'home/home_screen.dart';
 import 'settings_screen.dart';
@@ -23,6 +24,8 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+
     return Scaffold(
       appBar: AppBar(
         title: Row(
@@ -30,10 +33,12 @@ class _MainScreenState extends State<MainScreen> {
             const Icon(Icons.podcasts, color: AppTheme.primaryColor, size: 28),
             const SizedBox(width: 8),
             ShaderMask(
-              shaderCallback: (bounds) => AppTheme.primaryGradient.createShader(bounds),
+              shaderCallback: (bounds) =>
+                  AppTheme.primaryGradient.createShader(bounds),
               child: const Text(
                 'PodStream',
-                style: TextStyle(color: Colors.white), // Blanc nécessaire pour le ShaderMask
+                style: TextStyle(
+                    color: Colors.white), // Blanc nécessaire pour le ShaderMask
               ),
             ),
           ],
@@ -52,17 +57,22 @@ class _MainScreenState extends State<MainScreen> {
             _currentIndex = index;
           });
         },
-        items: const [
-          BottomNavigationBarItem(
+        items: [
+          const BottomNavigationBarItem(
             icon: Icon(Icons.home_rounded),
             label: 'Accueil',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.search_rounded),
             label: 'Recherche',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.settings_rounded),
+            icon: user?.photoURL != null
+                ? CircleAvatar(
+                    radius: 12,
+                    backgroundImage: NetworkImage(user!.photoURL!),
+                  )
+                : const Icon(Icons.settings_rounded),
             label: 'Paramètres',
           ),
         ],
