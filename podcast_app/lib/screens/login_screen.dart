@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -48,27 +49,47 @@ class _LoginScreenState extends State<LoginScreen> {
       final user = userCredential.user;
 
       if (user != null) {
-        // Enregistrer l'utilisateur dans la base de données Data Connect
-        await ExampleConnector.instance
-            .upsertUser(
-              googleId: user.uid,
-              displayName: user.displayName ?? 'Utilisateur',
-              createdAt:
-                  Timestamp(DateTime.now().millisecondsSinceEpoch ~/ 1000, 0),
-            )
-            .email(user.email ?? '')
-            .photoUrl(user.photoURL ?? '')
+        // Force le rafraîchissement du token pour s'assurer que Data Connect l'a bien reçu
+        await user.getIdToken(true);
+
+        // Vérifier si l'utilisateur existe déjà
+        final userResult = await ExampleConnector.instance
+            .findUserByGoogleId(googleId: user.uid)
             .execute();
+
+        if (userResult.data.users.isEmpty) {
+          // Créer l'utilisateur avec InsertUser s'il n'existe pas
+          await ExampleConnector.instance
+              .insertUser(
+                googleId: user.uid,
+                displayName: user.displayName ?? 'Utilisateur',
+                createdAt:
+                    Timestamp(0, DateTime.now().millisecondsSinceEpoch ~/ 1000),
+              )
+              .email(user.email ?? '')
+              .photoUrl(user.photoURL ?? '')
+              .execute();
+        }
       }
 
       // La redirection vers l'écran principal sera gérée par le StreamBuilder dans main.dart
     } catch (e) {
       debugPrint('Erreur de connexion: $e');
+      // Let's use standard Dart io
+      try {
+        final file = File(
+            'C:\\Users\\domin\\Google Drive\\Code\\Gestion_Podcast\\error.log');
+        file.writeAsStringSync('Error: $e\n', mode: FileMode.append);
+      } catch (_) {}
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur de connexion : $e'),
+            content: Text(
+                'Erreur de création de profil : $e\nPrenez une capture d\'écran !',
+                style: const TextStyle(fontSize: 12)),
             backgroundColor: AppTheme.dangerColor,
+            duration: const Duration(seconds: 10),
           ),
         );
       }

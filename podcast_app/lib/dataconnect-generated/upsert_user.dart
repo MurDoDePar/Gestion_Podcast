@@ -1,7 +1,7 @@
 part of 'example.dart';
 
 class UpsertUserVariablesBuilder {
-  Optional<String> _id = Optional.optional(nativeFromJson, nativeToJson);
+  String id;
   String googleId;
   String displayName;
   Optional<String> _email = Optional.optional(nativeFromJson, nativeToJson);
@@ -9,11 +9,6 @@ class UpsertUserVariablesBuilder {
   Timestamp createdAt;
 
   final FirebaseDataConnect _dataConnect;
-  UpsertUserVariablesBuilder id(String? t) {
-    _id.value = t;
-    return this;
-  }
-
   UpsertUserVariablesBuilder email(String? t) {
     _email.value = t;
     return this;
@@ -26,6 +21,7 @@ class UpsertUserVariablesBuilder {
 
   UpsertUserVariablesBuilder(
     this._dataConnect, {
+    required this.id,
     required this.googleId,
     required this.displayName,
     required this.createdAt,
@@ -40,7 +36,7 @@ class UpsertUserVariablesBuilder {
 
   MutationRef<UpsertUserData, UpsertUserVariables> ref() {
     UpsertUserVariables vars = UpsertUserVariables(
-      id: _id,
+      id: id,
       googleId: googleId,
       displayName: displayName,
       email: _email,
@@ -118,7 +114,7 @@ class UpsertUserData {
 
 @immutable
 class UpsertUserVariables {
-  late final Optional<String> id;
+  final String id;
   final String googleId;
   final String displayName;
   late final Optional<String> email;
@@ -127,12 +123,10 @@ class UpsertUserVariables {
   @Deprecated(
       'fromJson is deprecated for Variable classes as they are no longer required for deserialization.')
   UpsertUserVariables.fromJson(Map<String, dynamic> json)
-      : googleId = nativeFromJson<String>(json['googleId']),
+      : id = nativeFromJson<String>(json['id']),
+        googleId = nativeFromJson<String>(json['googleId']),
         displayName = nativeFromJson<String>(json['displayName']),
         createdAt = Timestamp.fromJson(json['createdAt']) {
-    id = Optional.optional(nativeFromJson, nativeToJson);
-    id.value = json['id'] == null ? null : nativeFromJson<String>(json['id']);
-
     email = Optional.optional(nativeFromJson, nativeToJson);
     email.value =
         json['email'] == null ? null : nativeFromJson<String>(json['email']);
@@ -172,9 +166,7 @@ class UpsertUserVariables {
 
   Map<String, dynamic> toJson() {
     Map<String, dynamic> json = {};
-    if (id.state == OptionalState.set) {
-      json['id'] = id.toJson();
-    }
+    json['id'] = nativeToJson<String>(id);
     json['googleId'] = nativeToJson<String>(googleId);
     json['displayName'] = nativeToJson<String>(displayName);
     if (email.state == OptionalState.set) {

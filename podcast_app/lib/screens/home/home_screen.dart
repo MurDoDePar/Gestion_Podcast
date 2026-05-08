@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:firebase_core/firebase_core.dart';
@@ -11,6 +12,7 @@ import '../../dataconnect-generated/example.dart';
 import '../../data/themes_data.dart';
 import '../../services/audio_service.dart';
 import '../podcast_details_screen.dart';
+import 'package:flutter_html/flutter_html.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -556,8 +558,33 @@ class _MyPodcastsTabState extends State<_MyPodcastsTab> {
                           maxLines: 1, overflow: TextOverflow.ellipsis),
                       subtitle: Text(item['podcastName'] ?? '',
                           maxLines: 1, overflow: TextOverflow.ellipsis),
-                      trailing: const Icon(Icons.more_vert,
-                          color: AppTheme.textSecondary),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.more_vert,
+                            color: AppTheme.textSecondary),
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: Text(item['title'] ?? fallbackTitle),
+                              content: SizedBox(
+                                width: double.maxFinite,
+                                child: SingleChildScrollView(
+                                  child: item['description'] == null
+                                      ? const Text(
+                                          'Aucune description disponible.')
+                                      : Html(data: item['description']),
+                                ),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text('Fermer'),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
                       onTap: () {
                         final playlist = history
                             .map((e) => AudioEpisode(
@@ -764,38 +791,44 @@ Future<List<Map<String, dynamic>>> _fetchNewEpisodes(String googleId) async {
 
     List<Map<String, dynamic>> allEpisodes = [];
 
-    // 1. Trier les podcasts par leur ordre défini (drag & drop)
+    // 1) Prendre la liste de tous les épisodes de tous 'mes podcasts'
     final subs = result.data.subscriptionTypes.toList();
-    subs.sort((a, b) {
-      final orderA = a.listOrder ?? 9999;
-      final orderB = b.listOrder ?? 9999;
-      if (orderA == orderB) return a.podcast.title.compareTo(b.podcast.title);
-      return orderA.compareTo(orderB);
-    });
-
-    // 2. Ajouter les épisodes de chaque podcast (les podcasts les mieux classés apparaissent d'abord)
     for (var sub in subs) {
       final podcastName = sub.podcast.title;
       final podcastImageUrl = sub.podcast.imageUrl;
+      final listOrder = sub.listOrder ?? 9999;
 
-      final eps = sub.podcast.episodes_on_podcast.toList();
-      // Trier chronologiquement au sein de chaque podcast
-      eps.sort((a, b) {
-        final dateA = a.publishedAt.toDateTime();
-        final dateB = b.publishedAt.toDateTime();
-        return order == 'asc' ? dateA.compareTo(dateB) : dateB.compareTo(dateA);
-      });
-
-      for (var ep in eps) {
+      for (var ep in sub.podcast.episodes_on_podcast) {
         allEpisodes.add({
           'title': ep.title,
           'audioUrl': ep.audioUrl,
           'imageUrl': ep.imageUrl ?? podcastImageUrl,
           'podcastName': podcastName,
           'publishedAt': ep.publishedAt.toDateTime(),
+          'listOrder': listOrder,
+          'description': ep.description,
         });
       }
     }
+
+    // 2) Trier et regrouper (Tri principal: 'mes podcasts', Tri secondaire: date)
+    allEpisodes.sort((a, b) {
+      // Tri principal : l'ordre de 'mes podcasts'
+      int orderComparison =
+          (a['listOrder'] as int).compareTo(b['listOrder'] as int);
+      if (orderComparison == 0) {
+        orderComparison =
+            (a['podcastName'] as String).compareTo(b['podcastName'] as String);
+      }
+      if (orderComparison != 0) {
+        return orderComparison;
+      }
+
+      // Tri secondaire : date de parution
+      final dateA = a['publishedAt'] as DateTime;
+      final dateB = b['publishedAt'] as DateTime;
+      return order == 'asc' ? dateA.compareTo(dateB) : dateB.compareTo(dateA);
+    });
 
     return allEpisodes;
   } catch (e) {
@@ -840,6 +873,17 @@ Future<void> _syncPodcastsBackground(String googleId) async {
               final audioUrl = enclosure.getAttribute('url');
               if (audioUrl != null) {
                 DateTime pubDate = DateTime.now();
+                final pubDateStr =
+                    item.findElements('pubDate').firstOrNull?.innerText;
+                if (pubDateStr != null && pubDateStr.isNotEmpty) {
+                  try {
+                    pubDate = HttpDate.parse(pubDateStr);
+                  } catch (_) {
+                    try {
+                      pubDate = DateTime.parse(pubDateStr);
+                    } catch (_) {}
+                  }
+                }
 
                 final stableId = _generateStableUuid(audioUrl);
 
@@ -850,7 +894,7 @@ Future<void> _syncPodcastsBackground(String googleId) async {
                       audioUrl: audioUrl,
                       duration: BigInt.zero,
                       publishedAt:
-                          Timestamp(pubDate.millisecondsSinceEpoch ~/ 1000, 0),
+                          Timestamp(0, pubDate.millisecondsSinceEpoch ~/ 1000),
                     )
                     .id(stableId)
                     .description(

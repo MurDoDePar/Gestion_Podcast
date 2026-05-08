@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:xml/xml.dart' as xml;
 import 'package:firebase_auth/firebase_auth.dart';
@@ -80,10 +81,26 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
       final userResult = await ExampleConnector.instance
           .findUserByGoogleId(googleId: user.uid)
           .execute();
-      if (userResult.data.users.isEmpty) return;
+      if (userResult.data.users.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Profil introuvable. Allez dans les paramètres, déconnectez-vous puis reconnectez-vous pour finaliser la création de votre profil.'),
+              duration: Duration(seconds: 5),
+            ),
+          );
+        }
+        return;
+      }
       final postgresUuid = userResult.data.users.first.id;
 
       if (_isSubscribed) {
+        // Mise à jour optimiste de l'UI
+        setState(() {
+          _isSubscribed = false;
+        });
+
         // Se désabonner
         await ExampleConnector.instance
             .unsubscribeFromPodcast(
@@ -92,12 +109,16 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
             )
             .execute();
 
-        setState(() {
-          _isSubscribed = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Désabonné avec succès')));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Désabonné avec succès')));
+        }
       } else {
+        // Mise à jour optimiste de l'UI
+        setState(() {
+          _isSubscribed = true;
+        });
+
         // S'abonner : Upsert podcast d'abord
         final title = widget.podcast['collectionName'] ??
             widget.podcast['title'] ??
@@ -111,7 +132,7 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
               title: title,
               feedUrl: feedUrl,
               createdAt:
-                  Timestamp(DateTime.now().millisecondsSinceEpoch ~/ 1000, 0),
+                  Timestamp(0, DateTime.now().millisecondsSinceEpoch ~/ 1000),
             )
             .id(podcastId)
             .description(_description.substring(
@@ -133,22 +154,32 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
               userId: postgresUuid,
               podcastId: podcastId,
               subscribedAt:
-                  Timestamp(DateTime.now().millisecondsSinceEpoch ~/ 1000, 0),
+                  Timestamp(0, DateTime.now().millisecondsSinceEpoch ~/ 1000),
             )
             .listOrder(currentSubsCount)
             .execute();
 
-        setState(() {
-          _isSubscribed = true;
-        });
-
         // Sync des épisodes en base maintenant que le podcast existe
         _syncEpisodesFromRSS();
 
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Abonné avec succès !')));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Abonné avec succès !')));
+        }
       }
     } catch (e) {
+      // En cas d'erreur, on annule la mise à jour optimiste
+      if (mounted) {
+        setState(() {
+          // On inverse pour revenir à l'état précédent
+          // Wait, actually we can just re-check or just invert.
+          // The simplest is to assume we invert what we just did.
+          // To be perfectly safe we could re-call _checkSubscription,
+          // but _isSubscribed = !_isSubscribed works.
+          _isSubscribed = !_isSubscribed;
+        });
+      }
+
       print("Erreur abonnement: $e");
       if (e is DataConnectError) {
         print("Data Connect Exception Message: ${e.message}");
@@ -240,8 +271,18 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
           if (enclosure != null) {
             final audioUrl = enclosure.getAttribute('url');
             if (audioUrl != null) {
-              // Extract pubDate if available
               DateTime pubDate = DateTime.now();
+              final pubDateStr =
+                  item.findElements('pubDate').firstOrNull?.innerText;
+              if (pubDateStr != null && pubDateStr.isNotEmpty) {
+                try {
+                  pubDate = HttpDate.parse(pubDateStr);
+                } catch (_) {
+                  try {
+                    pubDate = DateTime.parse(pubDateStr);
+                  } catch (_) {}
+                }
+              }
               // Very basic parsing fallback, in a real app use intl or specific date parser
               // We just use now() to ensure it saves if parsing is complex, or try to parse
               // But for RSS dates RFC-822, Dart's DateTime.parse doesn't always work perfectly.
@@ -276,7 +317,7 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
                         audioUrl: audioUrl,
                         duration: BigInt.zero,
                         publishedAt: Timestamp(
-                            pubDate.millisecondsSinceEpoch ~/ 1000, 0),
+                            0, pubDate.millisecondsSinceEpoch ~/ 1000),
                       )
                       .id(stableId)
                       .description(item

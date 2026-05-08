@@ -316,13 +316,92 @@ ref.subscribe(...);
 
 ## Mutations
 
-### UpsertUser
+### InsertUser
 #### Required Arguments
 ```dart
 String googleId = ...;
 String displayName = ...;
 Timestamp createdAt = ...;
+ExampleConnector.instance.insertUser(
+  googleId: googleId,
+  displayName: displayName,
+  createdAt: createdAt,
+).execute();
+```
+
+#### Optional Arguments
+We return a builder for each query. For InsertUser, we created `InsertUserBuilder`. For queries and mutations with optional parameters, we return a builder class.
+The builder pattern allows Data Connect to distinguish between fields that haven't been set and fields that have been set to null. A field can be set by calling its respective setter method like below:
+```dart
+class InsertUserVariablesBuilder {
+  ...
+   InsertUserVariablesBuilder email(String? t) {
+   _email.value = t;
+   return this;
+  }
+  InsertUserVariablesBuilder photoUrl(String? t) {
+   _photoUrl.value = t;
+   return this;
+  }
+
+  ...
+}
+ExampleConnector.instance.insertUser(
+  googleId: googleId,
+  displayName: displayName,
+  createdAt: createdAt,
+)
+.email(email)
+.photoUrl(photoUrl)
+.execute();
+```
+
+#### Return Type
+`execute()` returns a `OperationResult<InsertUserData, InsertUserVariables>`
+```dart
+/// Result of an Operation Request (query/mutation).
+class OperationResult<Data, Variables> {
+  OperationResult(this.dataConnect, this.data, this.ref);
+  Data data;
+  OperationRef<Data, Variables> ref;
+  FirebaseDataConnect dataConnect;
+}
+
+final result = await ExampleConnector.instance.insertUser(
+  googleId: googleId,
+  displayName: displayName,
+  createdAt: createdAt,
+);
+InsertUserData data = result.data;
+final ref = result.ref;
+```
+
+#### Getting the Ref
+Each builder returns an `execute` function, which is a helper function that creates a `Ref` object, and executes the underlying operation.
+An example of how to use the `Ref` object is shown below:
+```dart
+String googleId = ...;
+String displayName = ...;
+Timestamp createdAt = ...;
+
+final ref = ExampleConnector.instance.insertUser(
+  googleId: googleId,
+  displayName: displayName,
+  createdAt: createdAt,
+).ref();
+ref.execute();
+```
+
+
+### UpsertUser
+#### Required Arguments
+```dart
+String id = ...;
+String googleId = ...;
+String displayName = ...;
+Timestamp createdAt = ...;
 ExampleConnector.instance.upsertUser(
+  id: id,
   googleId: googleId,
   displayName: displayName,
   createdAt: createdAt,
@@ -335,12 +414,7 @@ The builder pattern allows Data Connect to distinguish between fields that haven
 ```dart
 class UpsertUserVariablesBuilder {
   ...
- 
-  UpsertUserVariablesBuilder id(String? t) {
-   _id.value = t;
-   return this;
-  }
-  UpsertUserVariablesBuilder email(String? t) {
+   UpsertUserVariablesBuilder email(String? t) {
    _email.value = t;
    return this;
   }
@@ -352,11 +426,11 @@ class UpsertUserVariablesBuilder {
   ...
 }
 ExampleConnector.instance.upsertUser(
+  id: id,
   googleId: googleId,
   displayName: displayName,
   createdAt: createdAt,
 )
-.id(id)
 .email(email)
 .photoUrl(photoUrl)
 .execute();
@@ -374,6 +448,7 @@ class OperationResult<Data, Variables> {
 }
 
 final result = await ExampleConnector.instance.upsertUser(
+  id: id,
   googleId: googleId,
   displayName: displayName,
   createdAt: createdAt,
@@ -386,11 +461,13 @@ final ref = result.ref;
 Each builder returns an `execute` function, which is a helper function that creates a `Ref` object, and executes the underlying operation.
 An example of how to use the `Ref` object is shown below:
 ```dart
+String id = ...;
 String googleId = ...;
 String displayName = ...;
 Timestamp createdAt = ...;
 
 final ref = ExampleConnector.instance.upsertUser(
+  id: id,
   googleId: googleId,
   displayName: displayName,
   createdAt: createdAt,
@@ -816,6 +893,40 @@ final ref = ExampleConnector.instance.updateListenHistory(
   finishedListening: finishedListening,
   listenedAt: listenedAt,
 ).ref();
+ref.execute();
+```
+
+
+### CleanupDuplicates
+#### Required Arguments
+```dart
+// No required arguments
+ExampleConnector.instance.cleanupDuplicates().execute();
+```
+
+
+
+#### Return Type
+`execute()` returns a `OperationResult<CleanupDuplicatesData, void>`
+```dart
+/// Result of an Operation Request (query/mutation).
+class OperationResult<Data, Variables> {
+  OperationResult(this.dataConnect, this.data, this.ref);
+  Data data;
+  OperationRef<Data, Variables> ref;
+  FirebaseDataConnect dataConnect;
+}
+
+final result = await ExampleConnector.instance.cleanupDuplicates();
+CleanupDuplicatesData data = result.data;
+final ref = result.ref;
+```
+
+#### Getting the Ref
+Each builder returns an `execute` function, which is a helper function that creates a `Ref` object, and executes the underlying operation.
+An example of how to use the `Ref` object is shown below:
+```dart
+final ref = ExampleConnector.instance.cleanupDuplicates().ref();
 ref.execute();
 ```
 

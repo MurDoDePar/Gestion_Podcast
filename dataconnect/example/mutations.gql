@@ -1,4 +1,14 @@
-mutation UpsertUser($id: UUID, $googleId: String!, $displayName: String!, $email: String, $photoUrl: String, $createdAt: Timestamp!) @auth(level: USER) {
+mutation InsertUser($googleId: String!, $displayName: String!, $email: String, $photoUrl: String, $createdAt: Timestamp!) @auth(level: USER) {
+  user_insert(data: {
+    googleId: $googleId,
+    displayName: $displayName,
+    email: $email,
+    photoUrl: $photoUrl,
+    createdAt: $createdAt
+  })
+}
+
+mutation UpsertUser($id: UUID!, $googleId: String!, $displayName: String!, $email: String, $photoUrl: String, $createdAt: Timestamp!) @auth(level: USER) {
   user_upsert(data: {
     id: $id,
     googleId: $googleId,
@@ -35,7 +45,12 @@ mutation UpsertEpisode($id: UUID, $podcastId: UUID!, $title: String!, $audioUrl:
   })
 }
 
-mutation SubscribeToPodcast($userId: UUID!, $podcastId: UUID!, $subscribedAt: Timestamp!, $listOrder: Int) @auth(level: USER) {
+mutation SubscribeToPodcast($userId: UUID!, $podcastId: UUID!, $subscribedAt: Timestamp!, $listOrder: Int) @auth(level: USER) @transaction {
+  query @redact {
+    user(id: $userId) {
+      googleId
+    }
+  }
   subscriptionType_upsert(data: {
     userId: $userId,
     podcastId: $podcastId,
@@ -44,15 +59,30 @@ mutation SubscribeToPodcast($userId: UUID!, $podcastId: UUID!, $subscribedAt: Ti
   })
 }
 
-mutation UpdateSubscriptionOrder($userId: UUID!, $podcastId: UUID!, $listOrder: Int!) @auth(level: USER) {
+mutation UpdateSubscriptionOrder($userId: UUID!, $podcastId: UUID!, $listOrder: Int!) @auth(level: USER) @transaction {
+  query @redact {
+    user(id: $userId) {
+      googleId
+    }
+  }
   subscriptionType_update(key: { userId: $userId, podcastId: $podcastId }, data: { listOrder: $listOrder })
 }
 
-mutation UnsubscribeFromPodcast($userId: UUID!, $podcastId: UUID!) @auth(level: USER) {
+mutation UnsubscribeFromPodcast($userId: UUID!, $podcastId: UUID!) @auth(level: USER) @transaction {
+  query @redact {
+    user(id: $userId) {
+      googleId
+    }
+  }
   subscriptionType_delete(key: { userId: $userId, podcastId: $podcastId })
 }
 
-mutation UpdateListenHistory($userId: UUID!, $episodeId: UUID!, $progressSeconds: Int64!, $finishedListening: Boolean!, $listenedAt: Timestamp!) @auth(level: USER) {
+mutation UpdateListenHistory($userId: UUID!, $episodeId: UUID!, $progressSeconds: Int64!, $finishedListening: Boolean!, $listenedAt: Timestamp!) @auth(level: USER) @transaction {
+  query @redact {
+    user(id: $userId) {
+      googleId
+    }
+  }
   listenHistory_upsert(data: {
     userId: $userId,
     episodeId: $episodeId,
@@ -60,4 +90,33 @@ mutation UpdateListenHistory($userId: UUID!, $episodeId: UUID!, $progressSeconds
     finishedListening: $finishedListening,
     listenedAt: $listenedAt
   })
+}
+
+# Utilitaire pour nettoyer les doublons avant de déployer le schéma avec @unique
+# Vous pouvez l'exécuter directement depuis l'extension VS Code (Run Local / Run Production)
+mutation CleanupDuplicates @auth(level: NO_ACCESS) {
+  cleanEpisodes: _execute(sql: """
+    DELETE FROM "episode"
+    WHERE "id" NOT IN (
+        SELECT MIN("id")
+        FROM "episode"
+        GROUP BY "audio_url"
+    )
+  """)
+  cleanPodcasts: _execute(sql: """
+    DELETE FROM "podcast"
+    WHERE "id" NOT IN (
+        SELECT MIN("id")
+        FROM "podcast"
+        GROUP BY "feed_url"
+    )
+  """)
+  cleanUsers: _execute(sql: """
+    DELETE FROM "user"
+    WHERE "id" NOT IN (
+        SELECT MIN("id")
+        FROM "user"
+        GROUP BY "email"
+    )
+  """)
 }

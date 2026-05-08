@@ -81,8 +81,8 @@ val connector: ExampleConnector = ExampleConnector.getInstance(
 
 The `example` Data Connect connector defines
 6 queries and
-7 mutations,
-a total of 13 operations.
+9 mutations,
+a total of 15 operations.
 Each of these operations is exposed
 as a property of [ExampleConnector].
 
@@ -93,8 +93,8 @@ which can be accessed via the [ExampleConnector.findUserByGoogleId] property.
 
 
 An example of the property for a mutation
-is the mutation named "SubscribeToPodcast",
-which can be accessed via the [ExampleConnector.subscribeToPodcast] property.
+is the mutation named "CleanupDuplicates",
+which can be accessed via the [ExampleConnector.cleanupDuplicates] property.
 
 
 ### ExampleConnector - The `dataConnect` Property
@@ -198,6 +198,22 @@ _Required_ variables are specified as arguments to the `execute()` method.
 _Optional_ variables are specified in a Kotlin DSL block as the
 last argument of the `execute()` method.
 
+
+### Executing Mutations with No Variables
+
+If a mutation has no variables then it can be easily executed
+by calling the `execute()` method with no arguments.
+
+For example, the "CleanupDuplicates" mutation has no variables
+and can be executed via the
+[ExampleConnector.cleanupDuplicates]
+property as follows:
+
+```kotlin
+val connector = ExampleConnector.instance
+val mutationResult = connector.cleanupDuplicates.execute()
+println("CleanupDuplicates mutation returned: ${mutationResult.data}")
+```
 
 
 ### Executing Mutations with Required Variables

@@ -143,6 +143,7 @@ class GetLatestSubscribedEpisodesSubscriptionTypesPodcastEpisodesOnPodcast {
   final String audioUrl;
   final Timestamp publishedAt;
   final String? imageUrl;
+  final String? description;
   GetLatestSubscribedEpisodesSubscriptionTypesPodcastEpisodesOnPodcast.fromJson(
       dynamic json)
       : id = nativeFromJson<String>(json['id']),
@@ -151,7 +152,10 @@ class GetLatestSubscribedEpisodesSubscriptionTypesPodcastEpisodesOnPodcast {
         publishedAt = Timestamp.fromJson(json['publishedAt']),
         imageUrl = json['imageUrl'] == null
             ? null
-            : nativeFromJson<String>(json['imageUrl']);
+            : nativeFromJson<String>(json['imageUrl']),
+        description = json['description'] == null
+            ? null
+            : nativeFromJson<String>(json['description']);
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) {
@@ -168,7 +172,8 @@ class GetLatestSubscribedEpisodesSubscriptionTypesPodcastEpisodesOnPodcast {
         title == otherTyped.title &&
         audioUrl == otherTyped.audioUrl &&
         publishedAt == otherTyped.publishedAt &&
-        imageUrl == otherTyped.imageUrl;
+        imageUrl == otherTyped.imageUrl &&
+        description == otherTyped.description;
   }
 
   @override
@@ -177,7 +182,8 @@ class GetLatestSubscribedEpisodesSubscriptionTypesPodcastEpisodesOnPodcast {
         title.hashCode,
         audioUrl.hashCode,
         publishedAt.hashCode,
-        imageUrl.hashCode
+        imageUrl.hashCode,
+        description.hashCode
       ]);
 
   Map<String, dynamic> toJson() {
@@ -189,6 +195,9 @@ class GetLatestSubscribedEpisodesSubscriptionTypesPodcastEpisodesOnPodcast {
     if (imageUrl != null) {
       json['imageUrl'] = nativeToJson<String?>(imageUrl);
     }
+    if (description != null) {
+      json['description'] = nativeToJson<String?>(description);
+    }
     return json;
   }
 
@@ -198,6 +207,7 @@ class GetLatestSubscribedEpisodesSubscriptionTypesPodcastEpisodesOnPodcast {
     required this.audioUrl,
     required this.publishedAt,
     this.imageUrl,
+    this.description,
   });
 }
 

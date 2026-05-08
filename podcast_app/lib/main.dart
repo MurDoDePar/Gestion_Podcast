@@ -55,7 +55,27 @@ class PodStreamApp extends StatelessWidget {
 
         // Si l'utilisateur est connecté
         if (snapshot.hasData) {
-          return const MainScreen();
+          // We add a tiny delay to ensure login_screen has time to display its errors
+          return FutureBuilder(
+            future: Future.delayed(const Duration(seconds: 3)),
+            builder: (context, delaySnapshot) {
+              if (delaySnapshot.connectionState == ConnectionState.waiting) {
+                return const Scaffold(
+                  body: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('Synchronisation du profil...'),
+                      ],
+                    ),
+                  ),
+                );
+              }
+              return const MainScreen();
+            },
+          );
         }
 
         // Sinon, on affiche l'écran de connexion

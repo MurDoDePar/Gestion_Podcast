@@ -1,6 +1,7 @@
 # Basic Usage
 
 ```dart
+ExampleConnector.instance.InsertUser(insertUserVariables).execute();
 ExampleConnector.instance.UpsertUser(upsertUserVariables).execute();
 ExampleConnector.instance.UpsertPodcast(upsertPodcastVariables).execute();
 ExampleConnector.instance.UpsertEpisode(upsertEpisodeVariables).execute();
@@ -8,9 +9,8 @@ ExampleConnector.instance.SubscribeToPodcast(subscribeToPodcastVariables).execut
 ExampleConnector.instance.UpdateSubscriptionOrder(updateSubscriptionOrderVariables).execute();
 ExampleConnector.instance.UnsubscribeFromPodcast(unsubscribeFromPodcastVariables).execute();
 ExampleConnector.instance.UpdateListenHistory(updateListenHistoryVariables).execute();
+ExampleConnector.instance.CleanupDuplicates().execute();
 ExampleConnector.instance.FindUserByGoogleId(findUserByGoogleIdVariables).execute();
-ExampleConnector.instance.GetMySubscriptions(getMySubscriptionsVariables).execute();
-ExampleConnector.instance.GetListenHistory(getListenHistoryVariables).execute();
 
 ```
 

@@ -9,6 +9,9 @@ query FindUserByGoogleId($googleId: String!) @auth(level: USER) {
 
 query GetMySubscriptions($userId: UUID!) @auth(level: USER) {
   subscriptionTypes(where: { userId: { eq: $userId } }) {
+    user @redact {
+      googleId
+    }
     listOrder
     podcast {
       id
@@ -23,6 +26,9 @@ query GetMySubscriptions($userId: UUID!) @auth(level: USER) {
 
 query GetListenHistory($userId: UUID!) @auth(level: USER) {
   listenHistories(where: { userId: { eq: $userId } }) {
+    user @redact {
+      googleId
+    }
     episode {
       id
       audioUrl
@@ -32,7 +38,7 @@ query GetListenHistory($userId: UUID!) @auth(level: USER) {
   }
 }
 
-query GetRecommendations($feedUrl: String!) @auth(level: USER) {
+query GetRecommendations($feedUrl: String!) @auth(level: PUBLIC, insecureReason: "Recommendations are public anonymous data") {
   subscriptionTypes(where: { podcast: { feedUrl: { eq: $feedUrl } } }) {
     user {
       subscriptionTypes_on_user {
@@ -48,8 +54,8 @@ query GetRecommendations($feedUrl: String!) @auth(level: USER) {
     }
   }
 }
-
-query GetEpisodesByPodcast($podcastId: UUID!) @auth(level: USER) {
+ 
+query GetEpisodesByPodcast($podcastId: UUID!) @auth(level: PUBLIC, insecureReason: "Episodes are public data") {
   episodes(where: { podcastId: { eq: $podcastId } }, orderBy: { publishedAt: DESC }) {
     id
     title
@@ -63,6 +69,9 @@ query GetEpisodesByPodcast($podcastId: UUID!) @auth(level: USER) {
 
 query GetLatestSubscribedEpisodes($userId: UUID!) @auth(level: USER) {
   subscriptionTypes(where: { userId: { eq: $userId } }) {
+    user @redact {
+      googleId
+    }
     listOrder
     podcast {
       id
@@ -74,6 +83,7 @@ query GetLatestSubscribedEpisodes($userId: UUID!) @auth(level: USER) {
         audioUrl
         publishedAt
         imageUrl
+        description
       }
     }
   }

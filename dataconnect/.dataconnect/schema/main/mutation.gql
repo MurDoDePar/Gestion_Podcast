@@ -1,0 +1,542 @@
+extend type Mutation {
+  """
+  ✨ Insert a single `Episode` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  episode_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: Episode_Data!
+  ): Episode_KeyOutput! @fdc_generated(from: "Episode", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert a single `ListenHistory` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  listenHistory_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: ListenHistory_Data!
+  ): ListenHistory_KeyOutput! @fdc_generated(from: "ListenHistory", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert a single `Podcast` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  podcast_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: Podcast_Data!
+  ): Podcast_KeyOutput! @fdc_generated(from: "Podcast", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert a single `SubscriptionType` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  subscriptionType_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: SubscriptionType_Data!
+  ): SubscriptionType_KeyOutput! @fdc_generated(from: "SubscriptionType", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert a single `User` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  user_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: User_Data!
+  ): User_KeyOutput! @fdc_generated(from: "User", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert `Episode` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  episode_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [Episode_Data!]!
+  ): [Episode_KeyOutput!]! @fdc_generated(from: "Episode", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert `ListenHistory` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  listenHistory_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [ListenHistory_Data!]!
+  ): [ListenHistory_KeyOutput!]! @fdc_generated(from: "ListenHistory", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert `Podcast` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  podcast_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [Podcast_Data!]!
+  ): [Podcast_KeyOutput!]! @fdc_generated(from: "Podcast", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert `SubscriptionType` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  subscriptionType_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [SubscriptionType_Data!]!
+  ): [SubscriptionType_KeyOutput!]! @fdc_generated(from: "SubscriptionType", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert `User` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  user_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [User_Data!]!
+  ): [User_KeyOutput!]! @fdc_generated(from: "User", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert or update a single `Episode` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Episode`.
+  """
+  episode_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: Episode_Data!
+  ): Episode_KeyOutput! @fdc_generated(from: "Episode", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update a single `ListenHistory` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `ListenHistory`.
+  """
+  listenHistory_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: ListenHistory_Data!
+  ): ListenHistory_KeyOutput! @fdc_generated(from: "ListenHistory", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update a single `Podcast` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Podcast`.
+  """
+  podcast_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: Podcast_Data!
+  ): Podcast_KeyOutput! @fdc_generated(from: "Podcast", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update a single `SubscriptionType` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `SubscriptionType`.
+  """
+  subscriptionType_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: SubscriptionType_Data!
+  ): SubscriptionType_KeyOutput! @fdc_generated(from: "SubscriptionType", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update a single `User` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `User`.
+  """
+  user_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: User_Data!
+  ): User_KeyOutput! @fdc_generated(from: "User", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update `Episode` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Episode`.
+  """
+  episode_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [Episode_Data!]!
+  ): [Episode_KeyOutput!]! @fdc_generated(from: "Episode", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Insert or update `ListenHistory` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `ListenHistory`.
+  """
+  listenHistory_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [ListenHistory_Data!]!
+  ): [ListenHistory_KeyOutput!]! @fdc_generated(from: "ListenHistory", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Insert or update `Podcast` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Podcast`.
+  """
+  podcast_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [Podcast_Data!]!
+  ): [Podcast_KeyOutput!]! @fdc_generated(from: "Podcast", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Insert or update `SubscriptionType` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `SubscriptionType`.
+  """
+  subscriptionType_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [SubscriptionType_Data!]!
+  ): [SubscriptionType_KeyOutput!]! @fdc_generated(from: "SubscriptionType", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Insert or update `User` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `User`.
+  """
+  user_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [User_Data!]!
+  ): [User_KeyOutput!]! @fdc_generated(from: "User", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Update a single `Episode` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `Episode` or `null` if not found.
+  """
+  episode_update(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Episode_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Episode_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: Episode_Data!
+  ): Episode_KeyOutput @fdc_generated(from: "Episode", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update a single `ListenHistory` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `ListenHistory` or `null` if not found.
+  """
+  listenHistory_update(
+    """
+    The key used to identify the object.
+    """
+    key: ListenHistory_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: ListenHistory_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: ListenHistory_Data!
+  ): ListenHistory_KeyOutput @fdc_generated(from: "ListenHistory", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update a single `Podcast` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `Podcast` or `null` if not found.
+  """
+  podcast_update(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Podcast_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Podcast_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: Podcast_Data!
+  ): Podcast_KeyOutput @fdc_generated(from: "Podcast", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update a single `SubscriptionType` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `SubscriptionType` or `null` if not found.
+  """
+  subscriptionType_update(
+    """
+    The key used to identify the object.
+    """
+    key: SubscriptionType_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: SubscriptionType_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: SubscriptionType_Data!
+  ): SubscriptionType_KeyOutput @fdc_generated(from: "SubscriptionType", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update a single `User` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `User` or `null` if not found.
+  """
+  user_update(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: User_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: User_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: User_Data!
+  ): User_KeyOutput @fdc_generated(from: "User", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update `Episode` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  episode_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: Episode_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: Episode_Data!
+  ): Int! @fdc_generated(from: "Episode", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Update `ListenHistory` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  listenHistory_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: ListenHistory_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: ListenHistory_Data!
+  ): Int! @fdc_generated(from: "ListenHistory", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Update `Podcast` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  podcast_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: Podcast_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: Podcast_Data!
+  ): Int! @fdc_generated(from: "Podcast", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Update `SubscriptionType` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  subscriptionType_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: SubscriptionType_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: SubscriptionType_Data!
+  ): Int! @fdc_generated(from: "SubscriptionType", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Update `User` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  user_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: User_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: User_Data!
+  ): Int! @fdc_generated(from: "User", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Delete a single `Episode` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  episode_delete(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Episode_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Episode_FirstRow
+  ): Episode_KeyOutput @fdc_generated(from: "Episode", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete a single `ListenHistory` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  listenHistory_delete(
+    """
+    The key used to identify the object.
+    """
+    key: ListenHistory_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: ListenHistory_FirstRow
+  ): ListenHistory_KeyOutput @fdc_generated(from: "ListenHistory", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete a single `Podcast` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  podcast_delete(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Podcast_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Podcast_FirstRow
+  ): Podcast_KeyOutput @fdc_generated(from: "Podcast", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete a single `SubscriptionType` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  subscriptionType_delete(
+    """
+    The key used to identify the object.
+    """
+    key: SubscriptionType_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: SubscriptionType_FirstRow
+  ): SubscriptionType_KeyOutput @fdc_generated(from: "SubscriptionType", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete a single `User` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  user_delete(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: User_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: User_FirstRow
+  ): User_KeyOutput @fdc_generated(from: "User", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete `Episode` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  episode_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: Episode_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "Episode", purpose: DELETE_MULTIPLE)
+  """
+  ✨ Delete `ListenHistory` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  listenHistory_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: ListenHistory_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "ListenHistory", purpose: DELETE_MULTIPLE)
+  """
+  ✨ Delete `Podcast` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  podcast_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: Podcast_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "Podcast", purpose: DELETE_MULTIPLE)
+  """
+  ✨ Delete `SubscriptionType` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  subscriptionType_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: SubscriptionType_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "SubscriptionType", purpose: DELETE_MULTIPLE)
+  """
+  ✨ Delete `User` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  user_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: User_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "User", purpose: DELETE_MULTIPLE)
+}

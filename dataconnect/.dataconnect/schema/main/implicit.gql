@@ -1,0 +1,42 @@
+extend type Episode {
+  """
+  ✨ Implicit primary key field. It's a UUID column default to a generated new value. See `@table` for how to customize it.
+  """
+  id: UUID! @default(expr: "uuidV4()") @fdc_generated(from: "Episode", purpose: IMPLICIT_KEY_FIELD)
+  """
+  ✨ Implicit foreign key field based on `Episode`.`podcast`. It must match the value of `Podcast`.`id`. See `@ref` for how to customize it.
+  """
+  podcastId: UUID @fdc_generated(from: "Episode.podcast", purpose: IMPLICIT_REF_FIELD)
+}
+extend type ListenHistory {
+  """
+  ✨ Implicit foreign key field based on `ListenHistory`.`user`. It must match the value of `User`.`id`. See `@ref` for how to customize it.
+  """
+  userId: UUID! @fdc_generated(from: "ListenHistory.user", purpose: IMPLICIT_REF_FIELD)
+  """
+  ✨ Implicit foreign key field based on `ListenHistory`.`episode`. It must match the value of `Episode`.`id`. See `@ref` for how to customize it.
+  """
+  episodeId: UUID! @fdc_generated(from: "ListenHistory.episode", purpose: IMPLICIT_REF_FIELD)
+}
+extend type Podcast {
+  """
+  ✨ Implicit primary key field. It's a UUID column default to a generated new value. See `@table` for how to customize it.
+  """
+  id: UUID! @default(expr: "uuidV4()") @fdc_generated(from: "Podcast", purpose: IMPLICIT_KEY_FIELD)
+}
+extend type SubscriptionType {
+  """
+  ✨ Implicit foreign key field based on `SubscriptionType`.`user`. It must match the value of `User`.`id`. See `@ref` for how to customize it.
+  """
+  userId: UUID! @fdc_generated(from: "SubscriptionType.user", purpose: IMPLICIT_REF_FIELD)
+  """
+  ✨ Implicit foreign key field based on `SubscriptionType`.`podcast`. It must match the value of `Podcast`.`id`. See `@ref` for how to customize it.
+  """
+  podcastId: UUID! @fdc_generated(from: "SubscriptionType.podcast", purpose: IMPLICIT_REF_FIELD)
+}
+extend type User {
+  """
+  ✨ Implicit primary key field. It's a UUID column default to a generated new value. See `@table` for how to customize it.
+  """
+  id: UUID! @default(expr: "uuidV4()") @fdc_generated(from: "User", purpose: IMPLICIT_KEY_FIELD)
+}

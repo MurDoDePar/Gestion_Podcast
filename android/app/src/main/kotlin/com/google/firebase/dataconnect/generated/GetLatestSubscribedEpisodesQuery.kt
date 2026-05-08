@@ -69,7 +69,8 @@ public interface GetLatestSubscribedEpisodesQuery :
     val title: String,
     val audioUrl: String,
     val publishedAt: @kotlinx.serialization.Serializable(with = com.google.firebase.dataconnect.serializers.TimestampSerializer::class) com.google.firebase.Timestamp,
-    val imageUrl: String?
+    val imageUrl: String?,
+    val description: String?
   ) {
     
     

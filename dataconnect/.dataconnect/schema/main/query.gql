@@ -1,0 +1,257 @@
+extend type Query {
+  """
+  ✨ Look up a single `Episode` based on `id`, `key` or `first` and return selected fields (or `null` if not found).
+  """
+  episode(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Episode_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Episode_FirstRow
+  ): Episode @fdc_generated(from: "Episode", purpose: QUERY_SINGLE)
+  """
+  ✨ Look up a single `ListenHistory` based on `id`, `key` or `first` and return selected fields (or `null` if not found).
+  """
+  listenHistory(
+    """
+    The key used to identify the object.
+    """
+    key: ListenHistory_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: ListenHistory_FirstRow
+  ): ListenHistory @fdc_generated(from: "ListenHistory", purpose: QUERY_SINGLE)
+  """
+  ✨ Look up a single `Podcast` based on `id`, `key` or `first` and return selected fields (or `null` if not found).
+  """
+  podcast(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Podcast_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Podcast_FirstRow
+  ): Podcast @fdc_generated(from: "Podcast", purpose: QUERY_SINGLE)
+  """
+  ✨ Look up a single `SubscriptionType` based on `id`, `key` or `first` and return selected fields (or `null` if not found).
+  """
+  subscriptionType(
+    """
+    The key used to identify the object.
+    """
+    key: SubscriptionType_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: SubscriptionType_FirstRow
+  ): SubscriptionType @fdc_generated(from: "SubscriptionType", purpose: QUERY_SINGLE)
+  """
+  ✨ Look up a single `User` based on `id`, `key` or `first` and return selected fields (or `null` if not found).
+  """
+  user(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: User_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: User_FirstRow
+  ): User @fdc_generated(from: "User", purpose: QUERY_SINGLE)
+  """
+  ✨ List `Episode` objects in the table and return selected fields, optionally filtered by `where` conditions
+  """
+  episodes(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: Episode_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [Episode_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: Episode_Having
+  ): [Episode!]! @fdc_generated(from: "Episode", purpose: QUERY_MULTIPLE)
+  """
+  ✨ List `ListenHistory` objects in the table and return selected fields, optionally filtered by `where` conditions
+  """
+  listenHistories(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: ListenHistory_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [ListenHistory_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: ListenHistory_Having
+  ): [ListenHistory!]! @fdc_generated(from: "ListenHistory", purpose: QUERY_MULTIPLE)
+  """
+  ✨ List `Podcast` objects in the table and return selected fields, optionally filtered by `where` conditions
+  """
+  podcasts(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: Podcast_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [Podcast_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: Podcast_Having
+  ): [Podcast!]! @fdc_generated(from: "Podcast", purpose: QUERY_MULTIPLE)
+  """
+  ✨ List `SubscriptionType` objects in the table and return selected fields, optionally filtered by `where` conditions
+  """
+  subscriptionTypes(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: SubscriptionType_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [SubscriptionType_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: SubscriptionType_Having
+  ): [SubscriptionType!]! @fdc_generated(from: "SubscriptionType", purpose: QUERY_MULTIPLE)
+  """
+  ✨ List `User` objects in the table and return selected fields, optionally filtered by `where` conditions
+  """
+  users(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: User_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [User_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: User_Having
+  ): [User!]! @fdc_generated(from: "User", purpose: QUERY_MULTIPLE)
+}

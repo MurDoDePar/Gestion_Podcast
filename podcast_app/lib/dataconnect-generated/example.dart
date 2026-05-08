@@ -4,6 +4,8 @@ import 'package:firebase_data_connect/firebase_data_connect.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
 
+part 'insert_user.dart';
+
 part 'upsert_user.dart';
 
 part 'upsert_podcast.dart';
@@ -17,6 +19,8 @@ part 'update_subscription_order.dart';
 part 'unsubscribe_from_podcast.dart';
 
 part 'update_listen_history.dart';
+
+part 'cleanup_duplicates.dart';
 
 part 'find_user_by_google_id.dart';
 
@@ -39,13 +43,28 @@ BigInt bigIntFromJson(dynamic value) {
 }
 
 class ExampleConnector {
+  InsertUserVariablesBuilder insertUser({
+    required String googleId,
+    required String displayName,
+    required Timestamp createdAt,
+  }) {
+    return InsertUserVariablesBuilder(
+      dataConnect,
+      googleId: googleId,
+      displayName: displayName,
+      createdAt: createdAt,
+    );
+  }
+
   UpsertUserVariablesBuilder upsertUser({
+    required String id,
     required String googleId,
     required String displayName,
     required Timestamp createdAt,
   }) {
     return UpsertUserVariablesBuilder(
       dataConnect,
+      id: id,
       googleId: googleId,
       displayName: displayName,
       createdAt: createdAt,
@@ -133,6 +152,12 @@ class ExampleConnector {
       progressSeconds: progressSeconds,
       finishedListening: finishedListening,
       listenedAt: listenedAt,
+    );
+  }
+
+  CleanupDuplicatesVariablesBuilder cleanupDuplicates() {
+    return CleanupDuplicatesVariablesBuilder(
+      dataConnect,
     );
   }
 

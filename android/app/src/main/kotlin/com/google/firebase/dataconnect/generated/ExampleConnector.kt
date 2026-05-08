@@ -20,6 +20,8 @@ public interface ExampleConnector : com.google.firebase.dataconnect.generated.Ge
   override val dataConnect: com.google.firebase.dataconnect.FirebaseDataConnect
 
   
+    public val cleanupDuplicates: CleanupDuplicatesMutation
+  
     public val findUserByGoogleId: FindUserByGoogleIdQuery
   
     public val getEpisodesByPodcast: GetEpisodesByPodcastQuery
@@ -31,6 +33,8 @@ public interface ExampleConnector : com.google.firebase.dataconnect.generated.Ge
     public val getMySubscriptions: GetMySubscriptionsQuery
   
     public val getRecommendations: GetRecommendationsQuery
+  
+    public val insertUser: InsertUserMutation
   
     public val subscribeToPodcast: SubscribeToPodcastMutation
   
@@ -100,6 +104,10 @@ private class ExampleConnectorImpl(
   override val dataConnect: com.google.firebase.dataconnect.FirebaseDataConnect
 ) : ExampleConnector {
   
+    override val cleanupDuplicates by lazy(LazyThreadSafetyMode.PUBLICATION) {
+      CleanupDuplicatesMutationImpl(this)
+    }
+  
     override val findUserByGoogleId by lazy(LazyThreadSafetyMode.PUBLICATION) {
       FindUserByGoogleIdQueryImpl(this)
     }
@@ -122,6 +130,10 @@ private class ExampleConnectorImpl(
   
     override val getRecommendations by lazy(LazyThreadSafetyMode.PUBLICATION) {
       GetRecommendationsQueryImpl(this)
+    }
+  
+    override val insertUser by lazy(LazyThreadSafetyMode.PUBLICATION) {
+      InsertUserMutationImpl(this)
     }
   
     override val subscribeToPodcast by lazy(LazyThreadSafetyMode.PUBLICATION) {
@@ -160,7 +172,9 @@ private class ExampleConnectorImpl(
   @com.google.firebase.dataconnect.ExperimentalFirebaseDataConnect
   override fun mutations(): List<com.google.firebase.dataconnect.generated.GeneratedMutation<ExampleConnector, *, *>> =
     listOf(
-      subscribeToPodcast,
+      cleanupDuplicates,
+        insertUser,
+        subscribeToPodcast,
         unsubscribeFromPodcast,
         updateListenHistory,
         updateSubscriptionOrder,
@@ -314,6 +328,21 @@ private open class ExampleConnectorGeneratedMutationImpl<Data, Variables>(
 
 
 
+private class CleanupDuplicatesMutationImpl(
+  connector: ExampleConnector
+):
+  CleanupDuplicatesMutation,
+  ExampleConnectorGeneratedMutationImpl<
+      CleanupDuplicatesMutation.Data,
+      Unit
+  >(
+    connector,
+    CleanupDuplicatesMutation.Companion.operationName,
+    CleanupDuplicatesMutation.Companion.dataDeserializer,
+    CleanupDuplicatesMutation.Companion.variablesSerializer,
+  )
+
+
 private class FindUserByGoogleIdQueryImpl(
   connector: ExampleConnector
 ):
@@ -401,6 +430,21 @@ private class GetRecommendationsQueryImpl(
     GetRecommendationsQuery.Companion.operationName,
     GetRecommendationsQuery.Companion.dataDeserializer,
     GetRecommendationsQuery.Companion.variablesSerializer,
+  )
+
+
+private class InsertUserMutationImpl(
+  connector: ExampleConnector
+):
+  InsertUserMutation,
+  ExampleConnectorGeneratedMutationImpl<
+      InsertUserMutation.Data,
+      InsertUserMutation.Variables
+  >(
+    connector,
+    InsertUserMutation.Companion.operationName,
+    InsertUserMutation.Companion.dataDeserializer,
+    InsertUserMutation.Companion.variablesSerializer,
   )
 
 

@@ -26,7 +26,7 @@ public interface UpsertUserMutation :
     @kotlinx.serialization.Serializable
   public data class Variables(
   
-    val id: com.google.firebase.dataconnect.OptionalVariable<@kotlinx.serialization.Serializable(with = com.google.firebase.dataconnect.serializers.UUIDSerializer::class) java.util.UUID?>,
+    val id: @kotlinx.serialization.Serializable(with = com.google.firebase.dataconnect.serializers.UUIDSerializer::class) java.util.UUID,
     val googleId: String,
     val displayName: String,
     val email: com.google.firebase.dataconnect.OptionalVariable<String?>,
@@ -40,7 +40,7 @@ public interface UpsertUserMutation :
 
       @BuilderDsl
       public interface Builder {
-        public var id: java.util.UUID?
+        public var id: java.util.UUID
         public var googleId: String
         public var displayName: String
         public var email: String?
@@ -52,11 +52,10 @@ public interface UpsertUserMutation :
       public companion object {
         @Suppress("NAME_SHADOWING")
         public fun build(
-          googleId: String,displayName: String,createdAt: com.google.firebase.Timestamp,
+          id: java.util.UUID,googleId: String,displayName: String,createdAt: com.google.firebase.Timestamp,
           block_: Builder.() -> Unit
         ): Variables {
-          var id: com.google.firebase.dataconnect.OptionalVariable<java.util.UUID?> =
-                com.google.firebase.dataconnect.OptionalVariable.Undefined
+          var id= id
             var googleId= googleId
             var displayName= displayName
             var email: com.google.firebase.dataconnect.OptionalVariable<String?> =
@@ -67,9 +66,9 @@ public interface UpsertUserMutation :
             
 
           return object : Builder {
-            override var id: java.util.UUID?
+            override var id: java.util.UUID
               get() = throw UnsupportedOperationException("getting builder values is not supported")
-              set(value_) { id = com.google.firebase.dataconnect.OptionalVariable.Value(value_) }
+              set(value_) { id = value_ }
               
             override var googleId: String
               get() = throw UnsupportedOperationException("getting builder values is not supported")
@@ -128,7 +127,7 @@ public interface UpsertUserMutation :
 
 public fun UpsertUserMutation.ref(
   
-    googleId: String,displayName: String,createdAt: com.google.firebase.Timestamp,
+    id: java.util.UUID,googleId: String,displayName: String,createdAt: com.google.firebase.Timestamp,
 
   
     block_: UpsertUserMutation.Variables.Builder.() -> Unit = {}
@@ -140,7 +139,7 @@ public fun UpsertUserMutation.ref(
   ref(
     
       UpsertUserMutation.Variables.build(
-        googleId=googleId,displayName=displayName,createdAt=createdAt,
+        id=id,googleId=googleId,displayName=displayName,createdAt=createdAt,
   
     block_
       )
@@ -151,7 +150,7 @@ public suspend fun UpsertUserMutation.execute(
 
   
     
-      googleId: String,displayName: String,createdAt: com.google.firebase.Timestamp,
+      id: java.util.UUID,googleId: String,displayName: String,createdAt: com.google.firebase.Timestamp,
 
   
     block_: UpsertUserMutation.Variables.Builder.() -> Unit = {}
@@ -162,7 +161,7 @@ public suspend fun UpsertUserMutation.execute(
   > =
   ref(
     
-      googleId=googleId,displayName=displayName,createdAt=createdAt,
+      id=id,googleId=googleId,displayName=displayName,createdAt=createdAt,
   
     block_
     

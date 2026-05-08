@@ -15,6 +15,7 @@ This README will guide you through the process of using the generated JavaScript
   - [*GetEpisodesByPodcast*](#getepisodesbypodcast)
   - [*GetLatestSubscribedEpisodes*](#getlatestsubscribedepisodes)
 - [**Mutations**](#mutations)
+  - [*InsertUser*](#insertuser)
   - [*UpsertUser*](#upsertuser)
   - [*UpsertPodcast*](#upsertpodcast)
   - [*UpsertEpisode*](#upsertepisode)
@@ -22,6 +23,7 @@ This README will guide you through the process of using the generated JavaScript
   - [*UpdateSubscriptionOrder*](#updatesubscriptionorder)
   - [*UnsubscribeFromPodcast*](#unsubscribefrompodcast)
   - [*UpdateListenHistory*](#updatelistenhistory)
+  - [*CleanupDuplicates*](#cleanupduplicates)
 
 # Accessing the connector
 A connector is a collection of Queries and Mutations. One SDK is generated for each connector - this SDK is generated for the connector `example`. You can find more information about connectors in the [Data Connect documentation](https://firebase.google.com/docs/data-connect#how-does).
@@ -711,6 +713,7 @@ export interface GetLatestSubscribedEpisodesData {
         audioUrl: string;
         publishedAt: TimestampString;
         imageUrl?: string | null;
+        description?: string | null;
       } & Episode_Key)[];
     } & Podcast_Key;
   })[];
@@ -794,6 +797,127 @@ The following is true for both the action shortcut function and the `MutationRef
 
 Below are examples of how to use the `example` connector's generated functions to execute each mutation. You can also follow the examples from the [Data Connect documentation](https://firebase.google.com/docs/data-connect/web-sdk#using-mutations).
 
+## InsertUser
+You can execute the `InsertUser` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+insertUser(vars: InsertUserVariables): MutationPromise<InsertUserData, InsertUserVariables>;
+
+interface InsertUserRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: InsertUserVariables): MutationRef<InsertUserData, InsertUserVariables>;
+}
+export const insertUserRef: InsertUserRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+insertUser(dc: DataConnect, vars: InsertUserVariables): MutationPromise<InsertUserData, InsertUserVariables>;
+
+interface InsertUserRef {
+  ...
+  (dc: DataConnect, vars: InsertUserVariables): MutationRef<InsertUserData, InsertUserVariables>;
+}
+export const insertUserRef: InsertUserRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the insertUserRef:
+```typescript
+const name = insertUserRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `InsertUser` mutation requires an argument of type `InsertUserVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface InsertUserVariables {
+  googleId: string;
+  displayName: string;
+  email?: string | null;
+  photoUrl?: string | null;
+  createdAt: TimestampString;
+}
+```
+### Return Type
+Recall that executing the `InsertUser` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `InsertUserData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface InsertUserData {
+  user_insert: User_Key;
+}
+```
+### Using `InsertUser`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, insertUser, InsertUserVariables } from '@dataconnect/generated';
+
+// The `InsertUser` mutation requires an argument of type `InsertUserVariables`:
+const insertUserVars: InsertUserVariables = {
+  googleId: ..., 
+  displayName: ..., 
+  email: ..., // optional
+  photoUrl: ..., // optional
+  createdAt: ..., 
+};
+
+// Call the `insertUser()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await insertUser(insertUserVars);
+// Variables can be defined inline as well.
+const { data } = await insertUser({ googleId: ..., displayName: ..., email: ..., photoUrl: ..., createdAt: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await insertUser(dataConnect, insertUserVars);
+
+console.log(data.user_insert);
+
+// Or, you can use the `Promise` API.
+insertUser(insertUserVars).then((response) => {
+  const data = response.data;
+  console.log(data.user_insert);
+});
+```
+
+### Using `InsertUser`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, insertUserRef, InsertUserVariables } from '@dataconnect/generated';
+
+// The `InsertUser` mutation requires an argument of type `InsertUserVariables`:
+const insertUserVars: InsertUserVariables = {
+  googleId: ..., 
+  displayName: ..., 
+  email: ..., // optional
+  photoUrl: ..., // optional
+  createdAt: ..., 
+};
+
+// Call the `insertUserRef()` function to get a reference to the mutation.
+const ref = insertUserRef(insertUserVars);
+// Variables can be defined inline as well.
+const ref = insertUserRef({ googleId: ..., displayName: ..., email: ..., photoUrl: ..., createdAt: ..., });
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = insertUserRef(dataConnect, insertUserVars);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.user_insert);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.user_insert);
+});
+```
+
 ## UpsertUser
 You can execute the `UpsertUser` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
 ```typescript
@@ -828,7 +952,7 @@ The `UpsertUser` mutation requires an argument of type `UpsertUserVariables`, wh
 
 ```typescript
 export interface UpsertUserVariables {
-  id?: UUIDString | null;
+  id: UUIDString;
   googleId: string;
   displayName: string;
   email?: string | null;
@@ -853,7 +977,7 @@ import { connectorConfig, upsertUser, UpsertUserVariables } from '@dataconnect/g
 
 // The `UpsertUser` mutation requires an argument of type `UpsertUserVariables`:
 const upsertUserVars: UpsertUserVariables = {
-  id: ..., // optional
+  id: ..., 
   googleId: ..., 
   displayName: ..., 
   email: ..., // optional
@@ -888,7 +1012,7 @@ import { connectorConfig, upsertUserRef, UpsertUserVariables } from '@dataconnec
 
 // The `UpsertUser` mutation requires an argument of type `UpsertUserVariables`:
 const upsertUserVars: UpsertUserVariables = {
-  id: ..., // optional
+  id: ..., 
   googleId: ..., 
   displayName: ..., 
   email: ..., // optional
@@ -1641,6 +1765,107 @@ console.log(data.listenHistory_upsert);
 executeMutation(ref).then((response) => {
   const data = response.data;
   console.log(data.listenHistory_upsert);
+});
+```
+
+## CleanupDuplicates
+You can execute the `CleanupDuplicates` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+cleanupDuplicates(): MutationPromise<CleanupDuplicatesData, undefined>;
+
+interface CleanupDuplicatesRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (): MutationRef<CleanupDuplicatesData, undefined>;
+}
+export const cleanupDuplicatesRef: CleanupDuplicatesRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+cleanupDuplicates(dc: DataConnect): MutationPromise<CleanupDuplicatesData, undefined>;
+
+interface CleanupDuplicatesRef {
+  ...
+  (dc: DataConnect): MutationRef<CleanupDuplicatesData, undefined>;
+}
+export const cleanupDuplicatesRef: CleanupDuplicatesRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the cleanupDuplicatesRef:
+```typescript
+const name = cleanupDuplicatesRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `CleanupDuplicates` mutation has no variables.
+### Return Type
+Recall that executing the `CleanupDuplicates` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `CleanupDuplicatesData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface CleanupDuplicatesData {
+  cleanEpisodes?: number | null;
+  cleanPodcasts?: number | null;
+  cleanUsers?: number | null;
+}
+```
+### Using `CleanupDuplicates`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, cleanupDuplicates } from '@dataconnect/generated';
+
+
+// Call the `cleanupDuplicates()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await cleanupDuplicates();
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await cleanupDuplicates(dataConnect);
+
+console.log(data.cleanEpisodes);
+console.log(data.cleanPodcasts);
+console.log(data.cleanUsers);
+
+// Or, you can use the `Promise` API.
+cleanupDuplicates().then((response) => {
+  const data = response.data;
+  console.log(data.cleanEpisodes);
+  console.log(data.cleanPodcasts);
+  console.log(data.cleanUsers);
+});
+```
+
+### Using `CleanupDuplicates`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, cleanupDuplicatesRef } from '@dataconnect/generated';
+
+
+// Call the `cleanupDuplicatesRef()` function to get a reference to the mutation.
+const ref = cleanupDuplicatesRef();
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = cleanupDuplicatesRef(dataConnect);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.cleanEpisodes);
+console.log(data.cleanPodcasts);
+console.log(data.cleanUsers);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.cleanEpisodes);
+  console.log(data.cleanPodcasts);
+  console.log(data.cleanUsers);
 });
 ```
 

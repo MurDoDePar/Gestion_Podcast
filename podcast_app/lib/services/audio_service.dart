@@ -182,7 +182,7 @@ class AudioService {
                     BigInt.from(totalDurationNotifier.value.inSeconds),
                 finishedListening: true,
                 listenedAt:
-                    Timestamp(DateTime.now().millisecondsSinceEpoch ~/ 1000, 0),
+                    Timestamp(0, DateTime.now().millisecondsSinceEpoch ~/ 1000),
               )
               .execute();
         }

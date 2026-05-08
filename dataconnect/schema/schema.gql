@@ -2,13 +2,13 @@ type User @table {
   googleId: String!
   displayName: String!
   createdAt: Timestamp!
-  email: String
+  email: String @unique
   photoUrl: String
 }
 
 type Podcast @table {
   title: String!
-  feedUrl: String!
+  feedUrl: String! @unique
   createdAt: Timestamp!
   description: String
   imageUrl: String
@@ -19,7 +19,7 @@ type Podcast @table {
 type Episode @table {
   podcast: Podcast
   title: String!
-  audioUrl: String!
+  audioUrl: String! @unique
   publishedAt: Timestamp!
   duration: Int64!
   description: String
