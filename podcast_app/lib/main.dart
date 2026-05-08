@@ -5,6 +5,12 @@ import 'theme/app_theme.dart';
 import 'screens/main_screen.dart';
 import 'screens/login_screen.dart';
 
+import 'package:audio_service/audio_service.dart';
+import 'services/podstream_audio_handler.dart';
+
+// Variable globale pour l'AudioHandler
+late PodStreamAudioHandler audioHandler;
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -13,6 +19,16 @@ void main() async {
   } catch (e) {
     debugPrint('Erreur initialisation Firebase: $e');
   }
+
+  audioHandler = await AudioService.init(
+    builder: () => PodStreamAudioHandler(),
+    config: const AudioServiceConfig(
+      androidNotificationChannelId: 'com.PodStream.channel.audio',
+      androidNotificationChannelName: 'Lecture de Podcast',
+      androidNotificationOngoing: true,
+      androidStopForegroundOnPause: true,
+    ),
+  );
 
   runApp(const PodStreamApp());
 }

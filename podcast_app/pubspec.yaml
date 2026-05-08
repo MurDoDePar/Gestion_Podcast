@@ -45,6 +45,7 @@ dependencies:
   xml: ^6.3.0
   package_info_plus: ^4.0.2
   flutter_html: ^3.0.0-beta.2
+  audio_service: ^0.18.17
 
 dev_dependencies:
   flutter_test:

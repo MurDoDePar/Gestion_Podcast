@@ -1,9 +1,9 @@
 import 'package:flutter/foundation.dart';
-import 'package:just_audio/just_audio.dart';
-import 'package:audio_session/audio_session.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_data_connect/firebase_data_connect.dart';
+import 'package:audio_service/audio_service.dart';
 import '../dataconnect-generated/example.dart';
+import '../main.dart'; // Pour accéder à audioHandler
 
 class AudioEpisode {
   final String id;
@@ -29,8 +29,6 @@ class AudioService {
     _init();
   }
 
-  final AudioPlayer _player = AudioPlayer();
-
   // State Notifiers for UI
   final ValueNotifier<AudioEpisode?> currentEpisodeNotifier =
       ValueNotifier(null);
@@ -43,30 +41,33 @@ class AudioService {
   int currentPlaylistIndex = -1;
 
   Future<void> _init() async {
-    // Configuration de la session audio (comportement avec d'autres apps, appels, etc.)
-    final session = await AudioSession.instance;
-    await session.configure(const AudioSessionConfiguration.speech());
-
-    // Écoute de l'état de lecture
-    _player.playerStateStream.listen((state) {
+    // Écoute de l'état de lecture depuis audioHandler
+    audioHandler.playbackState.listen((state) {
       final isPlaying = state.playing;
       final processingState = state.processingState;
 
-      if (processingState == ProcessingState.completed) {
+      if (processingState == AudioProcessingState.completed) {
         playNextEpisode();
       } else {
         isPlayingNotifier.value = isPlaying;
       }
+
+      // Update progressNotifier regularly or just listen to position
+      progressNotifier.value = state.position;
     });
 
-    // Écoute de la position courante
-    _player.positionStream.listen((position) {
-      progressNotifier.value = position;
-    });
-
-    // Écoute de la durée totale
-    _player.durationStream.listen((duration) {
-      totalDurationNotifier.value = duration ?? Duration.zero;
+    // Update current episode from mediaItem
+    audioHandler.mediaItem.listen((item) {
+      if (item != null) {
+        currentEpisodeNotifier.value = AudioEpisode(
+          id: item.id,
+          title: item.title,
+          podcastName: item.artist ?? '',
+          imageUrl: item.artUri?.toString(),
+          audioUrl: item.id, // Assuming URL is used as ID
+        );
+        totalDurationNotifier.value = item.duration ?? Duration.zero;
+      }
     });
   }
 
@@ -77,7 +78,7 @@ class AudioService {
       await playEpisode(nextEpisode, playlist: currentPlaylist);
     } else {
       isPlayingNotifier.value = false;
-      await _player.stop();
+      await audioHandler.stop();
     }
   }
 
@@ -97,12 +98,11 @@ class AudioService {
       currentPlaylistIndex = 0;
     }
 
-    // Si c'est le même épisode, on fait juste Play/Pause
     if (currentEpisodeNotifier.value?.audioUrl == episode.audioUrl) {
-      if (_player.playing) {
-        await _player.pause();
+      if (isPlayingNotifier.value) {
+        await audioHandler.pause();
       } else {
-        await _player.play();
+        await audioHandler.play();
       }
       return;
     }
@@ -112,11 +112,25 @@ class AudioService {
     isPlayingNotifier.value = true; // Optimistic UI
 
     try {
-      if (_player.playing) {
-        await _player.stop();
-      }
-      await _player.setUrl(episode.audioUrl);
-      await _player.play();
+      final mediaItem = MediaItem(
+        id: episode.audioUrl,
+        title: episode.title,
+        artist: episode.podcastName,
+        artUri: episode.imageUrl != null ? Uri.parse(episode.imageUrl!) : null,
+      );
+
+      await audioHandler.playMediaItem(mediaItem);
+
+      // Update library for Android Auto based on the current playlist
+      final libraryItems = currentPlaylist
+          .map((e) => MediaItem(
+                id: e.audioUrl,
+                title: e.title,
+                artist: e.podcastName,
+                artUri: e.imageUrl != null ? Uri.parse(e.imageUrl!) : null,
+              ))
+          .toList();
+      audioHandler.updateLibrary(libraryItems);
     } catch (e) {
       print("Erreur de chargement audio: $e");
       isPlayingNotifier.value = false;
@@ -125,30 +139,30 @@ class AudioService {
 
   /// Reprendre ou Mettre en pause
   Future<void> togglePlayPause() async {
-    if (_player.playing) {
-      await _player.pause();
+    if (isPlayingNotifier.value) {
+      await audioHandler.pause();
     } else {
       if (currentEpisodeNotifier.value != null) {
-        await _player.play();
+        await audioHandler.play();
       }
     }
   }
 
   /// Chercher une position (Seek)
   Future<void> seek(Duration position) async {
-    await _player.seek(position);
+    await audioHandler.seek(position);
   }
 
   Future<void> seekForward30() async {
-    final currentPosition = _player.position;
+    final currentPosition = progressNotifier.value;
     final newPosition = currentPosition + const Duration(seconds: 30);
-    await _player.seek(newPosition);
+    await audioHandler.seek(newPosition);
   }
 
   Future<void> seekBackward30() async {
-    final currentPosition = _player.position;
+    final currentPosition = progressNotifier.value;
     final newPosition = currentPosition - const Duration(seconds: 30);
-    await _player
+    await audioHandler
         .seek(newPosition < Duration.zero ? Duration.zero : newPosition);
   }
 
@@ -197,7 +211,6 @@ class AudioService {
   }
 
   void dispose() {
-    _player.dispose();
     currentEpisodeNotifier.dispose();
     isPlayingNotifier.dispose();
     progressNotifier.dispose();

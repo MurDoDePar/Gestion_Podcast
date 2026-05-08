@@ -4,6 +4,7 @@ echo === Livraison sur GitHub ===
 
 :: Recuperation de la version
 for /f "usebackq tokens=*" %%a in (`powershell -Command "(Get-Content version.json | ConvertFrom-Json).version"`) do set APP_VERSION=%%a
+for /f "usebackq tokens=*" %%a in (`powershell -Command "(Get-Content version.json | ConvertFrom-Json).release_notes"`) do set APP_RELEASE_NOTES=%%a
 echo Version detectee : %APP_VERSION%
 
 : --- CONFIGURATION ---
@@ -26,10 +27,10 @@ echo Ajout des fichiers...
 git add .
 
 echo Commit...
-git commit -m "Livraison version %APP_VERSION%"
+git commit -m "Livraison version %APP_VERSION% - %APP_RELEASE_NOTES%"
 
 echo Tag de la version...
-git tag -a v%APP_VERSION% -m "Version %APP_VERSION%"
+git tag -a v%APP_VERSION% -m "Version %APP_VERSION% - %APP_RELEASE_NOTES%"
 
 echo Configuration du remote GitHub...
 git remote remove origin 2>nul

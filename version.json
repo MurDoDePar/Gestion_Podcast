@@ -1,4 +1,5 @@
 {
-  "version": "2.0.9",
-  "build_number": 209
+  "version": "2.1.1",
+  "build_number": 211,
+  "release_notes": "Ajout de la compatibilité Android Auto et correction de bugs mineurs"
 }
