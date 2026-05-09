@@ -1,5 +1,5 @@
 {
-  "version": "2.1.1",
-  "build_number": 211,
-  "release_notes": "Ajout de la compatibilité Android Auto et correction de bugs mineurs"
+  "version": "2.1.2",
+  "build_number": 212,
+  "release_notes": "Ajout de la licence GNU GPL v3"
 }
