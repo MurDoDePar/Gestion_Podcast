@@ -13,23 +13,34 @@ late PodStreamAudioHandler audioHandler;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  debugPrint('--- DEBUT INITIALISATION ---');
 
   try {
+    debugPrint('--- Initialisation Firebase... ---');
     await Firebase.initializeApp();
+    debugPrint('--- Firebase OK ---');
   } catch (e) {
     debugPrint('Erreur initialisation Firebase: $e');
   }
 
-  audioHandler = await AudioService.init(
-    builder: () => PodStreamAudioHandler(),
-    config: const AudioServiceConfig(
-      androidNotificationChannelId: 'com.PodStream.channel.audio',
-      androidNotificationChannelName: 'Lecture de Podcast',
-      androidNotificationOngoing: true,
-      androidStopForegroundOnPause: true,
-    ),
-  );
+  debugPrint('--- Initialisation AudioService... ---');
+  try {
+    audioHandler = await AudioService.init(
+      builder: () => PodStreamAudioHandler(),
+      config: const AudioServiceConfig(
+        androidNotificationChannelId: 'com.PodStream.channel.audio',
+        androidNotificationChannelName: 'Lecture de Podcast',
+        androidNotificationOngoing: true,
+        androidStopForegroundOnPause: true,
+      ),
+    );
+    debugPrint('--- AudioService OK ---');
+  } catch (e, stack) {
+    debugPrint('Erreur critique AudioService: $e');
+    // On ignore temporairement pour permettre à l'app de se lancer
+  }
 
+  debugPrint('--- Lancement de l\'application ---');
   runApp(const PodStreamApp());
 }
 
