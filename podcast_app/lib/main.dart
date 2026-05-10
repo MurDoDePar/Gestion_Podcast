@@ -35,7 +35,7 @@ void main() async {
       ),
     );
     debugPrint('--- AudioService OK ---');
-  } catch (e, stack) {
+  } catch (e) {
     debugPrint('Erreur critique AudioService: $e');
     // On ignore temporairement pour permettre à l'app de se lancer
   }

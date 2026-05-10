@@ -7,6 +7,15 @@ echo.
 :: Se deplacer dans le dossier du projet Flutter
 cd podcast_app
 
+:: Configuration de la jonction pour le dossier build (contournement Google Drive)
+fsutil reparsepoint query build >nul 2>&1
+if %ERRORLEVEL% NEQ 0 (
+    echo [INFO] Remplacement du dossier build par une jonction pour eviter les blocages Google Drive...
+    rmdir /s /q build 2>nul
+    mkdir "C:\temp\podstream_build" 2>nul
+    mklink /j build "C:\temp\podstream_build" >nul
+)
+
 echo [1/4] Compilation du code (flutter build apk)...
 call flutter build apk
 if %ERRORLEVEL% NEQ 0 (

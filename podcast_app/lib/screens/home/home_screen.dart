@@ -817,8 +817,9 @@ Future<List<Map<String, dynamic>>> _fetchNewEpisodes(String googleId) async {
       int orderComparison =
           (a['listOrder'] as int).compareTo(b['listOrder'] as int);
       if (orderComparison == 0) {
-        orderComparison =
-            (a['podcastName'] as String).compareTo(b['podcastName'] as String);
+        orderComparison = (a['podcastName'] as String)
+            .toLowerCase()
+            .compareTo((b['podcastName'] as String).toLowerCase());
       }
       if (orderComparison != 0) {
         return orderComparison;
@@ -827,16 +828,19 @@ Future<List<Map<String, dynamic>>> _fetchNewEpisodes(String googleId) async {
       // Tri secondaire : date de parution
       final dateA = a['publishedAt'] as DateTime;
       final dateB = b['publishedAt'] as DateTime;
-      int dateComparison = order == 'asc' ? dateA.compareTo(dateB) : dateB.compareTo(dateA);
+      int dateComparison =
+          order == 'asc' ? dateA.compareTo(dateB) : dateB.compareTo(dateA);
 
       // Tri tertiaire (sécurité) : si les dates sont exactement identiques (ex: bug de parsing DB)
       // on trie par le titre de l'épisode, ce qui règle le problème des numéros (#11, #12, etc.)
       if (dateComparison == 0) {
         final titleA = a['title'] as String;
         final titleB = b['title'] as String;
-        return order == 'asc' ? titleA.compareTo(titleB) : titleB.compareTo(titleA);
+        return order == 'asc'
+            ? titleA.compareTo(titleB)
+            : titleB.compareTo(titleA);
       }
-      
+
       return dateComparison;
     });
 
