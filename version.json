@@ -1,5 +1,5 @@
 {
-  "version": "2.1.5",
-  "build_number": 215,
-  "release_notes": "quel correction de bug"
+  "version": "2.1.6",
+  "build_number": 216,
+  "release_notes": "Implémentation du Système de Cache Global"
 }
