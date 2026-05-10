@@ -24,6 +24,8 @@ public interface ExampleConnector : com.google.firebase.dataconnect.generated.Ge
   
     public val findUserByGoogleId: FindUserByGoogleIdQuery
   
+    public val getAppCache: GetAppCacheQuery
+  
     public val getEpisodesByPodcast: GetEpisodesByPodcastQuery
   
     public val getLatestSubscribedEpisodes: GetLatestSubscribedEpisodesQuery
@@ -43,6 +45,8 @@ public interface ExampleConnector : com.google.firebase.dataconnect.generated.Ge
     public val updateListenHistory: UpdateListenHistoryMutation
   
     public val updateSubscriptionOrder: UpdateSubscriptionOrderMutation
+  
+    public val upsertAppCache: UpsertAppCacheMutation
   
     public val upsertEpisode: UpsertEpisodeMutation
   
@@ -112,6 +116,10 @@ private class ExampleConnectorImpl(
       FindUserByGoogleIdQueryImpl(this)
     }
   
+    override val getAppCache by lazy(LazyThreadSafetyMode.PUBLICATION) {
+      GetAppCacheQueryImpl(this)
+    }
+  
     override val getEpisodesByPodcast by lazy(LazyThreadSafetyMode.PUBLICATION) {
       GetEpisodesByPodcastQueryImpl(this)
     }
@@ -152,6 +160,10 @@ private class ExampleConnectorImpl(
       UpdateSubscriptionOrderMutationImpl(this)
     }
   
+    override val upsertAppCache by lazy(LazyThreadSafetyMode.PUBLICATION) {
+      UpsertAppCacheMutationImpl(this)
+    }
+  
     override val upsertEpisode by lazy(LazyThreadSafetyMode.PUBLICATION) {
       UpsertEpisodeMutationImpl(this)
     }
@@ -178,6 +190,7 @@ private class ExampleConnectorImpl(
         unsubscribeFromPodcast,
         updateListenHistory,
         updateSubscriptionOrder,
+        upsertAppCache,
         upsertEpisode,
         upsertPodcast,
         upsertUser,
@@ -188,6 +201,7 @@ private class ExampleConnectorImpl(
   override fun queries(): List<com.google.firebase.dataconnect.generated.GeneratedQuery<ExampleConnector, *, *>> =
     listOf(
       findUserByGoogleId,
+        getAppCache,
         getEpisodesByPodcast,
         getLatestSubscribedEpisodes,
         getListenHistory,
@@ -358,6 +372,21 @@ private class FindUserByGoogleIdQueryImpl(
   )
 
 
+private class GetAppCacheQueryImpl(
+  connector: ExampleConnector
+):
+  GetAppCacheQuery,
+  ExampleConnectorGeneratedQueryImpl<
+      GetAppCacheQuery.Data,
+      GetAppCacheQuery.Variables
+  >(
+    connector,
+    GetAppCacheQuery.Companion.operationName,
+    GetAppCacheQuery.Companion.dataDeserializer,
+    GetAppCacheQuery.Companion.variablesSerializer,
+  )
+
+
 private class GetEpisodesByPodcastQueryImpl(
   connector: ExampleConnector
 ):
@@ -505,6 +534,21 @@ private class UpdateSubscriptionOrderMutationImpl(
     UpdateSubscriptionOrderMutation.Companion.operationName,
     UpdateSubscriptionOrderMutation.Companion.dataDeserializer,
     UpdateSubscriptionOrderMutation.Companion.variablesSerializer,
+  )
+
+
+private class UpsertAppCacheMutationImpl(
+  connector: ExampleConnector
+):
+  UpsertAppCacheMutation,
+  ExampleConnectorGeneratedMutationImpl<
+      UpsertAppCacheMutation.Data,
+      UpsertAppCacheMutation.Variables
+  >(
+    connector,
+    UpsertAppCacheMutation.Companion.operationName,
+    UpsertAppCacheMutation.Companion.dataDeserializer,
+    UpsertAppCacheMutation.Companion.variablesSerializer,
   )
 
 

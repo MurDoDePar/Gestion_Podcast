@@ -40,3 +40,9 @@ type ListenHistory @table(key: ["user", "episode"]) {
   progressSeconds: Int64!
   finishedListening: Boolean
 }
+
+type AppCache @table {
+  id: String! @unique
+  data: Any!
+  updatedAt: Timestamp!
+}

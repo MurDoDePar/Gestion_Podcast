@@ -14,7 +14,7 @@ If a user is not using a supported framework, they can use the generated SDK dir
 Here's an example of how to use it with the first 5 operations:
 
 ```js
-import { insertUser, upsertUser, upsertPodcast, upsertEpisode, subscribeToPodcast, updateSubscriptionOrder, unsubscribeFromPodcast, updateListenHistory, cleanupDuplicates, findUserByGoogleId } from '@dataconnect/generated';
+import { insertUser, upsertUser, upsertPodcast, upsertEpisode, subscribeToPodcast, updateSubscriptionOrder, unsubscribeFromPodcast, updateListenHistory, cleanupDuplicates, upsertAppCache } from '@dataconnect/generated';
 
 
 // Operation InsertUser:  For variables, look at type InsertUserVars in ../index.d.ts
@@ -44,8 +44,8 @@ const { data } = await UpdateListenHistory(dataConnect, updateListenHistoryVars)
 // Operation CleanupDuplicates: 
 const { data } = await CleanupDuplicates(dataConnect);
 
-// Operation FindUserByGoogleId:  For variables, look at type FindUserByGoogleIdVars in ../index.d.ts
-const { data } = await FindUserByGoogleId(dataConnect, findUserByGoogleIdVars);
+// Operation UpsertAppCache:  For variables, look at type UpsertAppCacheVars in ../index.d.ts
+const { data } = await UpsertAppCache(dataConnect, upsertAppCacheVars);
 
 
 ```

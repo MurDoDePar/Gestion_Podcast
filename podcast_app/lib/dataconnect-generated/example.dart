@@ -22,6 +22,8 @@ part 'update_listen_history.dart';
 
 part 'cleanup_duplicates.dart';
 
+part 'upsert_app_cache.dart';
+
 part 'find_user_by_google_id.dart';
 
 part 'get_my_subscriptions.dart';
@@ -33,6 +35,8 @@ part 'get_recommendations.dart';
 part 'get_episodes_by_podcast.dart';
 
 part 'get_latest_subscribed_episodes.dart';
+
+part 'get_app_cache.dart';
 
 String bigIntToJson(BigInt value) {
   return value.toString();
@@ -161,6 +165,19 @@ class ExampleConnector {
     );
   }
 
+  UpsertAppCacheVariablesBuilder upsertAppCache({
+    required String id,
+    required dynamic data,
+    required Timestamp updatedAt,
+  }) {
+    return UpsertAppCacheVariablesBuilder(
+      dataConnect,
+      id: id,
+      data: data,
+      updatedAt: updatedAt,
+    );
+  }
+
   FindUserByGoogleIdVariablesBuilder findUserByGoogleId({
     required String googleId,
   }) {
@@ -212,6 +229,15 @@ class ExampleConnector {
     return GetLatestSubscribedEpisodesVariablesBuilder(
       dataConnect,
       userId: userId,
+    );
+  }
+
+  GetAppCacheVariablesBuilder getAppCache({
+    required String id,
+  }) {
+    return GetAppCacheVariablesBuilder(
+      dataConnect,
+      id: id,
     );
   }
 

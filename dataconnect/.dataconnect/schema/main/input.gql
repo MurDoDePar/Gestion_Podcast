@@ -1,4 +1,10 @@
 """
+✨ `AppCache_KeyOutput` returns the primary key fields of table type `AppCache`.
+
+It has the same format as `AppCache_Key`, but is only used as mutation return value.
+"""
+scalar AppCache_KeyOutput
+"""
 ✨ `Episode_KeyOutput` returns the primary key fields of table type `Episode`.
 
 It has the same format as `Episode_Key`, but is only used as mutation return value.
@@ -28,6 +34,213 @@ scalar SubscriptionType_KeyOutput
 It has the same format as `User_Key`, but is only used as mutation return value.
 """
 scalar User_KeyOutput
+"""
+✨ Generated data input type for table 'AppCache'. It includes all necessary fields for creating or upserting rows into table.
+"""
+input AppCache_Data {
+  """
+  ✨ Generated from Field `AppCache`.`id` of type `String!`
+  """
+  id: String
+  """
+  ✨ `_expr` server value variant of `id` (✨ Generated from Field `AppCache`.`id` of type `String!`)
+  """
+  id_expr: String_Expr @fdc_forbiddenInVariables
+  """
+  ✨ Generated from Field `AppCache`.`data` of type `Any!`
+  """
+  data: Any
+  """
+  ✨ `_expr` server value variant of `data` (✨ Generated from Field `AppCache`.`data` of type `Any!`)
+  """
+  data_expr: Any_Expr @fdc_forbiddenInVariables
+  """
+  ✨ Generated from Field `AppCache`.`updatedAt` of type `Timestamp!`
+  """
+  updatedAt: Timestamp
+  """
+  ✨ `_expr` server value variant of `updatedAt` (✨ Generated from Field `AppCache`.`updatedAt` of type `Timestamp!`)
+  """
+  updatedAt_expr: Timestamp_Expr @fdc_forbiddenInVariables
+  """
+  ✨ `_time` server value variant of `updatedAt` (✨ Generated from Field `AppCache`.`updatedAt` of type `Timestamp!`)
+  """
+  updatedAt_time: Timestamp_Relative @fdc_forbiddenInVariables
+  """
+  ✨ `_update` server value variant of `updatedAt` (✨ Generated from Field `AppCache`.`updatedAt` of type `Timestamp!`)
+  """
+  updatedAt_update: [Timestamp_Update!] @fdc_forbiddenInVariables
+}
+"""
+✨ Generated filter input type for table 'AppCache'. This input allows filtering objects using various conditions. Use `_or`, `_and`, and `_not` to compose complex filters.
+"""
+input AppCache_Filter {
+  """
+  Apply multiple filter conditions using `AND` logic.
+  """
+  _and: [AppCache_Filter!]
+  """
+  Negate the result of the provided filter condition.
+  """
+  _not: AppCache_Filter
+  """
+  Apply multiple filter conditions using `OR` logic.
+  """
+  _or: [AppCache_Filter!]
+  """
+  ✨ Generated from Field `AppCache`.`id` of type `String!`
+  """
+  id: String_Filter
+  """
+  ✨ Generated from Field `AppCache`.`data` of type `Any!`
+  """
+  data: Any_Filter
+  """
+  ✨ Generated from Field `AppCache`.`updatedAt` of type `Timestamp!`
+  """
+  updatedAt: Timestamp_Filter
+}
+"""
+✨ Generated first-row input type for table 'AppCache'. This input selects the first row matching the filter criteria, ordered according to the specified conditions.
+"""
+input AppCache_FirstRow {
+  """
+  Order the result by the specified fields.
+  """
+  orderBy: [AppCache_Order!]
+  """
+  Filters rows based on the specified conditions.
+  """
+  where: AppCache_Filter
+}
+"""
+✨ Generated having input type for table 'AppCache'. This input allows you to filter groups during aggregate queries using various conditions. Use `_or`, `_and`, and `_not` to compose complex filters.
+"""
+input AppCache_Having {
+  """
+  Apply multiple Having conditions using `AND` logic.
+  """
+  _and: [AppCache_Having!]
+  """
+  Whether to apply DISTINCT to the aggregate function.
+  """
+  _distinct: Boolean
+  """
+  Negate the result of the provided Having condition.
+  """
+  _not: AppCache_Having
+  """
+  Apply multiple Having conditions using `OR` logic.
+  """
+  _or: [AppCache_Having!]
+  """
+  ✨ Generated from Field `AppCache`.`_count` of type `Int!`
+  """
+  _count: Int_Filter
+  """
+  ✨ Generated from Field `AppCache`.`data_count` of type `Int!`
+  """
+  data_count: Int_Filter
+  """
+  ✨ Generated from Field `AppCache`.`id_count` of type `Int!`
+  """
+  id_count: Int_Filter
+  """
+  ✨ Generated from Field `AppCache`.`updatedAt_count` of type `Int!`
+  """
+  updatedAt_count: Int_Filter
+  """
+  ✨ Generated from Field `AppCache`.`data_min` of type `Any`
+  """
+  data_min: Any_Filter
+  """
+  ✨ Generated from Field `AppCache`.`updatedAt_min` of type `Timestamp`
+  """
+  updatedAt_min: Timestamp_Filter
+  """
+  ✨ Generated from Field `AppCache`.`data_max` of type `Any`
+  """
+  data_max: Any_Filter
+  """
+  ✨ Generated from Field `AppCache`.`updatedAt_max` of type `Timestamp`
+  """
+  updatedAt_max: Timestamp_Filter
+}
+"""
+✨ Generated key input type for table 'AppCache'. It represents the primary key fields used to uniquely identify a row in the table.
+"""
+input AppCache_Key {
+  """
+  ✨ Generated from Field `AppCache`.`id` of type `String!`
+  """
+  id: String
+  """
+  ✨ `_expr` server value variant of `id` (✨ Generated from Field `AppCache`.`id` of type `String!`)
+  """
+  id_expr: String_Expr @fdc_forbiddenInVariables
+}
+"""
+✨ Generated list filter input type for table 'AppCache'. This input applies filtering logic based on the count or existence of related objects that matches certain criteria.
+"""
+input AppCache_ListFilter {
+  """
+  The desired number of objects that match the condition (defaults to at least one).
+  """
+  count: Int_Filter = {gt:0}
+  """
+  Condition of the related objects to filter for.
+  """
+  exist: AppCache_Filter
+}
+"""
+✨ Generated order input type for table 'AppCache'. This input defines the sorting order of rows in query results based on one or more fields.
+"""
+input AppCache_Order {
+  """
+  ✨ Generated from Field `AppCache`.`id` of type `String!`
+  """
+  id: OrderDirection
+  """
+  ✨ Generated from Field `AppCache`.`data` of type `Any!`
+  """
+  data: OrderDirection
+  """
+  ✨ Generated from Field `AppCache`.`updatedAt` of type `Timestamp!`
+  """
+  updatedAt: OrderDirection
+  """
+  ✨ Generated from Field `AppCache`.`_count` of type `Int!`
+  """
+  _count: OrderDirection
+  """
+  ✨ Generated from Field `AppCache`.`data_count` of type `Int!`
+  """
+  data_count: OrderDirection
+  """
+  ✨ Generated from Field `AppCache`.`id_count` of type `Int!`
+  """
+  id_count: OrderDirection
+  """
+  ✨ Generated from Field `AppCache`.`updatedAt_count` of type `Int!`
+  """
+  updatedAt_count: OrderDirection
+  """
+  ✨ Generated from Field `AppCache`.`data_min` of type `Any`
+  """
+  data_min: OrderDirection
+  """
+  ✨ Generated from Field `AppCache`.`updatedAt_min` of type `Timestamp`
+  """
+  updatedAt_min: OrderDirection
+  """
+  ✨ Generated from Field `AppCache`.`data_max` of type `Any`
+  """
+  data_max: OrderDirection
+  """
+  ✨ Generated from Field `AppCache`.`updatedAt_max` of type `Timestamp`
+  """
+  updatedAt_max: OrderDirection
+}
 """
 ✨ Generated data input type for table 'Episode'. It includes all necessary fields for creating or upserting rows into table.
 """

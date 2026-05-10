@@ -120,3 +120,12 @@ mutation CleanupDuplicates @auth(level: NO_ACCESS) {
     )
   """)
 }
+
+mutation UpsertAppCache($id: String!, $data: Any!, $updatedAt: Timestamp!) @auth(level: PUBLIC, insecureReason: "Any user can trigger a cache refresh") {
+  appCache_upsert(data: {
+    id: $id,
+    data: $data,
+    updatedAt: $updatedAt
+  })
+}
+

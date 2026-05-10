@@ -118,6 +118,18 @@ export function cleanupDuplicates(dc) {
   return executeMutation(cleanupDuplicatesRef(dcInstance, inputVars));
 }
 
+export const upsertAppCacheRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return mutationRef(dcInstance, 'UpsertAppCache', inputVars);
+}
+upsertAppCacheRef.operationName = 'UpsertAppCache';
+
+export function upsertAppCache(dcOrVars, vars) {
+  const { dc: dcInstance, vars: inputVars } = validateArgs(connectorConfig, dcOrVars, vars, true);
+  return executeMutation(upsertAppCacheRef(dcInstance, inputVars));
+}
+
 export const findUserByGoogleIdRef = (dcOrVars, vars) => {
   const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
   dcInstance._useGeneratedSdk();
@@ -194,5 +206,18 @@ export function getLatestSubscribedEpisodes(dcOrVars, varsOrOptions, options) {
   
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(getLatestSubscribedEpisodesRef(dcInstance, inputVars), inputOpts && inputOpts.fetchPolicy);
+}
+
+export const getAppCacheRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return queryRef(dcInstance, 'GetAppCache', inputVars);
+}
+getAppCacheRef.operationName = 'GetAppCache';
+
+export function getAppCache(dcOrVars, varsOrOptions, options) {
+  
+  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
+  return executeQuery(getAppCacheRef(dcInstance, inputVars), inputOpts && inputOpts.fetchPolicy);
 }
 

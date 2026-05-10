@@ -88,3 +88,11 @@ query GetLatestSubscribedEpisodes($userId: UUID!) @auth(level: USER) {
     }
   }
 }
+
+query GetAppCache($id: String!) @auth(level: PUBLIC, insecureReason: "The cache contains generic public podcasts data") {
+  appCache(id: $id) {
+    id
+    data
+    updatedAt
+  }
+}

@@ -1,3 +1,60 @@
+extend type AppCache {
+  """
+  Implicit metadata field that cannot be written. It provides extra information about query results.
+  """
+  _metadata: _Metadata @fdc_generated(from: "AppCache", purpose: METADATA_FIELD)
+  """
+  ✨ Count the number of rows in the `AppCache` table.
+  """
+  _count: Int! @fdc_generated(from: "AppCache.", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `AppCache` table where the `data` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  data_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "AppCache.data", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `AppCache` table where the `id` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  id_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "AppCache.id", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `AppCache` table where the `updatedAt` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  updatedAt_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "AppCache.updatedAt", purpose: QUERY_COUNT)
+  """
+  ✨ Minimum of the `data` field in the `AppCache` table.
+  """
+  data_min: Any @fdc_generated(from: "AppCache.data", purpose: QUERY_MIN)
+  """
+  ✨ Minimum of the `updatedAt` field in the `AppCache` table.
+  """
+  updatedAt_min: Timestamp @fdc_generated(from: "AppCache.updatedAt", purpose: QUERY_MIN)
+  """
+  ✨ Maximum of the `data` field in the `AppCache` table.
+  """
+  data_max: Any @fdc_generated(from: "AppCache.data", purpose: QUERY_MAX)
+  """
+  ✨ Maximum of the `updatedAt` field in the `AppCache` table.
+  """
+  updatedAt_max: Timestamp @fdc_generated(from: "AppCache.updatedAt", purpose: QUERY_MAX)
+  """
+  A generated field that is used for caching results in SDKs.
+  """
+  _id: ID! @fdc_generated(from: "AppCache.id", purpose: ENTITY_ID)
+}
 extend type Episode {
   """
   ✨ List `ListenHistory` objects in a one-to-many relationship (where `ListenHistory`.`episode` is this object).

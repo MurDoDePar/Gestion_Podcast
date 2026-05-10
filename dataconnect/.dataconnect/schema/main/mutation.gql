@@ -1,5 +1,14 @@
 extend type Mutation {
   """
+  ✨ Insert a single `AppCache` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  appCache_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: AppCache_Data!
+  ): AppCache_KeyOutput! @fdc_generated(from: "AppCache", purpose: INSERT_SINGLE)
+  """
   ✨ Insert a single `Episode` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
   """
   episode_insert(
@@ -44,6 +53,15 @@ extend type Mutation {
     """
     data: User_Data!
   ): User_KeyOutput! @fdc_generated(from: "User", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert `AppCache` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  appCache_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [AppCache_Data!]!
+  ): [AppCache_KeyOutput!]! @fdc_generated(from: "AppCache", purpose: INSERT_MULTIPLE)
   """
   ✨ Insert `Episode` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
   """
@@ -90,6 +108,15 @@ extend type Mutation {
     data: [User_Data!]!
   ): [User_KeyOutput!]! @fdc_generated(from: "User", purpose: INSERT_MULTIPLE)
   """
+  ✨ Insert or update a single `AppCache` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `AppCache`.
+  """
+  appCache_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: AppCache_Data!
+  ): AppCache_KeyOutput! @fdc_generated(from: "AppCache", purpose: UPSERT_SINGLE)
+  """
   ✨ Insert or update a single `Episode` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Episode`.
   """
   episode_upsert(
@@ -135,6 +162,15 @@ extend type Mutation {
     data: User_Data!
   ): User_KeyOutput! @fdc_generated(from: "User", purpose: UPSERT_SINGLE)
   """
+  ✨ Insert or update `AppCache` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `AppCache`.
+  """
+  appCache_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [AppCache_Data!]!
+  ): [AppCache_KeyOutput!]! @fdc_generated(from: "AppCache", purpose: UPSERT_MULTIPLE)
+  """
   ✨ Insert or update `Episode` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Episode`.
   """
   episode_upsertMany(
@@ -179,6 +215,35 @@ extend type Mutation {
     """
     data: [User_Data!]!
   ): [User_KeyOutput!]! @fdc_generated(from: "User", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Update a single `AppCache` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `AppCache` or `null` if not found.
+  """
+  appCache_update(
+    """
+    The unique ID of the object.
+    """
+    id: String
+
+    """
+    ✨ `_expr` server value variant of `id` (The unique ID of the object.)
+    """
+    id_expr: String_Expr
+
+    """
+    The key used to identify the object.
+    """
+    key: AppCache_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: AppCache_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: AppCache_Data!
+  ): AppCache_KeyOutput @fdc_generated(from: "AppCache", purpose: UPDATE_SINGLE)
   """
   ✨ Update a single `Episode` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `Episode` or `null` if not found.
   """
@@ -290,6 +355,25 @@ extend type Mutation {
     data: User_Data!
   ): User_KeyOutput @fdc_generated(from: "User", purpose: UPDATE_SINGLE)
   """
+  ✨ Update `AppCache` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  appCache_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: AppCache_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: AppCache_Data!
+  ): Int! @fdc_generated(from: "AppCache", purpose: UPDATE_MULTIPLE)
+  """
   ✨ Update `Episode` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
   """
   episode_updateMany(
@@ -385,6 +469,30 @@ extend type Mutation {
     data: User_Data!
   ): Int! @fdc_generated(from: "User", purpose: UPDATE_MULTIPLE)
   """
+  ✨ Delete a single `AppCache` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  appCache_delete(
+    """
+    The unique ID of the object.
+    """
+    id: String
+
+    """
+    ✨ `_expr` server value variant of `id` (The unique ID of the object.)
+    """
+    id_expr: String_Expr
+
+    """
+    The key used to identify the object.
+    """
+    key: AppCache_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: AppCache_FirstRow
+  ): AppCache_KeyOutput @fdc_generated(from: "AppCache", purpose: DELETE_SINGLE)
+  """
   ✨ Delete a single `Episode` based on `id`, `key` or `first` and return its key (or `null` if not found).
   """
   episode_delete(
@@ -469,6 +577,20 @@ extend type Mutation {
     """
     first: User_FirstRow
   ): User_KeyOutput @fdc_generated(from: "User", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete `AppCache` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  appCache_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: AppCache_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "AppCache", purpose: DELETE_MULTIPLE)
   """
   ✨ Delete `Episode` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
   """

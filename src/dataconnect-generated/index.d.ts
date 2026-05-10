@@ -11,6 +11,11 @@ export type DateString = string;
 
 
 
+export interface AppCache_Key {
+  id: string;
+  __typename?: 'AppCache_Key';
+}
+
 export interface CleanupDuplicatesData {
   cleanEpisodes?: number | null;
   cleanPodcasts?: number | null;
@@ -33,6 +38,18 @@ export interface FindUserByGoogleIdData {
 
 export interface FindUserByGoogleIdVariables {
   googleId: string;
+}
+
+export interface GetAppCacheData {
+  appCache?: {
+    id: string;
+    data: unknown;
+    updatedAt: TimestampString;
+  } & AppCache_Key;
+}
+
+export interface GetAppCacheVariables {
+  id: string;
 }
 
 export interface GetEpisodesByPodcastData {
@@ -199,6 +216,16 @@ export interface UpdateSubscriptionOrderVariables {
   listOrder: number;
 }
 
+export interface UpsertAppCacheData {
+  appCache_upsert: AppCache_Key;
+}
+
+export interface UpsertAppCacheVariables {
+  id: string;
+  data: unknown;
+  updatedAt: TimestampString;
+}
+
 export interface UpsertEpisodeData {
   episode_upsert: Episode_Key;
 }
@@ -355,6 +382,18 @@ export const cleanupDuplicatesRef: CleanupDuplicatesRef;
 export function cleanupDuplicates(): MutationPromise<CleanupDuplicatesData, undefined>;
 export function cleanupDuplicates(dc: DataConnect): MutationPromise<CleanupDuplicatesData, undefined>;
 
+interface UpsertAppCacheRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: UpsertAppCacheVariables): MutationRef<UpsertAppCacheData, UpsertAppCacheVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: UpsertAppCacheVariables): MutationRef<UpsertAppCacheData, UpsertAppCacheVariables>;
+  operationName: string;
+}
+export const upsertAppCacheRef: UpsertAppCacheRef;
+
+export function upsertAppCache(vars: UpsertAppCacheVariables): MutationPromise<UpsertAppCacheData, UpsertAppCacheVariables>;
+export function upsertAppCache(dc: DataConnect, vars: UpsertAppCacheVariables): MutationPromise<UpsertAppCacheData, UpsertAppCacheVariables>;
+
 interface FindUserByGoogleIdRef {
   /* Allow users to create refs without passing in DataConnect */
   (vars: FindUserByGoogleIdVariables): QueryRef<FindUserByGoogleIdData, FindUserByGoogleIdVariables>;
@@ -426,4 +465,16 @@ export const getLatestSubscribedEpisodesRef: GetLatestSubscribedEpisodesRef;
 
 export function getLatestSubscribedEpisodes(vars: GetLatestSubscribedEpisodesVariables, options?: ExecuteQueryOptions): QueryPromise<GetLatestSubscribedEpisodesData, GetLatestSubscribedEpisodesVariables>;
 export function getLatestSubscribedEpisodes(dc: DataConnect, vars: GetLatestSubscribedEpisodesVariables, options?: ExecuteQueryOptions): QueryPromise<GetLatestSubscribedEpisodesData, GetLatestSubscribedEpisodesVariables>;
+
+interface GetAppCacheRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: GetAppCacheVariables): QueryRef<GetAppCacheData, GetAppCacheVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: GetAppCacheVariables): QueryRef<GetAppCacheData, GetAppCacheVariables>;
+  operationName: string;
+}
+export const getAppCacheRef: GetAppCacheRef;
+
+export function getAppCache(vars: GetAppCacheVariables, options?: ExecuteQueryOptions): QueryPromise<GetAppCacheData, GetAppCacheVariables>;
+export function getAppCache(dc: DataConnect, vars: GetAppCacheVariables, options?: ExecuteQueryOptions): QueryPromise<GetAppCacheData, GetAppCacheVariables>;
 

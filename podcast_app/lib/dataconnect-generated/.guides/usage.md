@@ -10,7 +10,7 @@ ExampleConnector.instance.UpdateSubscriptionOrder(updateSubscriptionOrderVariabl
 ExampleConnector.instance.UnsubscribeFromPodcast(unsubscribeFromPodcastVariables).execute();
 ExampleConnector.instance.UpdateListenHistory(updateListenHistoryVariables).execute();
 ExampleConnector.instance.CleanupDuplicates().execute();
-ExampleConnector.instance.FindUserByGoogleId(findUserByGoogleIdVariables).execute();
+ExampleConnector.instance.UpsertAppCache(upsertAppCacheVariables).execute();
 
 ```
 

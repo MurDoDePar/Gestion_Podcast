@@ -1,6 +1,9 @@
 
 
 - Implémentation du Système de Cache Global
-    stocker en DB les données des onglet par theme et populaire. 
-    faire un rafraichissement tous les 7 jours
+stocker en DB les données des onglet par theme et populaire. faire un rafraichissement tous les 7 jours
 
+- verifier 
+    que 'mes podcasts' sont bien unique par utilisateurs
+    que 'affinité' est bien la liste des podcasts commun avec les utilisateurs qui ont au moins un podcasts en cummun avec l'utilisateur connecté
+    que 'par thèmes' est bien la liste des 20 podcasts les plus populaires par catégorie

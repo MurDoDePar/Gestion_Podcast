@@ -96,6 +96,16 @@ class _ByThemeTabState extends State<_ByThemeTab> {
       rssCountry = 'us';
     }
 
+    final cacheKey = 'theme_${genreId}_$lang';
+    final cachedData = await _getCachedPodcasts(cacheKey);
+    if (cachedData != null) {
+      setState(() {
+        _podcasts = cachedData;
+        _isLoading = false;
+      });
+      return;
+    }
+
     final topUrl = Uri.parse(
         'https://itunes.apple.com/$rssCountry/rss/toppodcasts/limit=50/genre=$genreId/json');
 
@@ -123,9 +133,11 @@ class _ByThemeTabState extends State<_ByThemeTab> {
             List<dynamic> results = lookupData['results'] ?? [];
 
             if (lang == 'all') {
+              final finalPodcasts = results.take(20).toList();
               setState(() {
-                _podcasts = results.take(20).toList();
+                _podcasts = finalPodcasts;
               });
+              _savePodcastsToCache(cacheKey, finalPodcasts);
             } else {
               // Filtrage strict par langue via RSS
               List<dynamic> validPodcasts = [];
@@ -164,6 +176,7 @@ class _ByThemeTabState extends State<_ByThemeTab> {
               setState(() {
                 _podcasts = validPodcasts;
               });
+              _savePodcastsToCache(cacheKey, validPodcasts);
             }
           }
         }
@@ -936,6 +949,38 @@ String _generateStableUuid(String input) {
   return '11111111-2222-4000-8$hash2-$hash';
 }
 
+Future<List<dynamic>?> _getCachedPodcasts(String cacheKey) async {
+  try {
+    final cacheResult =
+        await ExampleConnector.instance.getAppCache(id: cacheKey).execute();
+    if (cacheResult.data.appCache != null) {
+      final updatedAt = cacheResult.data.appCache!.updatedAt.toDateTime();
+      if (DateTime.now().difference(updatedAt).inDays < 7) {
+        return json.decode(cacheResult.data.appCache!.data.toJson() as String);
+      }
+    }
+  } catch (e) {
+    print('Cache check error for $cacheKey: $e');
+  }
+  return null;
+}
+
+Future<void> _savePodcastsToCache(
+    String cacheKey, List<dynamic> podcasts) async {
+  try {
+    await ExampleConnector.instance
+        .upsertAppCache(
+          id: cacheKey,
+          data: AnyValue(json.encode(podcasts)),
+          updatedAt:
+              Timestamp(DateTime.now().millisecondsSinceEpoch ~/ 1000, 0),
+        )
+        .execute();
+  } catch (e) {
+    print('Error saving cache for $cacheKey: $e');
+  }
+}
+
 class _PopularTab extends StatefulWidget {
   const _PopularTab();
 
@@ -965,6 +1010,16 @@ class _PopularTabState extends State<_PopularTab> {
       }
     } else {
       rssCountry = 'us';
+    }
+
+    final cacheKey = 'popular_$lang';
+    final cachedData = await _getCachedPodcasts(cacheKey);
+    if (cachedData != null) {
+      setState(() {
+        _podcasts = cachedData;
+        _isLoading = false;
+      });
+      return;
     }
 
     // Récupérer les top podcasts d'iTunes pour le pays donné
@@ -997,9 +1052,11 @@ class _PopularTabState extends State<_PopularTab> {
             // On garde l'ordre de popularité d'iTunes
 
             if (lang == 'all') {
+              final finalPodcasts = results.take(20).toList();
               setState(() {
-                _podcasts = results.take(20).toList();
+                _podcasts = finalPodcasts;
               });
+              _savePodcastsToCache(cacheKey, finalPodcasts);
             } else {
               // Filtrage strict par langue via RSS (Identique à l'ancienne version JS)
               List<dynamic> validPodcasts = [];
@@ -1040,6 +1097,7 @@ class _PopularTabState extends State<_PopularTab> {
               setState(() {
                 _podcasts = validPodcasts;
               });
+              _savePodcastsToCache(cacheKey, validPodcasts);
             }
           }
         }

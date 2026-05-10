@@ -14,6 +14,7 @@ This README will guide you through the process of using the generated JavaScript
   - [*GetRecommendations*](#getrecommendations)
   - [*GetEpisodesByPodcast*](#getepisodesbypodcast)
   - [*GetLatestSubscribedEpisodes*](#getlatestsubscribedepisodes)
+  - [*GetAppCache*](#getappcache)
 - [**Mutations**](#mutations)
   - [*InsertUser*](#insertuser)
   - [*UpsertUser*](#upsertuser)
@@ -24,6 +25,7 @@ This README will guide you through the process of using the generated JavaScript
   - [*UnsubscribeFromPodcast*](#unsubscribefrompodcast)
   - [*UpdateListenHistory*](#updatelistenhistory)
   - [*CleanupDuplicates*](#cleanupduplicates)
+  - [*UpsertAppCache*](#upsertappcache)
 
 # Accessing the connector
 A connector is a collection of Queries and Mutations. One SDK is generated for each connector - this SDK is generated for the connector `example`. You can find more information about connectors in the [Data Connect documentation](https://firebase.google.com/docs/data-connect#how-does).
@@ -779,6 +781,119 @@ console.log(data.subscriptionTypes);
 executeQuery(ref).then((response) => {
   const data = response.data;
   console.log(data.subscriptionTypes);
+});
+```
+
+## GetAppCache
+You can execute the `GetAppCache` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+getAppCache(vars: GetAppCacheVariables, options?: ExecuteQueryOptions): QueryPromise<GetAppCacheData, GetAppCacheVariables>;
+
+interface GetAppCacheRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: GetAppCacheVariables): QueryRef<GetAppCacheData, GetAppCacheVariables>;
+}
+export const getAppCacheRef: GetAppCacheRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
+```typescript
+getAppCache(dc: DataConnect, vars: GetAppCacheVariables, options?: ExecuteQueryOptions): QueryPromise<GetAppCacheData, GetAppCacheVariables>;
+
+interface GetAppCacheRef {
+  ...
+  (dc: DataConnect, vars: GetAppCacheVariables): QueryRef<GetAppCacheData, GetAppCacheVariables>;
+}
+export const getAppCacheRef: GetAppCacheRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the getAppCacheRef:
+```typescript
+const name = getAppCacheRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `GetAppCache` query requires an argument of type `GetAppCacheVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface GetAppCacheVariables {
+  id: string;
+}
+```
+### Return Type
+Recall that executing the `GetAppCache` query returns a `QueryPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `GetAppCacheData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface GetAppCacheData {
+  appCache?: {
+    id: string;
+    data: unknown;
+    updatedAt: TimestampString;
+  } & AppCache_Key;
+}
+```
+### Using `GetAppCache`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, getAppCache, GetAppCacheVariables } from '@dataconnect/generated';
+
+// The `GetAppCache` query requires an argument of type `GetAppCacheVariables`:
+const getAppCacheVars: GetAppCacheVariables = {
+  id: ..., 
+};
+
+// Call the `getAppCache()` function to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await getAppCache(getAppCacheVars);
+// Variables can be defined inline as well.
+const { data } = await getAppCache({ id: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await getAppCache(dataConnect, getAppCacheVars);
+
+console.log(data.appCache);
+
+// Or, you can use the `Promise` API.
+getAppCache(getAppCacheVars).then((response) => {
+  const data = response.data;
+  console.log(data.appCache);
+});
+```
+
+### Using `GetAppCache`'s `QueryRef` function
+
+```typescript
+import { getDataConnect, executeQuery } from 'firebase/data-connect';
+import { connectorConfig, getAppCacheRef, GetAppCacheVariables } from '@dataconnect/generated';
+
+// The `GetAppCache` query requires an argument of type `GetAppCacheVariables`:
+const getAppCacheVars: GetAppCacheVariables = {
+  id: ..., 
+};
+
+// Call the `getAppCacheRef()` function to get a reference to the query.
+const ref = getAppCacheRef(getAppCacheVars);
+// Variables can be defined inline as well.
+const ref = getAppCacheRef({ id: ..., });
+
+// You can also pass in a `DataConnect` instance to the `QueryRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = getAppCacheRef(dataConnect, getAppCacheVars);
+
+// Call `executeQuery()` on the reference to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeQuery(ref);
+
+console.log(data.appCache);
+
+// Or, you can use the `Promise` API.
+executeQuery(ref).then((response) => {
+  const data = response.data;
+  console.log(data.appCache);
 });
 ```
 
@@ -1866,6 +1981,121 @@ executeMutation(ref).then((response) => {
   console.log(data.cleanEpisodes);
   console.log(data.cleanPodcasts);
   console.log(data.cleanUsers);
+});
+```
+
+## UpsertAppCache
+You can execute the `UpsertAppCache` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+upsertAppCache(vars: UpsertAppCacheVariables): MutationPromise<UpsertAppCacheData, UpsertAppCacheVariables>;
+
+interface UpsertAppCacheRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: UpsertAppCacheVariables): MutationRef<UpsertAppCacheData, UpsertAppCacheVariables>;
+}
+export const upsertAppCacheRef: UpsertAppCacheRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+upsertAppCache(dc: DataConnect, vars: UpsertAppCacheVariables): MutationPromise<UpsertAppCacheData, UpsertAppCacheVariables>;
+
+interface UpsertAppCacheRef {
+  ...
+  (dc: DataConnect, vars: UpsertAppCacheVariables): MutationRef<UpsertAppCacheData, UpsertAppCacheVariables>;
+}
+export const upsertAppCacheRef: UpsertAppCacheRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the upsertAppCacheRef:
+```typescript
+const name = upsertAppCacheRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `UpsertAppCache` mutation requires an argument of type `UpsertAppCacheVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface UpsertAppCacheVariables {
+  id: string;
+  data: unknown;
+  updatedAt: TimestampString;
+}
+```
+### Return Type
+Recall that executing the `UpsertAppCache` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `UpsertAppCacheData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface UpsertAppCacheData {
+  appCache_upsert: AppCache_Key;
+}
+```
+### Using `UpsertAppCache`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, upsertAppCache, UpsertAppCacheVariables } from '@dataconnect/generated';
+
+// The `UpsertAppCache` mutation requires an argument of type `UpsertAppCacheVariables`:
+const upsertAppCacheVars: UpsertAppCacheVariables = {
+  id: ..., 
+  data: ..., 
+  updatedAt: ..., 
+};
+
+// Call the `upsertAppCache()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await upsertAppCache(upsertAppCacheVars);
+// Variables can be defined inline as well.
+const { data } = await upsertAppCache({ id: ..., data: ..., updatedAt: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await upsertAppCache(dataConnect, upsertAppCacheVars);
+
+console.log(data.appCache_upsert);
+
+// Or, you can use the `Promise` API.
+upsertAppCache(upsertAppCacheVars).then((response) => {
+  const data = response.data;
+  console.log(data.appCache_upsert);
+});
+```
+
+### Using `UpsertAppCache`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, upsertAppCacheRef, UpsertAppCacheVariables } from '@dataconnect/generated';
+
+// The `UpsertAppCache` mutation requires an argument of type `UpsertAppCacheVariables`:
+const upsertAppCacheVars: UpsertAppCacheVariables = {
+  id: ..., 
+  data: ..., 
+  updatedAt: ..., 
+};
+
+// Call the `upsertAppCacheRef()` function to get a reference to the mutation.
+const ref = upsertAppCacheRef(upsertAppCacheVars);
+// Variables can be defined inline as well.
+const ref = upsertAppCacheRef({ id: ..., data: ..., updatedAt: ..., });
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = upsertAppCacheRef(dataConnect, upsertAppCacheVars);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.appCache_upsert);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.appCache_upsert);
 });
 ```
 
