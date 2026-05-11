@@ -51,9 +51,11 @@ class AudioService {
       } else {
         isPlayingNotifier.value = isPlaying;
       }
+    });
 
-      // Update progressNotifier regularly or just listen to position
-      progressNotifier.value = state.position;
+    // Écoute de la position en continu (seconde par seconde)
+    audioHandler.positionStream.listen((position) {
+      progressNotifier.value = position;
     });
 
     // Update current episode from mediaItem

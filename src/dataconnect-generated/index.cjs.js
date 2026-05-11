@@ -13,6 +13,111 @@ const dataConnectSettings = {
 };
 exports.dataConnectSettings = dataConnectSettings;
 
+const findUserByGoogleIdRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return queryRef(dcInstance, 'FindUserByGoogleId', inputVars);
+}
+findUserByGoogleIdRef.operationName = 'FindUserByGoogleId';
+exports.findUserByGoogleIdRef = findUserByGoogleIdRef;
+
+exports.findUserByGoogleId = function findUserByGoogleId(dcOrVars, varsOrOptions, options) {
+  
+  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
+  return executeQuery(findUserByGoogleIdRef(dcInstance, inputVars), inputOpts && inputOpts.fetchPolicy);
+}
+;
+
+const getMySubscriptionsRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return queryRef(dcInstance, 'GetMySubscriptions', inputVars);
+}
+getMySubscriptionsRef.operationName = 'GetMySubscriptions';
+exports.getMySubscriptionsRef = getMySubscriptionsRef;
+
+exports.getMySubscriptions = function getMySubscriptions(dcOrVars, varsOrOptions, options) {
+  
+  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
+  return executeQuery(getMySubscriptionsRef(dcInstance, inputVars), inputOpts && inputOpts.fetchPolicy);
+}
+;
+
+const getListenHistoryRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return queryRef(dcInstance, 'GetListenHistory', inputVars);
+}
+getListenHistoryRef.operationName = 'GetListenHistory';
+exports.getListenHistoryRef = getListenHistoryRef;
+
+exports.getListenHistory = function getListenHistory(dcOrVars, varsOrOptions, options) {
+  
+  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
+  return executeQuery(getListenHistoryRef(dcInstance, inputVars), inputOpts && inputOpts.fetchPolicy);
+}
+;
+
+const getRecommendationsRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return queryRef(dcInstance, 'GetRecommendations', inputVars);
+}
+getRecommendationsRef.operationName = 'GetRecommendations';
+exports.getRecommendationsRef = getRecommendationsRef;
+
+exports.getRecommendations = function getRecommendations(dcOrVars, varsOrOptions, options) {
+  
+  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
+  return executeQuery(getRecommendationsRef(dcInstance, inputVars), inputOpts && inputOpts.fetchPolicy);
+}
+;
+
+const getEpisodesByPodcastRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return queryRef(dcInstance, 'GetEpisodesByPodcast', inputVars);
+}
+getEpisodesByPodcastRef.operationName = 'GetEpisodesByPodcast';
+exports.getEpisodesByPodcastRef = getEpisodesByPodcastRef;
+
+exports.getEpisodesByPodcast = function getEpisodesByPodcast(dcOrVars, varsOrOptions, options) {
+  
+  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
+  return executeQuery(getEpisodesByPodcastRef(dcInstance, inputVars), inputOpts && inputOpts.fetchPolicy);
+}
+;
+
+const getLatestSubscribedEpisodesRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return queryRef(dcInstance, 'GetLatestSubscribedEpisodes', inputVars);
+}
+getLatestSubscribedEpisodesRef.operationName = 'GetLatestSubscribedEpisodes';
+exports.getLatestSubscribedEpisodesRef = getLatestSubscribedEpisodesRef;
+
+exports.getLatestSubscribedEpisodes = function getLatestSubscribedEpisodes(dcOrVars, varsOrOptions, options) {
+  
+  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
+  return executeQuery(getLatestSubscribedEpisodesRef(dcInstance, inputVars), inputOpts && inputOpts.fetchPolicy);
+}
+;
+
+const getAppCacheRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return queryRef(dcInstance, 'GetAppCache', inputVars);
+}
+getAppCacheRef.operationName = 'GetAppCache';
+exports.getAppCacheRef = getAppCacheRef;
+
+exports.getAppCache = function getAppCache(dcOrVars, varsOrOptions, options) {
+  
+  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
+  return executeQuery(getAppCacheRef(dcInstance, inputVars), inputOpts && inputOpts.fetchPolicy);
+}
+;
+
 const insertUserRef = (dcOrVars, vars) => {
   const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
   dcInstance._useGeneratedSdk();
@@ -150,110 +255,5 @@ exports.upsertAppCacheRef = upsertAppCacheRef;
 exports.upsertAppCache = function upsertAppCache(dcOrVars, vars) {
   const { dc: dcInstance, vars: inputVars } = validateArgs(connectorConfig, dcOrVars, vars, true);
   return executeMutation(upsertAppCacheRef(dcInstance, inputVars));
-}
-;
-
-const findUserByGoogleIdRef = (dcOrVars, vars) => {
-  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
-  dcInstance._useGeneratedSdk();
-  return queryRef(dcInstance, 'FindUserByGoogleId', inputVars);
-}
-findUserByGoogleIdRef.operationName = 'FindUserByGoogleId';
-exports.findUserByGoogleIdRef = findUserByGoogleIdRef;
-
-exports.findUserByGoogleId = function findUserByGoogleId(dcOrVars, varsOrOptions, options) {
-  
-  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
-  return executeQuery(findUserByGoogleIdRef(dcInstance, inputVars), inputOpts && inputOpts.fetchPolicy);
-}
-;
-
-const getMySubscriptionsRef = (dcOrVars, vars) => {
-  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
-  dcInstance._useGeneratedSdk();
-  return queryRef(dcInstance, 'GetMySubscriptions', inputVars);
-}
-getMySubscriptionsRef.operationName = 'GetMySubscriptions';
-exports.getMySubscriptionsRef = getMySubscriptionsRef;
-
-exports.getMySubscriptions = function getMySubscriptions(dcOrVars, varsOrOptions, options) {
-  
-  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
-  return executeQuery(getMySubscriptionsRef(dcInstance, inputVars), inputOpts && inputOpts.fetchPolicy);
-}
-;
-
-const getListenHistoryRef = (dcOrVars, vars) => {
-  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
-  dcInstance._useGeneratedSdk();
-  return queryRef(dcInstance, 'GetListenHistory', inputVars);
-}
-getListenHistoryRef.operationName = 'GetListenHistory';
-exports.getListenHistoryRef = getListenHistoryRef;
-
-exports.getListenHistory = function getListenHistory(dcOrVars, varsOrOptions, options) {
-  
-  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
-  return executeQuery(getListenHistoryRef(dcInstance, inputVars), inputOpts && inputOpts.fetchPolicy);
-}
-;
-
-const getRecommendationsRef = (dcOrVars, vars) => {
-  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
-  dcInstance._useGeneratedSdk();
-  return queryRef(dcInstance, 'GetRecommendations', inputVars);
-}
-getRecommendationsRef.operationName = 'GetRecommendations';
-exports.getRecommendationsRef = getRecommendationsRef;
-
-exports.getRecommendations = function getRecommendations(dcOrVars, varsOrOptions, options) {
-  
-  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
-  return executeQuery(getRecommendationsRef(dcInstance, inputVars), inputOpts && inputOpts.fetchPolicy);
-}
-;
-
-const getEpisodesByPodcastRef = (dcOrVars, vars) => {
-  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
-  dcInstance._useGeneratedSdk();
-  return queryRef(dcInstance, 'GetEpisodesByPodcast', inputVars);
-}
-getEpisodesByPodcastRef.operationName = 'GetEpisodesByPodcast';
-exports.getEpisodesByPodcastRef = getEpisodesByPodcastRef;
-
-exports.getEpisodesByPodcast = function getEpisodesByPodcast(dcOrVars, varsOrOptions, options) {
-  
-  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
-  return executeQuery(getEpisodesByPodcastRef(dcInstance, inputVars), inputOpts && inputOpts.fetchPolicy);
-}
-;
-
-const getLatestSubscribedEpisodesRef = (dcOrVars, vars) => {
-  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
-  dcInstance._useGeneratedSdk();
-  return queryRef(dcInstance, 'GetLatestSubscribedEpisodes', inputVars);
-}
-getLatestSubscribedEpisodesRef.operationName = 'GetLatestSubscribedEpisodes';
-exports.getLatestSubscribedEpisodesRef = getLatestSubscribedEpisodesRef;
-
-exports.getLatestSubscribedEpisodes = function getLatestSubscribedEpisodes(dcOrVars, varsOrOptions, options) {
-  
-  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
-  return executeQuery(getLatestSubscribedEpisodesRef(dcInstance, inputVars), inputOpts && inputOpts.fetchPolicy);
-}
-;
-
-const getAppCacheRef = (dcOrVars, vars) => {
-  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
-  dcInstance._useGeneratedSdk();
-  return queryRef(dcInstance, 'GetAppCache', inputVars);
-}
-getAppCacheRef.operationName = 'GetAppCache';
-exports.getAppCacheRef = getAppCacheRef;
-
-exports.getAppCache = function getAppCache(dcOrVars, varsOrOptions, options) {
-  
-  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
-  return executeQuery(getAppCacheRef(dcInstance, inputVars), inputOpts && inputOpts.fetchPolicy);
 }
 ;

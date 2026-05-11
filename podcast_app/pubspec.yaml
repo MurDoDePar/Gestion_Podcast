@@ -46,6 +46,7 @@ dependencies:
   package_info_plus: ^4.0.2
   flutter_html: ^3.0.0-beta.2
   audio_service: ^0.18.17
+  firebase_app_check: ^0.4.3
 
 dev_dependencies:
   flutter_test:

@@ -3,7 +3,14 @@
 - Implémentation du Système de Cache Global
 stocker en DB les données des onglet par theme et populaire. faire un rafraichissement tous les 7 jours
 
-- verifier 
-    que 'mes podcasts' sont bien unique par utilisateurs
-    que 'affinité' est bien la liste des podcasts commun avec les utilisateurs qui ont au moins un podcasts en cummun avec l'utilisateur connecté
-    que 'par thèmes' est bien la liste des 20 podcasts les plus populaires par catégorie
+- A ecouter proposer un choix d'ordre 
+    1: par date, desc et asc
+    2: par ordre alphabétique
+    3: par nombre d'ecoute
+    
+- sur le lecteur de l'episode le chrono de droite doit etre le temps ecoulé
+    et le chrono de gauche doit etre le temps restant
+
+- mettre en cache l'episode en ecoute pour eviter de retelecharger le fichier à chaque fois 
+    il faut le supprimé quand on passe à un autre episode
+

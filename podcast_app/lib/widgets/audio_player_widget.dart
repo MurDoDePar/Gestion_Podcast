@@ -53,7 +53,10 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                       final progressValue = total.inMilliseconds > 0
                           ? progress.inMilliseconds / total.inMilliseconds
                           : 0.0;
-                      final remaining = total - progress;
+                      final remaining =
+                          total.inMilliseconds > progress.inMilliseconds
+                              ? total - progress
+                              : Duration.zero;
 
                       return Column(
                         mainAxisSize: MainAxisSize.min,
@@ -97,7 +100,7 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                                       color: AppTheme.textSecondary),
                                 ),
                                 Text(
-                                  '-${_formatDuration(remaining)}',
+                                  _formatDuration(remaining),
                                   style: const TextStyle(
                                       fontSize: 11,
                                       color: AppTheme.textSecondary),

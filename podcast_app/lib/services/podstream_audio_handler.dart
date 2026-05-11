@@ -10,6 +10,8 @@ class PodStreamAudioHandler extends BaseAudioHandler
   // A simple representation of our episodes for Android Auto to browse
   final Map<String, MediaItem> _mediaLibrary = {};
 
+  Stream<Duration> get positionStream => _player.positionStream;
+
   PodStreamAudioHandler() {
     _init();
   }
@@ -20,6 +22,16 @@ class PodStreamAudioHandler extends BaseAudioHandler
 
     // Broadcast playback state changes to the system (lock screen, Android Auto)
     _player.playbackEventStream.listen(_broadcastState);
+
+    // Écouter les changements de durée (récupérée dans les métadonnées du flux audio)
+    _player.durationStream.listen((duration) {
+      if (duration != null && mediaItem.value != null) {
+        final currentMediaItem = mediaItem.value!;
+        if (currentMediaItem.duration != duration) {
+          mediaItem.add(currentMediaItem.copyWith(duration: duration));
+        }
+      }
+    });
 
     // Listen for completion
     _player.processingStateStream.listen((state) {

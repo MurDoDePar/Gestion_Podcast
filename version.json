@@ -1,5 +1,5 @@
 {
-  "version": "2.1.7",
-  "build_number": 217,
-  "release_notes": "Implémentation du Système de Cache Global"
+  "version": "2.1.8",
+  "build_number": 218,
+  "release_notes": "Optimisation du LecteurAudio et Cache Global"
 }

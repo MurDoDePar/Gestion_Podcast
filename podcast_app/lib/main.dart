@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'theme/app_theme.dart';
 import 'screens/main_screen.dart';
 import 'screens/login_screen.dart';
@@ -18,6 +19,12 @@ void main() async {
   try {
     debugPrint('--- Initialisation Firebase... ---');
     await Firebase.initializeApp();
+
+    await FirebaseAppCheck.instance.activate(
+      providerAndroid: const AndroidDebugProvider(),
+      providerApple: const AppleDebugProvider(),
+    );
+
     debugPrint('--- Firebase OK ---');
   } catch (e) {
     debugPrint('Erreur initialisation Firebase: $e');
