@@ -1,6 +1,7 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
+import 'audio_service.dart' as app_audio;
 
 // The new background audio handler that will replace the old AudioService
 class PodStreamAudioHandler extends BaseAudioHandler
@@ -46,10 +47,14 @@ class PodStreamAudioHandler extends BaseAudioHandler
     final playing = _player.playing;
     playbackState.add(playbackState.value.copyWith(
       controls: [
-        MediaControl.skipToPrevious,
+        MediaControl.rewind,
         if (playing) MediaControl.pause else MediaControl.play,
-        MediaControl.stop,
-        MediaControl.skipToNext,
+        MediaControl.fastForward,
+        MediaControl.custom(
+          androidIcon: 'drawable/ic_check',
+          label: 'Marquer lu',
+          name: 'mark_as_read',
+        ),
       ],
       systemActions: const {
         MediaAction.seek,
@@ -92,6 +97,24 @@ class PodStreamAudioHandler extends BaseAudioHandler
     this.mediaItem.add(mediaItem);
     await _player.setAudioSource(AudioSource.uri(Uri.parse(mediaItem.id)));
     _player.play();
+  }
+
+  @override
+  Future<void> fastForward() async {
+    await app_audio.AudioService().seekForward30();
+  }
+
+  @override
+  Future<void> rewind() async {
+    await app_audio.AudioService().seekBackward30();
+  }
+
+  @override
+  Future<void> customAction(String name, [Map<String, dynamic>? extras]) async {
+    if (name == 'mark_as_read') {
+      await app_audio.AudioService().markAsRead();
+    }
+    return super.customAction(name, extras);
   }
 
   // --- Android Auto Integration (MediaBrowserService) ---

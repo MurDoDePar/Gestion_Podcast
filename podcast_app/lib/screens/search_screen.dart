@@ -35,7 +35,8 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Future<void> _performSearch(String query) async {
-    if (query.trim().isEmpty) {
+    final trimmedQuery = query.trim();
+    if (trimmedQuery.isEmpty) {
       setState(() {
         _podcasts = [];
         _lastQuery = '';
@@ -43,15 +44,18 @@ class _SearchScreenState extends State<SearchScreen> {
       return;
     }
 
-    if (query == _lastQuery && _podcasts.isNotEmpty) return;
+    if (trimmedQuery == _lastQuery && _podcasts.isNotEmpty) return;
 
     setState(() {
       _isLoading = true;
-      _lastQuery = query;
+      _lastQuery = trimmedQuery;
       _podcasts = [];
     });
 
-    final term = Uri.encodeComponent(query);
+    final term = trimmedQuery
+        .split(RegExp(r'\s+'))
+        .map((s) => Uri.encodeComponent(s))
+        .join('+');
     final prefs = await SharedPreferences.getInstance();
     final lang = prefs.getString('podstream_lang') ?? 'fr';
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
+import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:xml/xml.dart' as xml;
 import 'package:firebase_auth/firebase_auth.dart';
@@ -7,6 +8,7 @@ import 'package:firebase_data_connect/firebase_data_connect.dart';
 import '../theme/app_theme.dart';
 import '../services/audio_service.dart';
 import '../dataconnect-generated/example.dart';
+import 'main_screen.dart';
 
 class PodcastDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> podcast;
@@ -20,6 +22,7 @@ class PodcastDetailsScreen extends StatefulWidget {
 class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
   bool _isLoading = true;
   bool _isSubscribed = false;
+  String? _realPodcastId;
   List<AudioEpisode> _episodes = [];
   String _description = '';
 
@@ -36,6 +39,8 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
     final paddedId = rawId.padLeft(12, '0');
     return '00000000-0000-4000-8000-$paddedId';
   }
+
+  String get actualPodcastId => _realPodcastId ?? podcastId;
 
   @override
   void initState() {
@@ -59,9 +64,29 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
           .getMySubscriptions(userId: postgresUuid)
           .execute();
       final mySubs = subsResult.data.subscriptionTypes;
+      final currentFeedUrl = widget.podcast['feedUrl'];
+
+      if (currentFeedUrl != null) {
+        final existingPodcastResult = await ExampleConnector.instance
+            .getPodcastByFeedUrl(feedUrl: currentFeedUrl)
+            .execute();
+        if (existingPodcastResult.data.podcasts.isNotEmpty) {
+          _realPodcastId = existingPodcastResult.data.podcasts.first.id;
+        }
+      }
 
       setState(() {
-        _isSubscribed = mySubs.any((s) => s.podcast.id == podcastId);
+        _isSubscribed = mySubs.any((s) =>
+            s.podcast.id == actualPodcastId ||
+            (currentFeedUrl != null && s.podcast.feedUrl == currentFeedUrl));
+
+        if (_isSubscribed && _realPodcastId == null) {
+          _realPodcastId = mySubs
+              .firstWhere((s) =>
+                  currentFeedUrl != null && s.podcast.feedUrl == currentFeedUrl)
+              .podcast
+              .id;
+        }
       });
     } catch (e) {
       print("Erreur vérif abonnement: $e");
@@ -105,7 +130,7 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
         await ExampleConnector.instance
             .unsubscribeFromPodcast(
               userId: postgresUuid,
-              podcastId: podcastId,
+              podcastId: actualPodcastId,
             )
             .execute();
 
@@ -134,7 +159,7 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
               createdAt:
                   Timestamp(0, DateTime.now().millisecondsSinceEpoch ~/ 1000),
             )
-            .id(podcastId)
+            .id(actualPodcastId)
             .description(_description.substring(
                 0, _description.length > 500 ? 500 : _description.length))
             .imageUrl(
@@ -152,7 +177,7 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
         await ExampleConnector.instance
             .subscribeToPodcast(
               userId: postgresUuid,
-              podcastId: podcastId,
+              podcastId: actualPodcastId,
               subscribedAt:
                   Timestamp(0, DateTime.now().millisecondsSinceEpoch ~/ 1000),
             )
@@ -165,6 +190,13 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Abonné avec succès !')));
+
+          // Retourner à la page Mes podcasts (MainScreen par défaut)
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const MainScreen()),
+            (route) => false,
+          );
         }
       }
     } catch (e) {
@@ -246,7 +278,7 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
     try {
       final response = await http.get(Uri.parse(feedUrl));
       if (response.statusCode == 200) {
-        final document = xml.XmlDocument.parse(response.body);
+        final document = xml.XmlDocument.parse(utf8.decode(response.bodyBytes));
 
         final channelDesc =
             document.findAllElements('description').firstOrNull?.innerText ??
@@ -414,11 +446,12 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
                   const SizedBox(height: 24),
                   ElevatedButton.icon(
                     onPressed: _toggleSubscription,
-                    icon: Icon(_isSubscribed ? Icons.check : Icons.add),
-                    label: Text(_isSubscribed ? 'Abonné' : 'S\'abonner'),
+                    icon: Icon(_isSubscribed ? Icons.remove : Icons.add),
+                    label: Text(_isSubscribed ? 'Se désabonner' : 'S\'abonner'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          _isSubscribed ? Colors.green : AppTheme.primaryColor,
+                      backgroundColor: _isSubscribed
+                          ? Colors.red.shade400
+                          : AppTheme.primaryColor,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                           horizontal: 32, vertical: 12),

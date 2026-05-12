@@ -1,5 +1,3 @@
-
-
 - Implémentation du Système de Cache Global
 stocker en DB les données des onglet par theme et populaire. faire un rafraichissement tous les 7 jours
 
@@ -8,9 +6,26 @@ stocker en DB les données des onglet par theme et populaire. faire un rafraichi
     2: par ordre alphabétique
     3: par nombre d'ecoute
     
-- sur le lecteur de l'episode le chrono de droite doit etre le temps ecoulé
-    et le chrono de gauche doit etre le temps restant
+- au moment de l'installation de l'application mettre l'icone de l'application sur la page d'accueil de l'utilisateur
 
-- mettre en cache l'episode en ecoute pour eviter de retelecharger le fichier à chaque fois 
-    il faut le supprimé quand on passe à un autre episode
+- Implémentation de la Fonctionnalité de Téléchargement et Écoute Hors Ligne
 
+- revoir l'ordre de episodes
+
+-------------------------------------------------------------------------------------------------------------------
+
+A tester :
+
+- le lecteur android auto doit etre identique au lecteur de l'application
+    avec les boutons +30sec et -30sec et le bouton marqué comme lu
+
+- sur l'affichage d'un podcast, le bouton s'abonné doit afficher se desabonné si l'utilisateur est deja abonné
+
+- le bouton recherche, 
+    si il y a un blanc affiche les podcasts avac un blanc, 
+    je pense que la recheche fait un "ou" entre les mot au lieu de faire un "et"
+
+- le bouton recherche, 
+    si il y a blanc a la fin du mot recherché, il faut l'enlever
+
+- l'affichage du nom des episodes n'affiche pas correctement les accent francais

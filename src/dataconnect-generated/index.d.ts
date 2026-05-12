@@ -124,6 +124,19 @@ export interface GetMySubscriptionsVariables {
   userId: UUIDString;
 }
 
+export interface GetPodcastByFeedUrlData {
+  podcasts: ({
+    id: UUIDString;
+    title: string;
+    feedUrl: string;
+    imageUrl?: string | null;
+  } & Podcast_Key)[];
+}
+
+export interface GetPodcastByFeedUrlVariables {
+  feedUrl: string;
+}
+
 export interface GetRecommendationsData {
   subscriptionTypes: ({
     user: {
@@ -274,90 +287,6 @@ export interface User_Key {
   __typename?: 'User_Key';
 }
 
-interface FindUserByGoogleIdRef {
-  /* Allow users to create refs without passing in DataConnect */
-  (vars: FindUserByGoogleIdVariables): QueryRef<FindUserByGoogleIdData, FindUserByGoogleIdVariables>;
-  /* Allow users to pass in custom DataConnect instances */
-  (dc: DataConnect, vars: FindUserByGoogleIdVariables): QueryRef<FindUserByGoogleIdData, FindUserByGoogleIdVariables>;
-  operationName: string;
-}
-export const findUserByGoogleIdRef: FindUserByGoogleIdRef;
-
-export function findUserByGoogleId(vars: FindUserByGoogleIdVariables, options?: ExecuteQueryOptions): QueryPromise<FindUserByGoogleIdData, FindUserByGoogleIdVariables>;
-export function findUserByGoogleId(dc: DataConnect, vars: FindUserByGoogleIdVariables, options?: ExecuteQueryOptions): QueryPromise<FindUserByGoogleIdData, FindUserByGoogleIdVariables>;
-
-interface GetMySubscriptionsRef {
-  /* Allow users to create refs without passing in DataConnect */
-  (vars: GetMySubscriptionsVariables): QueryRef<GetMySubscriptionsData, GetMySubscriptionsVariables>;
-  /* Allow users to pass in custom DataConnect instances */
-  (dc: DataConnect, vars: GetMySubscriptionsVariables): QueryRef<GetMySubscriptionsData, GetMySubscriptionsVariables>;
-  operationName: string;
-}
-export const getMySubscriptionsRef: GetMySubscriptionsRef;
-
-export function getMySubscriptions(vars: GetMySubscriptionsVariables, options?: ExecuteQueryOptions): QueryPromise<GetMySubscriptionsData, GetMySubscriptionsVariables>;
-export function getMySubscriptions(dc: DataConnect, vars: GetMySubscriptionsVariables, options?: ExecuteQueryOptions): QueryPromise<GetMySubscriptionsData, GetMySubscriptionsVariables>;
-
-interface GetListenHistoryRef {
-  /* Allow users to create refs without passing in DataConnect */
-  (vars: GetListenHistoryVariables): QueryRef<GetListenHistoryData, GetListenHistoryVariables>;
-  /* Allow users to pass in custom DataConnect instances */
-  (dc: DataConnect, vars: GetListenHistoryVariables): QueryRef<GetListenHistoryData, GetListenHistoryVariables>;
-  operationName: string;
-}
-export const getListenHistoryRef: GetListenHistoryRef;
-
-export function getListenHistory(vars: GetListenHistoryVariables, options?: ExecuteQueryOptions): QueryPromise<GetListenHistoryData, GetListenHistoryVariables>;
-export function getListenHistory(dc: DataConnect, vars: GetListenHistoryVariables, options?: ExecuteQueryOptions): QueryPromise<GetListenHistoryData, GetListenHistoryVariables>;
-
-interface GetRecommendationsRef {
-  /* Allow users to create refs without passing in DataConnect */
-  (vars: GetRecommendationsVariables): QueryRef<GetRecommendationsData, GetRecommendationsVariables>;
-  /* Allow users to pass in custom DataConnect instances */
-  (dc: DataConnect, vars: GetRecommendationsVariables): QueryRef<GetRecommendationsData, GetRecommendationsVariables>;
-  operationName: string;
-}
-export const getRecommendationsRef: GetRecommendationsRef;
-
-export function getRecommendations(vars: GetRecommendationsVariables, options?: ExecuteQueryOptions): QueryPromise<GetRecommendationsData, GetRecommendationsVariables>;
-export function getRecommendations(dc: DataConnect, vars: GetRecommendationsVariables, options?: ExecuteQueryOptions): QueryPromise<GetRecommendationsData, GetRecommendationsVariables>;
-
-interface GetEpisodesByPodcastRef {
-  /* Allow users to create refs without passing in DataConnect */
-  (vars: GetEpisodesByPodcastVariables): QueryRef<GetEpisodesByPodcastData, GetEpisodesByPodcastVariables>;
-  /* Allow users to pass in custom DataConnect instances */
-  (dc: DataConnect, vars: GetEpisodesByPodcastVariables): QueryRef<GetEpisodesByPodcastData, GetEpisodesByPodcastVariables>;
-  operationName: string;
-}
-export const getEpisodesByPodcastRef: GetEpisodesByPodcastRef;
-
-export function getEpisodesByPodcast(vars: GetEpisodesByPodcastVariables, options?: ExecuteQueryOptions): QueryPromise<GetEpisodesByPodcastData, GetEpisodesByPodcastVariables>;
-export function getEpisodesByPodcast(dc: DataConnect, vars: GetEpisodesByPodcastVariables, options?: ExecuteQueryOptions): QueryPromise<GetEpisodesByPodcastData, GetEpisodesByPodcastVariables>;
-
-interface GetLatestSubscribedEpisodesRef {
-  /* Allow users to create refs without passing in DataConnect */
-  (vars: GetLatestSubscribedEpisodesVariables): QueryRef<GetLatestSubscribedEpisodesData, GetLatestSubscribedEpisodesVariables>;
-  /* Allow users to pass in custom DataConnect instances */
-  (dc: DataConnect, vars: GetLatestSubscribedEpisodesVariables): QueryRef<GetLatestSubscribedEpisodesData, GetLatestSubscribedEpisodesVariables>;
-  operationName: string;
-}
-export const getLatestSubscribedEpisodesRef: GetLatestSubscribedEpisodesRef;
-
-export function getLatestSubscribedEpisodes(vars: GetLatestSubscribedEpisodesVariables, options?: ExecuteQueryOptions): QueryPromise<GetLatestSubscribedEpisodesData, GetLatestSubscribedEpisodesVariables>;
-export function getLatestSubscribedEpisodes(dc: DataConnect, vars: GetLatestSubscribedEpisodesVariables, options?: ExecuteQueryOptions): QueryPromise<GetLatestSubscribedEpisodesData, GetLatestSubscribedEpisodesVariables>;
-
-interface GetAppCacheRef {
-  /* Allow users to create refs without passing in DataConnect */
-  (vars: GetAppCacheVariables): QueryRef<GetAppCacheData, GetAppCacheVariables>;
-  /* Allow users to pass in custom DataConnect instances */
-  (dc: DataConnect, vars: GetAppCacheVariables): QueryRef<GetAppCacheData, GetAppCacheVariables>;
-  operationName: string;
-}
-export const getAppCacheRef: GetAppCacheRef;
-
-export function getAppCache(vars: GetAppCacheVariables, options?: ExecuteQueryOptions): QueryPromise<GetAppCacheData, GetAppCacheVariables>;
-export function getAppCache(dc: DataConnect, vars: GetAppCacheVariables, options?: ExecuteQueryOptions): QueryPromise<GetAppCacheData, GetAppCacheVariables>;
-
 interface InsertUserRef {
   /* Allow users to create refs without passing in DataConnect */
   (vars: InsertUserVariables): MutationRef<InsertUserData, InsertUserVariables>;
@@ -477,4 +406,100 @@ export const upsertAppCacheRef: UpsertAppCacheRef;
 
 export function upsertAppCache(vars: UpsertAppCacheVariables): MutationPromise<UpsertAppCacheData, UpsertAppCacheVariables>;
 export function upsertAppCache(dc: DataConnect, vars: UpsertAppCacheVariables): MutationPromise<UpsertAppCacheData, UpsertAppCacheVariables>;
+
+interface FindUserByGoogleIdRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: FindUserByGoogleIdVariables): QueryRef<FindUserByGoogleIdData, FindUserByGoogleIdVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: FindUserByGoogleIdVariables): QueryRef<FindUserByGoogleIdData, FindUserByGoogleIdVariables>;
+  operationName: string;
+}
+export const findUserByGoogleIdRef: FindUserByGoogleIdRef;
+
+export function findUserByGoogleId(vars: FindUserByGoogleIdVariables, options?: ExecuteQueryOptions): QueryPromise<FindUserByGoogleIdData, FindUserByGoogleIdVariables>;
+export function findUserByGoogleId(dc: DataConnect, vars: FindUserByGoogleIdVariables, options?: ExecuteQueryOptions): QueryPromise<FindUserByGoogleIdData, FindUserByGoogleIdVariables>;
+
+interface GetMySubscriptionsRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: GetMySubscriptionsVariables): QueryRef<GetMySubscriptionsData, GetMySubscriptionsVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: GetMySubscriptionsVariables): QueryRef<GetMySubscriptionsData, GetMySubscriptionsVariables>;
+  operationName: string;
+}
+export const getMySubscriptionsRef: GetMySubscriptionsRef;
+
+export function getMySubscriptions(vars: GetMySubscriptionsVariables, options?: ExecuteQueryOptions): QueryPromise<GetMySubscriptionsData, GetMySubscriptionsVariables>;
+export function getMySubscriptions(dc: DataConnect, vars: GetMySubscriptionsVariables, options?: ExecuteQueryOptions): QueryPromise<GetMySubscriptionsData, GetMySubscriptionsVariables>;
+
+interface GetListenHistoryRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: GetListenHistoryVariables): QueryRef<GetListenHistoryData, GetListenHistoryVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: GetListenHistoryVariables): QueryRef<GetListenHistoryData, GetListenHistoryVariables>;
+  operationName: string;
+}
+export const getListenHistoryRef: GetListenHistoryRef;
+
+export function getListenHistory(vars: GetListenHistoryVariables, options?: ExecuteQueryOptions): QueryPromise<GetListenHistoryData, GetListenHistoryVariables>;
+export function getListenHistory(dc: DataConnect, vars: GetListenHistoryVariables, options?: ExecuteQueryOptions): QueryPromise<GetListenHistoryData, GetListenHistoryVariables>;
+
+interface GetRecommendationsRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: GetRecommendationsVariables): QueryRef<GetRecommendationsData, GetRecommendationsVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: GetRecommendationsVariables): QueryRef<GetRecommendationsData, GetRecommendationsVariables>;
+  operationName: string;
+}
+export const getRecommendationsRef: GetRecommendationsRef;
+
+export function getRecommendations(vars: GetRecommendationsVariables, options?: ExecuteQueryOptions): QueryPromise<GetRecommendationsData, GetRecommendationsVariables>;
+export function getRecommendations(dc: DataConnect, vars: GetRecommendationsVariables, options?: ExecuteQueryOptions): QueryPromise<GetRecommendationsData, GetRecommendationsVariables>;
+
+interface GetEpisodesByPodcastRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: GetEpisodesByPodcastVariables): QueryRef<GetEpisodesByPodcastData, GetEpisodesByPodcastVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: GetEpisodesByPodcastVariables): QueryRef<GetEpisodesByPodcastData, GetEpisodesByPodcastVariables>;
+  operationName: string;
+}
+export const getEpisodesByPodcastRef: GetEpisodesByPodcastRef;
+
+export function getEpisodesByPodcast(vars: GetEpisodesByPodcastVariables, options?: ExecuteQueryOptions): QueryPromise<GetEpisodesByPodcastData, GetEpisodesByPodcastVariables>;
+export function getEpisodesByPodcast(dc: DataConnect, vars: GetEpisodesByPodcastVariables, options?: ExecuteQueryOptions): QueryPromise<GetEpisodesByPodcastData, GetEpisodesByPodcastVariables>;
+
+interface GetLatestSubscribedEpisodesRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: GetLatestSubscribedEpisodesVariables): QueryRef<GetLatestSubscribedEpisodesData, GetLatestSubscribedEpisodesVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: GetLatestSubscribedEpisodesVariables): QueryRef<GetLatestSubscribedEpisodesData, GetLatestSubscribedEpisodesVariables>;
+  operationName: string;
+}
+export const getLatestSubscribedEpisodesRef: GetLatestSubscribedEpisodesRef;
+
+export function getLatestSubscribedEpisodes(vars: GetLatestSubscribedEpisodesVariables, options?: ExecuteQueryOptions): QueryPromise<GetLatestSubscribedEpisodesData, GetLatestSubscribedEpisodesVariables>;
+export function getLatestSubscribedEpisodes(dc: DataConnect, vars: GetLatestSubscribedEpisodesVariables, options?: ExecuteQueryOptions): QueryPromise<GetLatestSubscribedEpisodesData, GetLatestSubscribedEpisodesVariables>;
+
+interface GetAppCacheRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: GetAppCacheVariables): QueryRef<GetAppCacheData, GetAppCacheVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: GetAppCacheVariables): QueryRef<GetAppCacheData, GetAppCacheVariables>;
+  operationName: string;
+}
+export const getAppCacheRef: GetAppCacheRef;
+
+export function getAppCache(vars: GetAppCacheVariables, options?: ExecuteQueryOptions): QueryPromise<GetAppCacheData, GetAppCacheVariables>;
+export function getAppCache(dc: DataConnect, vars: GetAppCacheVariables, options?: ExecuteQueryOptions): QueryPromise<GetAppCacheData, GetAppCacheVariables>;
+
+interface GetPodcastByFeedUrlRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: GetPodcastByFeedUrlVariables): QueryRef<GetPodcastByFeedUrlData, GetPodcastByFeedUrlVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: GetPodcastByFeedUrlVariables): QueryRef<GetPodcastByFeedUrlData, GetPodcastByFeedUrlVariables>;
+  operationName: string;
+}
+export const getPodcastByFeedUrlRef: GetPodcastByFeedUrlRef;
+
+export function getPodcastByFeedUrl(vars: GetPodcastByFeedUrlVariables, options?: ExecuteQueryOptions): QueryPromise<GetPodcastByFeedUrlData, GetPodcastByFeedUrlVariables>;
+export function getPodcastByFeedUrl(dc: DataConnect, vars: GetPodcastByFeedUrlVariables, options?: ExecuteQueryOptions): QueryPromise<GetPodcastByFeedUrlData, GetPodcastByFeedUrlVariables>;
 

@@ -1,5 +1,5 @@
 {
-  "version": "2.1.8",
-  "build_number": 218,
-  "release_notes": "Optimisation du LecteurAudio et Cache Global"
+  "version": "2.1.9",
+  "build_number": 219,
+  "release_notes": "retour à la page mes podcasts après un clic sur s'abonné"
 }

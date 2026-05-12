@@ -34,6 +34,8 @@ public interface ExampleConnector : com.google.firebase.dataconnect.generated.Ge
   
     public val getMySubscriptions: GetMySubscriptionsQuery
   
+    public val getPodcastByFeedUrl: GetPodcastByFeedUrlQuery
+  
     public val getRecommendations: GetRecommendationsQuery
   
     public val insertUser: InsertUserMutation
@@ -136,6 +138,10 @@ private class ExampleConnectorImpl(
       GetMySubscriptionsQueryImpl(this)
     }
   
+    override val getPodcastByFeedUrl by lazy(LazyThreadSafetyMode.PUBLICATION) {
+      GetPodcastByFeedUrlQueryImpl(this)
+    }
+  
     override val getRecommendations by lazy(LazyThreadSafetyMode.PUBLICATION) {
       GetRecommendationsQueryImpl(this)
     }
@@ -206,6 +212,7 @@ private class ExampleConnectorImpl(
         getLatestSubscribedEpisodes,
         getListenHistory,
         getMySubscriptions,
+        getPodcastByFeedUrl,
         getRecommendations,
         
     )
@@ -444,6 +451,21 @@ private class GetMySubscriptionsQueryImpl(
     GetMySubscriptionsQuery.Companion.operationName,
     GetMySubscriptionsQuery.Companion.dataDeserializer,
     GetMySubscriptionsQuery.Companion.variablesSerializer,
+  )
+
+
+private class GetPodcastByFeedUrlQueryImpl(
+  connector: ExampleConnector
+):
+  GetPodcastByFeedUrlQuery,
+  ExampleConnectorGeneratedQueryImpl<
+      GetPodcastByFeedUrlQuery.Data,
+      GetPodcastByFeedUrlQuery.Variables
+  >(
+    connector,
+    GetPodcastByFeedUrlQuery.Companion.operationName,
+    GetPodcastByFeedUrlQuery.Companion.dataDeserializer,
+    GetPodcastByFeedUrlQuery.Companion.variablesSerializer,
   )
 
 

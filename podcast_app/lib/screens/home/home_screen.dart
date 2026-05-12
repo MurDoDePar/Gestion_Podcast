@@ -886,7 +886,8 @@ Future<void> _syncPodcastsBackground(String googleId) async {
             .get(Uri.parse(feedUrl))
             .timeout(const Duration(seconds: 10));
         if (response.statusCode == 200) {
-          final document = xml.XmlDocument.parse(response.body);
+          final document =
+              xml.XmlDocument.parse(utf8.decode(response.bodyBytes));
           final items = document
               .findAllElements('item')
               .take(5); // On synchro juste les 5 derniers pour l'accueil

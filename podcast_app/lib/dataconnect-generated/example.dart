@@ -4,20 +4,6 @@ import 'package:firebase_data_connect/firebase_data_connect.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
 
-part 'find_user_by_google_id.dart';
-
-part 'get_my_subscriptions.dart';
-
-part 'get_listen_history.dart';
-
-part 'get_recommendations.dart';
-
-part 'get_episodes_by_podcast.dart';
-
-part 'get_latest_subscribed_episodes.dart';
-
-part 'get_app_cache.dart';
-
 part 'insert_user.dart';
 
 part 'upsert_user.dart';
@@ -38,6 +24,22 @@ part 'cleanup_duplicates.dart';
 
 part 'upsert_app_cache.dart';
 
+part 'find_user_by_google_id.dart';
+
+part 'get_my_subscriptions.dart';
+
+part 'get_listen_history.dart';
+
+part 'get_recommendations.dart';
+
+part 'get_episodes_by_podcast.dart';
+
+part 'get_latest_subscribed_episodes.dart';
+
+part 'get_app_cache.dart';
+
+part 'get_podcast_by_feed_url.dart';
+
 String bigIntToJson(BigInt value) {
   return value.toString();
 }
@@ -47,69 +49,6 @@ BigInt bigIntFromJson(dynamic value) {
 }
 
 class ExampleConnector {
-  FindUserByGoogleIdVariablesBuilder findUserByGoogleId({
-    required String googleId,
-  }) {
-    return FindUserByGoogleIdVariablesBuilder(
-      dataConnect,
-      googleId: googleId,
-    );
-  }
-
-  GetMySubscriptionsVariablesBuilder getMySubscriptions({
-    required String userId,
-  }) {
-    return GetMySubscriptionsVariablesBuilder(
-      dataConnect,
-      userId: userId,
-    );
-  }
-
-  GetListenHistoryVariablesBuilder getListenHistory({
-    required String userId,
-  }) {
-    return GetListenHistoryVariablesBuilder(
-      dataConnect,
-      userId: userId,
-    );
-  }
-
-  GetRecommendationsVariablesBuilder getRecommendations({
-    required String feedUrl,
-  }) {
-    return GetRecommendationsVariablesBuilder(
-      dataConnect,
-      feedUrl: feedUrl,
-    );
-  }
-
-  GetEpisodesByPodcastVariablesBuilder getEpisodesByPodcast({
-    required String podcastId,
-  }) {
-    return GetEpisodesByPodcastVariablesBuilder(
-      dataConnect,
-      podcastId: podcastId,
-    );
-  }
-
-  GetLatestSubscribedEpisodesVariablesBuilder getLatestSubscribedEpisodes({
-    required String userId,
-  }) {
-    return GetLatestSubscribedEpisodesVariablesBuilder(
-      dataConnect,
-      userId: userId,
-    );
-  }
-
-  GetAppCacheVariablesBuilder getAppCache({
-    required String id,
-  }) {
-    return GetAppCacheVariablesBuilder(
-      dataConnect,
-      id: id,
-    );
-  }
-
   InsertUserVariablesBuilder insertUser({
     required String googleId,
     required String displayName,
@@ -238,6 +177,78 @@ class ExampleConnector {
       id: id,
       data: data,
       updatedAt: updatedAt,
+    );
+  }
+
+  FindUserByGoogleIdVariablesBuilder findUserByGoogleId({
+    required String googleId,
+  }) {
+    return FindUserByGoogleIdVariablesBuilder(
+      dataConnect,
+      googleId: googleId,
+    );
+  }
+
+  GetMySubscriptionsVariablesBuilder getMySubscriptions({
+    required String userId,
+  }) {
+    return GetMySubscriptionsVariablesBuilder(
+      dataConnect,
+      userId: userId,
+    );
+  }
+
+  GetListenHistoryVariablesBuilder getListenHistory({
+    required String userId,
+  }) {
+    return GetListenHistoryVariablesBuilder(
+      dataConnect,
+      userId: userId,
+    );
+  }
+
+  GetRecommendationsVariablesBuilder getRecommendations({
+    required String feedUrl,
+  }) {
+    return GetRecommendationsVariablesBuilder(
+      dataConnect,
+      feedUrl: feedUrl,
+    );
+  }
+
+  GetEpisodesByPodcastVariablesBuilder getEpisodesByPodcast({
+    required String podcastId,
+  }) {
+    return GetEpisodesByPodcastVariablesBuilder(
+      dataConnect,
+      podcastId: podcastId,
+    );
+  }
+
+  GetLatestSubscribedEpisodesVariablesBuilder getLatestSubscribedEpisodes({
+    required String userId,
+  }) {
+    return GetLatestSubscribedEpisodesVariablesBuilder(
+      dataConnect,
+      userId: userId,
+    );
+  }
+
+  GetAppCacheVariablesBuilder getAppCache({
+    required String id,
+  }) {
+    return GetAppCacheVariablesBuilder(
+      dataConnect,
+      id: id,
+    );
+  }
+
+  GetPodcastByFeedUrlVariablesBuilder getPodcastByFeedUrl({
+    required String feedUrl,
+  }) {
+    return GetPodcastByFeedUrlVariablesBuilder(
+      dataConnect,
+      feedUrl: feedUrl,
     );
   }
 

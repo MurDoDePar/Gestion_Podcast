@@ -96,3 +96,13 @@ query GetAppCache($id: String!) @auth(level: PUBLIC, insecureReason: "The cache 
     updatedAt
   }
 }
+
+query GetPodcastByFeedUrl($feedUrl: String!) @auth(level: PUBLIC, insecureReason: "Podcasts are public data") {
+  podcasts(where: { feedUrl: { eq: $feedUrl } }, limit: 1) {
+    id
+    title
+    feedUrl
+    imageUrl
+  }
+}
+

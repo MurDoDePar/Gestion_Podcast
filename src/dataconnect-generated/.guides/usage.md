@@ -14,29 +14,8 @@ If a user is not using a supported framework, they can use the generated SDK dir
 Here's an example of how to use it with the first 5 operations:
 
 ```js
-import { findUserByGoogleId, getMySubscriptions, getListenHistory, getRecommendations, getEpisodesByPodcast, getLatestSubscribedEpisodes, getAppCache, insertUser, upsertUser, upsertPodcast } from '@dataconnect/generated';
+import { insertUser, upsertUser, upsertPodcast, upsertEpisode, subscribeToPodcast, updateSubscriptionOrder, unsubscribeFromPodcast, updateListenHistory, cleanupDuplicates, upsertAppCache } from '@dataconnect/generated';
 
-
-// Operation FindUserByGoogleId:  For variables, look at type FindUserByGoogleIdVars in ../index.d.ts
-const { data } = await FindUserByGoogleId(dataConnect, findUserByGoogleIdVars);
-
-// Operation GetMySubscriptions:  For variables, look at type GetMySubscriptionsVars in ../index.d.ts
-const { data } = await GetMySubscriptions(dataConnect, getMySubscriptionsVars);
-
-// Operation GetListenHistory:  For variables, look at type GetListenHistoryVars in ../index.d.ts
-const { data } = await GetListenHistory(dataConnect, getListenHistoryVars);
-
-// Operation GetRecommendations:  For variables, look at type GetRecommendationsVars in ../index.d.ts
-const { data } = await GetRecommendations(dataConnect, getRecommendationsVars);
-
-// Operation GetEpisodesByPodcast:  For variables, look at type GetEpisodesByPodcastVars in ../index.d.ts
-const { data } = await GetEpisodesByPodcast(dataConnect, getEpisodesByPodcastVars);
-
-// Operation GetLatestSubscribedEpisodes:  For variables, look at type GetLatestSubscribedEpisodesVars in ../index.d.ts
-const { data } = await GetLatestSubscribedEpisodes(dataConnect, getLatestSubscribedEpisodesVars);
-
-// Operation GetAppCache:  For variables, look at type GetAppCacheVars in ../index.d.ts
-const { data } = await GetAppCache(dataConnect, getAppCacheVars);
 
 // Operation InsertUser:  For variables, look at type InsertUserVars in ../index.d.ts
 const { data } = await InsertUser(dataConnect, insertUserVars);
@@ -46,6 +25,27 @@ const { data } = await UpsertUser(dataConnect, upsertUserVars);
 
 // Operation UpsertPodcast:  For variables, look at type UpsertPodcastVars in ../index.d.ts
 const { data } = await UpsertPodcast(dataConnect, upsertPodcastVars);
+
+// Operation UpsertEpisode:  For variables, look at type UpsertEpisodeVars in ../index.d.ts
+const { data } = await UpsertEpisode(dataConnect, upsertEpisodeVars);
+
+// Operation SubscribeToPodcast:  For variables, look at type SubscribeToPodcastVars in ../index.d.ts
+const { data } = await SubscribeToPodcast(dataConnect, subscribeToPodcastVars);
+
+// Operation UpdateSubscriptionOrder:  For variables, look at type UpdateSubscriptionOrderVars in ../index.d.ts
+const { data } = await UpdateSubscriptionOrder(dataConnect, updateSubscriptionOrderVars);
+
+// Operation UnsubscribeFromPodcast:  For variables, look at type UnsubscribeFromPodcastVars in ../index.d.ts
+const { data } = await UnsubscribeFromPodcast(dataConnect, unsubscribeFromPodcastVars);
+
+// Operation UpdateListenHistory:  For variables, look at type UpdateListenHistoryVars in ../index.d.ts
+const { data } = await UpdateListenHistory(dataConnect, updateListenHistoryVars);
+
+// Operation CleanupDuplicates: 
+const { data } = await CleanupDuplicates(dataConnect);
+
+// Operation UpsertAppCache:  For variables, look at type UpsertAppCacheVars in ../index.d.ts
+const { data } = await UpsertAppCache(dataConnect, upsertAppCacheVars);
 
 
 ```

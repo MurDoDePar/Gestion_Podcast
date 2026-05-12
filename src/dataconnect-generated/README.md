@@ -15,6 +15,7 @@ This README will guide you through the process of using the generated JavaScript
   - [*GetEpisodesByPodcast*](#getepisodesbypodcast)
   - [*GetLatestSubscribedEpisodes*](#getlatestsubscribedepisodes)
   - [*GetAppCache*](#getappcache)
+  - [*GetPodcastByFeedUrl*](#getpodcastbyfeedurl)
 - [**Mutations**](#mutations)
   - [*InsertUser*](#insertuser)
   - [*UpsertUser*](#upsertuser)
@@ -894,6 +895,120 @@ console.log(data.appCache);
 executeQuery(ref).then((response) => {
   const data = response.data;
   console.log(data.appCache);
+});
+```
+
+## GetPodcastByFeedUrl
+You can execute the `GetPodcastByFeedUrl` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+getPodcastByFeedUrl(vars: GetPodcastByFeedUrlVariables, options?: ExecuteQueryOptions): QueryPromise<GetPodcastByFeedUrlData, GetPodcastByFeedUrlVariables>;
+
+interface GetPodcastByFeedUrlRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: GetPodcastByFeedUrlVariables): QueryRef<GetPodcastByFeedUrlData, GetPodcastByFeedUrlVariables>;
+}
+export const getPodcastByFeedUrlRef: GetPodcastByFeedUrlRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
+```typescript
+getPodcastByFeedUrl(dc: DataConnect, vars: GetPodcastByFeedUrlVariables, options?: ExecuteQueryOptions): QueryPromise<GetPodcastByFeedUrlData, GetPodcastByFeedUrlVariables>;
+
+interface GetPodcastByFeedUrlRef {
+  ...
+  (dc: DataConnect, vars: GetPodcastByFeedUrlVariables): QueryRef<GetPodcastByFeedUrlData, GetPodcastByFeedUrlVariables>;
+}
+export const getPodcastByFeedUrlRef: GetPodcastByFeedUrlRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the getPodcastByFeedUrlRef:
+```typescript
+const name = getPodcastByFeedUrlRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `GetPodcastByFeedUrl` query requires an argument of type `GetPodcastByFeedUrlVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface GetPodcastByFeedUrlVariables {
+  feedUrl: string;
+}
+```
+### Return Type
+Recall that executing the `GetPodcastByFeedUrl` query returns a `QueryPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `GetPodcastByFeedUrlData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface GetPodcastByFeedUrlData {
+  podcasts: ({
+    id: UUIDString;
+    title: string;
+    feedUrl: string;
+    imageUrl?: string | null;
+  } & Podcast_Key)[];
+}
+```
+### Using `GetPodcastByFeedUrl`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, getPodcastByFeedUrl, GetPodcastByFeedUrlVariables } from '@dataconnect/generated';
+
+// The `GetPodcastByFeedUrl` query requires an argument of type `GetPodcastByFeedUrlVariables`:
+const getPodcastByFeedUrlVars: GetPodcastByFeedUrlVariables = {
+  feedUrl: ..., 
+};
+
+// Call the `getPodcastByFeedUrl()` function to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await getPodcastByFeedUrl(getPodcastByFeedUrlVars);
+// Variables can be defined inline as well.
+const { data } = await getPodcastByFeedUrl({ feedUrl: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await getPodcastByFeedUrl(dataConnect, getPodcastByFeedUrlVars);
+
+console.log(data.podcasts);
+
+// Or, you can use the `Promise` API.
+getPodcastByFeedUrl(getPodcastByFeedUrlVars).then((response) => {
+  const data = response.data;
+  console.log(data.podcasts);
+});
+```
+
+### Using `GetPodcastByFeedUrl`'s `QueryRef` function
+
+```typescript
+import { getDataConnect, executeQuery } from 'firebase/data-connect';
+import { connectorConfig, getPodcastByFeedUrlRef, GetPodcastByFeedUrlVariables } from '@dataconnect/generated';
+
+// The `GetPodcastByFeedUrl` query requires an argument of type `GetPodcastByFeedUrlVariables`:
+const getPodcastByFeedUrlVars: GetPodcastByFeedUrlVariables = {
+  feedUrl: ..., 
+};
+
+// Call the `getPodcastByFeedUrlRef()` function to get a reference to the query.
+const ref = getPodcastByFeedUrlRef(getPodcastByFeedUrlVars);
+// Variables can be defined inline as well.
+const ref = getPodcastByFeedUrlRef({ feedUrl: ..., });
+
+// You can also pass in a `DataConnect` instance to the `QueryRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = getPodcastByFeedUrlRef(dataConnect, getPodcastByFeedUrlVars);
+
+// Call `executeQuery()` on the reference to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeQuery(ref);
+
+console.log(data.podcasts);
+
+// Or, you can use the `Promise` API.
+executeQuery(ref).then((response) => {
+  const data = response.data;
+  console.log(data.podcasts);
 });
 ```
 
