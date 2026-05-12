@@ -104,11 +104,16 @@ class _SearchScreenState extends State<SearchScreen> {
                     validPodcasts.add(p);
                   }
                 } else {
+                  // Si pas de balise language, on l'accepte par défaut
                   validPodcasts.add(p);
                 }
+              } else {
+                // Si la requête échoue, on l'accepte par défaut
+                validPodcasts.add(p);
               }
             } catch (e) {
-              // Ignorer l'erreur réseau pour un feed spécifique
+              // Ignorer l'erreur réseau mais accepter le podcast par défaut
+              validPodcasts.add(p);
             }
           }
 

@@ -1,6 +1,9 @@
 @echo off
 echo Lancement de l'application Flutter PodStream...
 
+echo Synchronisation de la version depuis version.json...
+powershell -ExecutionPolicy Bypass -File update_version.ps1
+
 cd podcast_app
 
 echo Nettoyage du projet Flutter...

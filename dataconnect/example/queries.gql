@@ -77,7 +77,29 @@ query GetLatestSubscribedEpisodes($userId: UUID!) @auth(level: USER) {
       id
       title
       imageUrl
-      episodes_on_podcast(orderBy: { publishedAt: DESC }, limit: 5) {
+      episodes_on_podcast(orderBy: { publishedAt: DESC }, limit: 20) {
+        id
+        title
+        audioUrl
+        publishedAt
+        imageUrl
+        description
+      }
+    }
+  }
+}
+
+query GetOldestSubscribedEpisodes($userId: UUID!) @auth(level: USER) {
+  subscriptionTypes(where: { userId: { eq: $userId } }) {
+    user @redact {
+      googleId
+    }
+    listOrder
+    podcast {
+      id
+      title
+      imageUrl
+      oldest_episodes: episodes_on_podcast(orderBy: { publishedAt: ASC }, limit: 50) {
         id
         title
         audioUrl

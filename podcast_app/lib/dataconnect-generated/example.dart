@@ -36,6 +36,8 @@ part 'get_episodes_by_podcast.dart';
 
 part 'get_latest_subscribed_episodes.dart';
 
+part 'get_oldest_subscribed_episodes.dart';
+
 part 'get_app_cache.dart';
 
 part 'get_podcast_by_feed_url.dart';
@@ -229,6 +231,15 @@ class ExampleConnector {
     required String userId,
   }) {
     return GetLatestSubscribedEpisodesVariablesBuilder(
+      dataConnect,
+      userId: userId,
+    );
+  }
+
+  GetOldestSubscribedEpisodesVariablesBuilder getOldestSubscribedEpisodes({
+    required String userId,
+  }) {
+    return GetOldestSubscribedEpisodesVariablesBuilder(
       dataConnect,
       userId: userId,
     );

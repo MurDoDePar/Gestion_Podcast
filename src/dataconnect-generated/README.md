@@ -14,6 +14,7 @@ This README will guide you through the process of using the generated JavaScript
   - [*GetRecommendations*](#getrecommendations)
   - [*GetEpisodesByPodcast*](#getepisodesbypodcast)
   - [*GetLatestSubscribedEpisodes*](#getlatestsubscribedepisodes)
+  - [*GetOldestSubscribedEpisodes*](#getoldestsubscribedepisodes)
   - [*GetAppCache*](#getappcache)
   - [*GetPodcastByFeedUrl*](#getpodcastbyfeedurl)
 - [**Mutations**](#mutations)
@@ -771,6 +772,130 @@ const ref = getLatestSubscribedEpisodesRef({ userId: ..., });
 // You can also pass in a `DataConnect` instance to the `QueryRef` function.
 const dataConnect = getDataConnect(connectorConfig);
 const ref = getLatestSubscribedEpisodesRef(dataConnect, getLatestSubscribedEpisodesVars);
+
+// Call `executeQuery()` on the reference to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeQuery(ref);
+
+console.log(data.subscriptionTypes);
+
+// Or, you can use the `Promise` API.
+executeQuery(ref).then((response) => {
+  const data = response.data;
+  console.log(data.subscriptionTypes);
+});
+```
+
+## GetOldestSubscribedEpisodes
+You can execute the `GetOldestSubscribedEpisodes` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+getOldestSubscribedEpisodes(vars: GetOldestSubscribedEpisodesVariables, options?: ExecuteQueryOptions): QueryPromise<GetOldestSubscribedEpisodesData, GetOldestSubscribedEpisodesVariables>;
+
+interface GetOldestSubscribedEpisodesRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: GetOldestSubscribedEpisodesVariables): QueryRef<GetOldestSubscribedEpisodesData, GetOldestSubscribedEpisodesVariables>;
+}
+export const getOldestSubscribedEpisodesRef: GetOldestSubscribedEpisodesRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
+```typescript
+getOldestSubscribedEpisodes(dc: DataConnect, vars: GetOldestSubscribedEpisodesVariables, options?: ExecuteQueryOptions): QueryPromise<GetOldestSubscribedEpisodesData, GetOldestSubscribedEpisodesVariables>;
+
+interface GetOldestSubscribedEpisodesRef {
+  ...
+  (dc: DataConnect, vars: GetOldestSubscribedEpisodesVariables): QueryRef<GetOldestSubscribedEpisodesData, GetOldestSubscribedEpisodesVariables>;
+}
+export const getOldestSubscribedEpisodesRef: GetOldestSubscribedEpisodesRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the getOldestSubscribedEpisodesRef:
+```typescript
+const name = getOldestSubscribedEpisodesRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `GetOldestSubscribedEpisodes` query requires an argument of type `GetOldestSubscribedEpisodesVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface GetOldestSubscribedEpisodesVariables {
+  userId: UUIDString;
+}
+```
+### Return Type
+Recall that executing the `GetOldestSubscribedEpisodes` query returns a `QueryPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `GetOldestSubscribedEpisodesData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface GetOldestSubscribedEpisodesData {
+  subscriptionTypes: ({
+    listOrder?: number | null;
+    podcast: {
+      id: UUIDString;
+      title: string;
+      imageUrl?: string | null;
+      oldest_episodes: ({
+        id: UUIDString;
+        title: string;
+        audioUrl: string;
+        publishedAt: TimestampString;
+        imageUrl?: string | null;
+        description?: string | null;
+      } & Episode_Key)[];
+    } & Podcast_Key;
+  })[];
+}
+```
+### Using `GetOldestSubscribedEpisodes`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, getOldestSubscribedEpisodes, GetOldestSubscribedEpisodesVariables } from '@dataconnect/generated';
+
+// The `GetOldestSubscribedEpisodes` query requires an argument of type `GetOldestSubscribedEpisodesVariables`:
+const getOldestSubscribedEpisodesVars: GetOldestSubscribedEpisodesVariables = {
+  userId: ..., 
+};
+
+// Call the `getOldestSubscribedEpisodes()` function to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await getOldestSubscribedEpisodes(getOldestSubscribedEpisodesVars);
+// Variables can be defined inline as well.
+const { data } = await getOldestSubscribedEpisodes({ userId: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await getOldestSubscribedEpisodes(dataConnect, getOldestSubscribedEpisodesVars);
+
+console.log(data.subscriptionTypes);
+
+// Or, you can use the `Promise` API.
+getOldestSubscribedEpisodes(getOldestSubscribedEpisodesVars).then((response) => {
+  const data = response.data;
+  console.log(data.subscriptionTypes);
+});
+```
+
+### Using `GetOldestSubscribedEpisodes`'s `QueryRef` function
+
+```typescript
+import { getDataConnect, executeQuery } from 'firebase/data-connect';
+import { connectorConfig, getOldestSubscribedEpisodesRef, GetOldestSubscribedEpisodesVariables } from '@dataconnect/generated';
+
+// The `GetOldestSubscribedEpisodes` query requires an argument of type `GetOldestSubscribedEpisodesVariables`:
+const getOldestSubscribedEpisodesVars: GetOldestSubscribedEpisodesVariables = {
+  userId: ..., 
+};
+
+// Call the `getOldestSubscribedEpisodesRef()` function to get a reference to the query.
+const ref = getOldestSubscribedEpisodesRef(getOldestSubscribedEpisodesVars);
+// Variables can be defined inline as well.
+const ref = getOldestSubscribedEpisodesRef({ userId: ..., });
+
+// You can also pass in a `DataConnect` instance to the `QueryRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = getOldestSubscribedEpisodesRef(dataConnect, getOldestSubscribedEpisodesVars);
 
 // Call `executeQuery()` on the reference to execute the query.
 // You can use the `await` keyword to wait for the promise to resolve.

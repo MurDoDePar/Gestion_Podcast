@@ -737,6 +737,7 @@ class _DraggablePodcastListState extends State<_DraggablePodcastList> {
                       'artistName': sub.podcast.author,
                       'artworkUrl600': sub.podcast.imageUrl,
                       'feedUrl': sub.podcast.feedUrl,
+                      'isSubscribed': true,
                     },
                   ),
                 ),
@@ -795,24 +796,82 @@ Future<List<Map<String, dynamic>>> _fetchNewEpisodes(String googleId) async {
     if (userResult.data.users.isEmpty) return [];
     final postgresUuid = userResult.data.users.first.id;
 
-    final result = await ExampleConnector.instance
-        .getLatestSubscribedEpisodes(userId: postgresUuid)
+    final historyResult = await ExampleConnector.instance
+        .getListenHistory(userId: postgresUuid)
         .execute();
+    final readEpisodeIds = historyResult.data.listenHistories
+        .where((h) => h.finishedListening == true)
+        .map((h) => h.episode.id)
+        .toSet();
 
     final prefs = await SharedPreferences.getInstance();
     final order = prefs.getString('podstream_order') ?? 'desc';
 
+    final subs = <dynamic>[];
+    if (order == 'asc') {
+      final result = await ExampleConnector.instance
+          .getOldestSubscribedEpisodes(userId: postgresUuid)
+          .execute();
+      subs.addAll(result.data.subscriptionTypes);
+    } else {
+      final result = await ExampleConnector.instance
+          .getLatestSubscribedEpisodes(userId: postgresUuid)
+          .execute();
+      subs.addAll(result.data.subscriptionTypes);
+    }
+
     List<Map<String, dynamic>> allEpisodes = [];
 
     // 1) Prendre la liste de tous les épisodes de tous 'mes podcasts'
-    final subs = result.data.subscriptionTypes.toList();
     for (var sub in subs) {
       final podcastName = sub.podcast.title;
       final podcastImageUrl = sub.podcast.imageUrl;
       final listOrder = sub.listOrder ?? 9999;
 
-      for (var ep in sub.podcast.episodes_on_podcast) {
+      // Extraire la bonne liste d'épisodes selon le type de résultat retourné par Data Connect
+      List<dynamic> rawEpsList;
+      if (order == 'asc') {
+        // Alias utilisé dans GetOldestSubscribedEpisodes
+        rawEpsList = sub.podcast.oldest_episodes.toList();
+      } else {
+        // Nom natif utilisé dans GetLatestSubscribedEpisodes
+        rawEpsList = sub.podcast.episodes_on_podcast.toList();
+      }
+
+      var epsList = rawEpsList.toList();
+      
+      // NE PAS MODIFIER CETTE LOGIQUE DE TRI SANS DEMANDE EXPRESSE DU DÉVELOPPEUR
+      epsList.sort((a, b) {
+        int cmp = 0;
+
+        final matchA = RegExp(r'#(\d+)').firstMatch(a.title);
+        final matchB = RegExp(r'#(\d+)').firstMatch(b.title);
+
+        if (matchA != null && matchB != null) {
+          final numA = int.parse(matchA.group(1)!);
+          final numB = int.parse(matchB.group(1)!);
+          cmp = numA.compareTo(numB);
+        } else {
+          cmp =
+              a.publishedAt.toDateTime().compareTo(b.publishedAt.toDateTime());
+          if (cmp == 0) cmp = a.title.compareTo(b.title);
+        }
+
+        if (order == 'asc') {
+          return -cmp;
+        } else {
+          return cmp;
+        }
+      });
+
+      int unreadCount = 0;
+      for (var ep in epsList) {
+        if (readEpisodeIds.contains(ep.id)) {
+          continue; // Ne pas afficher les épisodes déjà lus
+        }
+
         allEpisodes.add({
+          'id': ep.id,
           'title': ep.title,
           'audioUrl': ep.audioUrl,
           'imageUrl': ep.imageUrl ?? podcastImageUrl,
@@ -821,10 +880,14 @@ Future<List<Map<String, dynamic>>> _fetchNewEpisodes(String googleId) async {
           'listOrder': listOrder,
           'description': ep.description,
         });
+
+        unreadCount++;
+        if (unreadCount >= 5) break; // Limiter à 5 épisodes non lus par podcast
       }
     }
 
     // 2) Trier et regrouper (Tri principal: 'mes podcasts', Tri secondaire: date)
+    // NE PAS MODIFIER CETTE LOGIQUE DE TRI SANS DEMANDE EXPRESSE DU DÉVELOPPEUR
     allEpisodes.sort((a, b) {
       // Tri principal : l'ordre de 'mes podcasts'
       int orderComparison =
@@ -841,20 +904,20 @@ Future<List<Map<String, dynamic>>> _fetchNewEpisodes(String googleId) async {
       // Tri secondaire : date de parution
       final dateA = a['publishedAt'] as DateTime;
       final dateB = b['publishedAt'] as DateTime;
-      int dateComparison =
-          order == 'asc' ? dateA.compareTo(dateB) : dateB.compareTo(dateA);
+      int dateComparison = dateA.compareTo(dateB);
 
-      // Tri tertiaire (sécurité) : si les dates sont exactement identiques (ex: bug de parsing DB)
-      // on trie par le titre de l'épisode, ce qui règle le problème des numéros (#11, #12, etc.)
+      // Tri tertiaire (sécurité) : si les dates sont exactement identiques
       if (dateComparison == 0) {
         final titleA = a['title'] as String;
         final titleB = b['title'] as String;
-        return order == 'asc'
-            ? titleA.compareTo(titleB)
-            : titleB.compareTo(titleA);
+        dateComparison = titleA.compareTo(titleB);
       }
 
-      return dateComparison;
+      if (order == 'asc') {
+        return -dateComparison;
+      } else {
+        return dateComparison;
+      }
     });
 
     return allEpisodes;
@@ -876,6 +939,8 @@ Future<void> _syncPodcastsBackground(String googleId) async {
         .getMySubscriptions(userId: postgresUuid)
         .execute();
     final subs = subsResult.data.subscriptionTypes;
+    final prefs = await SharedPreferences.getInstance();
+    final userOrder = prefs.getString('podstream_order') ?? 'desc';
 
     for (var sub in subs) {
       final feedUrl = sub.podcast.feedUrl;
@@ -888,9 +953,17 @@ Future<void> _syncPodcastsBackground(String googleId) async {
         if (response.statusCode == 200) {
           final document =
               xml.XmlDocument.parse(utf8.decode(response.bodyBytes));
-          final items = document
-              .findAllElements('item')
-              .take(5); // On synchro juste les 5 derniers pour l'accueil
+
+          final itunesType = document
+                  .findAllElements('itunes:type')
+                  .firstOrNull
+                  ?.innerText
+                  .toLowerCase() ??
+              'episodic';
+          final isSerial = itunesType == 'serial';
+
+          final items = document.findAllElements('item');
+          final parsedItems = <Map<String, dynamic>>[];
 
           for (var item in items) {
             final title = item.findElements('title').firstOrNull?.innerText ??
@@ -909,28 +982,100 @@ Future<void> _syncPodcastsBackground(String googleId) async {
                   } catch (_) {
                     try {
                       pubDate = DateTime.parse(pubDateStr);
-                    } catch (_) {}
+                    } catch (_) {
+                      try {
+                        final cleaned = pubDateStr
+                            .replaceAll(RegExp(r'[+-]\d{4}\s*$'), 'GMT')
+                            .trim();
+                        pubDate = HttpDate.parse(cleaned);
+                      } catch (_) {}
+                    }
                   }
                 }
 
-                final stableId = _generateStableUuid(audioUrl);
+                final itunesEpStr =
+                    item.findElements('itunes:episode').firstOrNull?.innerText;
+                final itunesEp =
+                    itunesEpStr != null ? int.tryParse(itunesEpStr) : null;
 
-                await ExampleConnector.instance
-                    .upsertEpisode(
-                      podcastId: sub.podcast.id,
-                      title: title,
-                      audioUrl: audioUrl,
-                      duration: BigInt.zero,
-                      publishedAt:
-                          Timestamp(0, pubDate.millisecondsSinceEpoch ~/ 1000),
-                    )
-                    .id(stableId)
-                    .description(
-                        item.findElements('description').firstOrNull?.innerText)
-                    .imageUrl(sub.podcast.imageUrl)
-                    .execute();
+                final itunesOrderStr =
+                    item.findElements('itunes:order').firstOrNull?.innerText;
+                final itunesOrder = itunesOrderStr != null
+                    ? int.tryParse(itunesOrderStr)
+                    : null;
+
+                parsedItems.add({
+                  'item': item,
+                  'title': title,
+                  'audioUrl': audioUrl,
+                  'pubDate': pubDate,
+                  'itunesEpisode': itunesEp,
+                  'itunesOrder': itunesOrder,
+                });
               }
             }
+          }
+
+          // Tri des épisodes
+          // NE PAS MODIFIER CETTE LOGIQUE DE TRI SANS DEMANDE EXPRESSE DU DÉVELOPPEUR
+          parsedItems.sort((a, b) {
+            int cmp = 0;
+
+            final matchA = RegExp(r'#(\d+)').firstMatch(a['title']);
+            final matchB = RegExp(r'#(\d+)').firstMatch(b['title']);
+
+            if (isSerial &&
+                a['itunesEpisode'] != null &&
+                b['itunesEpisode'] != null) {
+              cmp = (a['itunesEpisode'] as int)
+                  .compareTo(b['itunesEpisode'] as int);
+            } else if (matchA != null && matchB != null) {
+              final numA = int.parse(matchA.group(1)!);
+              final numB = int.parse(matchB.group(1)!);
+              cmp = numA.compareTo(numB);
+            } else if (a['itunesOrder'] != null && b['itunesOrder'] != null) {
+              cmp =
+                  (a['itunesOrder'] as int).compareTo(b['itunesOrder'] as int);
+            } else {
+              cmp = (a['pubDate'] as DateTime)
+                  .compareTo(b['pubDate'] as DateTime);
+            }
+
+            if (cmp == 0) {
+              cmp = (a['title'] as String).compareTo(b['title'] as String);
+            }
+            if (userOrder == 'asc') {
+              return -cmp;
+            } else {
+              return cmp;
+            }
+          });
+
+          // On synchro juste les 5 premiers selon le tri pour l'accueil
+          final topItems = parsedItems.take(5).toList();
+
+          for (var parsed in topItems) {
+            final item = parsed['item'] as xml.XmlElement;
+            final audioUrl = parsed['audioUrl'] as String;
+            final title = parsed['title'] as String;
+            final pubDate = parsed['pubDate'] as DateTime;
+
+            final stableId = _generateStableUuid(audioUrl);
+
+            await ExampleConnector.instance
+                .upsertEpisode(
+                  podcastId: sub.podcast.id,
+                  title: title,
+                  audioUrl: audioUrl,
+                  duration: BigInt.zero,
+                  publishedAt:
+                      Timestamp(0, pubDate.millisecondsSinceEpoch ~/ 1000),
+                )
+                .id(stableId)
+                .description(
+                    item.findElements('description').firstOrNull?.innerText)
+                .imageUrl(sub.podcast.imageUrl)
+                .execute();
           }
         }
       } catch (e) {

@@ -8,7 +8,26 @@ import 'package:firebase_data_connect/firebase_data_connect.dart';
 import '../theme/app_theme.dart';
 import '../services/audio_service.dart';
 import '../dataconnect-generated/example.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'main_screen.dart';
+
+class ParsedEpisode {
+  final xml.XmlElement element;
+  final String title;
+  final String? audioUrl;
+  final DateTime pubDate;
+  final int? itunesEpisode;
+  final int? itunesOrder;
+
+  ParsedEpisode({
+    required this.element,
+    required this.title,
+    this.audioUrl,
+    required this.pubDate,
+    this.itunesEpisode,
+    this.itunesOrder,
+  });
+}
 
 class PodcastDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> podcast;
@@ -45,6 +64,7 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
   @override
   void initState() {
     super.initState();
+    _isSubscribed = widget.podcast['isSubscribed'] == true;
     _checkSubscription();
     _fetchEpisodes();
   }
@@ -246,8 +266,37 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
       final dbEpisodes = result.data.episodes;
 
       if (dbEpisodes.isNotEmpty && mounted) {
+        final prefs = await SharedPreferences.getInstance();
+        final userOrder = prefs.getString('podstream_order') ?? 'desc';
+
+        final epsList = dbEpisodes.toList();
+        
+        // NE PAS MODIFIER CETTE LOGIQUE DE TRI SANS DEMANDE EXPRESSE DU DÉVELOPPEUR
+        epsList.sort((a, b) {
+          int cmp = 0;
+          // Extract episode number from title (e.g., "#14")
+          final matchA = RegExp(r'#(\d+)').firstMatch(a.title);
+          final matchB = RegExp(r'#(\d+)').firstMatch(b.title);
+          if (matchA != null && matchB != null) {
+            final numA = int.parse(matchA.group(1)!);
+            final numB = int.parse(matchB.group(1)!);
+            cmp = numA.compareTo(numB);
+          } else {
+            cmp = a.publishedAt
+                .toDateTime()
+                .compareTo(b.publishedAt.toDateTime());
+            if (cmp == 0) cmp = a.title.compareTo(b.title);
+          }
+
+          if (userOrder == 'asc') {
+            return -cmp;
+          } else {
+            return cmp;
+          }
+        });
+
         setState(() {
-          _episodes = dbEpisodes
+          _episodes = epsList
               .map((e) => AudioEpisode(
                     id: e.id,
                     title: e.title,
@@ -269,8 +318,29 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
   }
 
   Future<void> _syncEpisodesFromRSS() async {
-    final feedUrl = widget.podcast['feedUrl'];
-    if (feedUrl == null) {
+    String? feedUrl = widget.podcast['feedUrl'];
+    if (feedUrl == null || feedUrl.isEmpty) {
+      feedUrl = widget.podcast['collectionViewUrl'];
+    }
+
+    // Si toujours vide, on tente de le récupérer via l'API iTunes
+    if (feedUrl == null || feedUrl.isEmpty || feedUrl.contains('apple.com')) {
+      final title = widget.podcast['collectionName'] ?? widget.podcast['title'];
+      if (title != null) {
+        try {
+          final searchRes = await http.get(Uri.parse(
+              'https://itunes.apple.com/search?media=podcast&term=${Uri.encodeComponent(title)}&limit=1'));
+          if (searchRes.statusCode == 200) {
+            final data = json.decode(searchRes.body);
+            if (data['results'] != null && data['results'].isNotEmpty) {
+              feedUrl = data['results'][0]['feedUrl'];
+            }
+          }
+        } catch (_) {}
+      }
+    }
+
+    if (feedUrl == null || feedUrl.isEmpty) {
       if (mounted) setState(() => _isLoading = false);
       return;
     }
@@ -290,10 +360,19 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
           });
         }
 
-        final items = document
-            .findAllElements('item')
-            .take(20); // Limiter aux 20 derniers
-        final eps = <AudioEpisode>[];
+        final itunesType = document
+                .findAllElements('itunes:type')
+                .firstOrNull
+                ?.innerText
+                .toLowerCase() ??
+            'episodic';
+        final isSerial = itunesType == 'serial';
+
+        final prefs = await SharedPreferences.getInstance();
+        final userOrder = prefs.getString('podstream_order') ?? 'desc';
+
+        final items = document.findAllElements('item');
+        final parsedItems = <ParsedEpisode>[];
 
         for (var item in items) {
           final title = item.findElements('title').firstOrNull?.innerText ??
@@ -312,57 +391,110 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
                 } catch (_) {
                   try {
                     pubDate = DateTime.parse(pubDateStr);
-                  } catch (_) {}
+                  } catch (_) {
+                    try {
+                      // Fallback: remplacer le timezone ex: +0000 par GMT pour HttpDate
+                      final cleaned = pubDateStr
+                          .replaceAll(RegExp(r'[+-]\d{4}\s*$'), 'GMT')
+                          .trim();
+                      pubDate = HttpDate.parse(cleaned);
+                    } catch (_) {}
+                  }
                 }
               }
-              // Very basic parsing fallback, in a real app use intl or specific date parser
-              // We just use now() to ensure it saves if parsing is complex, or try to parse
-              // But for RSS dates RFC-822, Dart's DateTime.parse doesn't always work perfectly.
 
-              // We use audioUrl as an ID base
-              // But UUID format is needed for Data Connect. So we hash or ignore ID to auto-generate
-              // Actually, UpsertEpisode ID is optional (UUID?). If not provided, it generates one?
-              // Wait, in schema, Episode ID is generated by default if UUID is default.
-              // Oh wait, in Data Connect, if ID is omitted, it auto-generates!
-              // But to avoid duplicates on upsert, we need a stable ID!
-              // Let's create a stable UUID from the audioUrl.
-              final stableId = _generateStableUuid(audioUrl);
+              final itunesEpStr =
+                  item.findElements('itunes:episode').firstOrNull?.innerText;
+              final itunesEp =
+                  itunesEpStr != null ? int.tryParse(itunesEpStr) : null;
 
-              eps.add(AudioEpisode(
-                id: stableId, // ID stable
+              final itunesOrderStr =
+                  item.findElements('itunes:order').firstOrNull?.innerText;
+              final itunesOrder =
+                  itunesOrderStr != null ? int.tryParse(itunesOrderStr) : null;
+
+              parsedItems.add(ParsedEpisode(
+                element: item,
                 title: title,
-                podcastName: widget.podcast['collectionName'] ??
-                    widget.podcast['title'] ??
-                    'Podcast',
-                imageUrl: widget.podcast['artworkUrl600'] ??
-                    widget.podcast['imageUrl'],
                 audioUrl: audioUrl,
+                pubDate: pubDate,
+                itunesEpisode: itunesEp,
+                itunesOrder: itunesOrder,
               ));
+            }
+          }
+        }
 
-              // Upsert l'épisode en base
-              if (_isSubscribed) {
-                try {
-                  await ExampleConnector.instance
-                      .upsertEpisode(
-                        podcastId: podcastId,
-                        title: title,
-                        audioUrl: audioUrl,
-                        duration: BigInt.zero,
-                        publishedAt: Timestamp(
-                            0, pubDate.millisecondsSinceEpoch ~/ 1000),
-                      )
-                      .id(stableId)
-                      .description(item
-                          .findElements('description')
-                          .firstOrNull
-                          ?.innerText)
-                      .imageUrl(widget.podcast['artworkUrl600'] ??
-                          widget.podcast['imageUrl'])
-                      .execute();
-                } catch (upsertErr) {
-                  print("Erreur upsert episode $title: $upsertErr");
-                }
-              }
+        // NE PAS MODIFIER CETTE LOGIQUE DE TRI SANS DEMANDE EXPRESSE DU DÉVELOPPEUR
+        // Tri des épisodes
+        parsedItems.sort((a, b) {
+          int cmp = 0;
+
+          final matchA = RegExp(r'#(\d+)').firstMatch(a.title);
+          final matchB = RegExp(r'#(\d+)').firstMatch(b.title);
+
+          if (isSerial && a.itunesEpisode != null && b.itunesEpisode != null) {
+            cmp = a.itunesEpisode!.compareTo(b.itunesEpisode!);
+          } else if (matchA != null && matchB != null) {
+            final numA = int.parse(matchA.group(1)!);
+            final numB = int.parse(matchB.group(1)!);
+            cmp = numA.compareTo(numB);
+          } else if (a.itunesOrder != null && b.itunesOrder != null) {
+            cmp = a.itunesOrder!.compareTo(b.itunesOrder!);
+          } else {
+            cmp = a.pubDate.compareTo(b.pubDate);
+          }
+
+          if (cmp == 0) {
+            cmp = a.title.compareTo(b.title); // fallback
+          }
+          if (userOrder == 'asc') {
+            return -cmp;
+          } else {
+            return cmp;
+          }
+        });
+
+        // Limiter aux 20 premiers selon le tri
+        final topItems = parsedItems.take(20).toList();
+        final eps = <AudioEpisode>[];
+
+        for (var parsed in topItems) {
+          final item = parsed.element;
+          final audioUrl = parsed.audioUrl!;
+          final stableId = _generateStableUuid(audioUrl);
+
+          eps.add(AudioEpisode(
+            id: stableId, // ID stable
+            title: parsed.title,
+            podcastName: widget.podcast['collectionName'] ??
+                widget.podcast['title'] ??
+                'Podcast',
+            imageUrl:
+                widget.podcast['artworkUrl600'] ?? widget.podcast['imageUrl'],
+            audioUrl: audioUrl,
+          ));
+
+          // Upsert l'épisode en base
+          if (_isSubscribed) {
+            try {
+              await ExampleConnector.instance
+                  .upsertEpisode(
+                    podcastId: podcastId,
+                    title: parsed.title,
+                    audioUrl: audioUrl,
+                    duration: BigInt.zero,
+                    publishedAt: Timestamp(
+                        0, parsed.pubDate.millisecondsSinceEpoch ~/ 1000),
+                  )
+                  .id(stableId)
+                  .description(
+                      item.findElements('description').firstOrNull?.innerText)
+                  .imageUrl(widget.podcast['artworkUrl600'] ??
+                      widget.podcast['imageUrl'])
+                  .execute();
+            } catch (upsertErr) {
+              print("Erreur upsert episode ${parsed.title}: $upsertErr");
             }
           }
         }

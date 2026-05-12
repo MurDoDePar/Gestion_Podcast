@@ -34,6 +34,8 @@ public interface ExampleConnector : com.google.firebase.dataconnect.generated.Ge
   
     public val getMySubscriptions: GetMySubscriptionsQuery
   
+    public val getOldestSubscribedEpisodes: GetOldestSubscribedEpisodesQuery
+  
     public val getPodcastByFeedUrl: GetPodcastByFeedUrlQuery
   
     public val getRecommendations: GetRecommendationsQuery
@@ -138,6 +140,10 @@ private class ExampleConnectorImpl(
       GetMySubscriptionsQueryImpl(this)
     }
   
+    override val getOldestSubscribedEpisodes by lazy(LazyThreadSafetyMode.PUBLICATION) {
+      GetOldestSubscribedEpisodesQueryImpl(this)
+    }
+  
     override val getPodcastByFeedUrl by lazy(LazyThreadSafetyMode.PUBLICATION) {
       GetPodcastByFeedUrlQueryImpl(this)
     }
@@ -212,6 +218,7 @@ private class ExampleConnectorImpl(
         getLatestSubscribedEpisodes,
         getListenHistory,
         getMySubscriptions,
+        getOldestSubscribedEpisodes,
         getPodcastByFeedUrl,
         getRecommendations,
         
@@ -451,6 +458,21 @@ private class GetMySubscriptionsQueryImpl(
     GetMySubscriptionsQuery.Companion.operationName,
     GetMySubscriptionsQuery.Companion.dataDeserializer,
     GetMySubscriptionsQuery.Companion.variablesSerializer,
+  )
+
+
+private class GetOldestSubscribedEpisodesQueryImpl(
+  connector: ExampleConnector
+):
+  GetOldestSubscribedEpisodesQuery,
+  ExampleConnectorGeneratedQueryImpl<
+      GetOldestSubscribedEpisodesQuery.Data,
+      GetOldestSubscribedEpisodesQuery.Variables
+  >(
+    connector,
+    GetOldestSubscribedEpisodesQuery.Companion.operationName,
+    GetOldestSubscribedEpisodesQuery.Companion.dataDeserializer,
+    GetOldestSubscribedEpisodesQuery.Companion.variablesSerializer,
   )
 
 

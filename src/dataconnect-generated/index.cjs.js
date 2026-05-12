@@ -243,6 +243,21 @@ exports.getLatestSubscribedEpisodes = function getLatestSubscribedEpisodes(dcOrV
 }
 ;
 
+const getOldestSubscribedEpisodesRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return queryRef(dcInstance, 'GetOldestSubscribedEpisodes', inputVars);
+}
+getOldestSubscribedEpisodesRef.operationName = 'GetOldestSubscribedEpisodes';
+exports.getOldestSubscribedEpisodesRef = getOldestSubscribedEpisodesRef;
+
+exports.getOldestSubscribedEpisodes = function getOldestSubscribedEpisodes(dcOrVars, varsOrOptions, options) {
+  
+  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
+  return executeQuery(getOldestSubscribedEpisodesRef(dcInstance, inputVars), inputOpts && inputOpts.fetchPolicy);
+}
+;
+
 const getAppCacheRef = (dcOrVars, vars) => {
   const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
   dcInstance._useGeneratedSdk();

@@ -7,7 +7,20 @@ echo.
 :: Se deplacer dans le dossier du projet Flutter
 cd podcast_app
 
-:: Configuration de la jonction pour le dossier build (contournement Google Drive)
+:: 1. Arret forcé des processus en arriere-plan qui bloquent les fichiers
+echo [INFO] Arret des processus Gradle en arriere-plan...
+cd android && call gradlew.bat --stop >nul 2>&1 && cd ..
+
+:: 2. Nettoyage complet du cache Flutter (peut parfois echouer si un fichier est verrouille)
+echo [INFO] Nettoyage du cache Flutter...
+call flutter clean >nul 2>&1
+
+:: 3. Nettoyage force de bas niveau des dossiers caches
+echo [INFO] Nettoyage force des dossiers build et .dart_tool...
+powershell -Command "Remove-Item -Recurse -Force .dart_tool\* -ErrorAction SilentlyContinue"
+powershell -Command "Remove-Item -Recurse -Force build\* -ErrorAction SilentlyContinue"
+
+:: 4. Configuration de la jonction pour le dossier build (contournement Google Drive)
 fsutil reparsepoint query build >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo [INFO] Remplacement du dossier build par une jonction pour eviter les blocages Google Drive...
@@ -16,6 +29,10 @@ if %ERRORLEVEL% NEQ 0 (
     mklink /j build "C:\temp\podstream_build" >nul
 )
 
+:: 5. Mise a jour des dependances fraichement nettoyees
+echo [INFO] Recuperation des dependances...
+call flutter pub get >nul 2>&1
+echo.
 echo [1/4] Compilation du code (flutter build apk)...
 call flutter build apk
 if %ERRORLEVEL% NEQ 0 (

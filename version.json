@@ -1,5 +1,5 @@
 {
-  "version": "2.1.9",
-  "build_number": 219,
-  "release_notes": "retour à la page mes podcasts après un clic sur s'abonné"
+  "version": "2.2.4",
+  "build_number": 224,
+  "release_notes": "ordre des episodes"
 }

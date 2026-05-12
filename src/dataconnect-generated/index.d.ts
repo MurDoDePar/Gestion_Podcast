@@ -124,6 +124,29 @@ export interface GetMySubscriptionsVariables {
   userId: UUIDString;
 }
 
+export interface GetOldestSubscribedEpisodesData {
+  subscriptionTypes: ({
+    listOrder?: number | null;
+    podcast: {
+      id: UUIDString;
+      title: string;
+      imageUrl?: string | null;
+      oldest_episodes: ({
+        id: UUIDString;
+        title: string;
+        audioUrl: string;
+        publishedAt: TimestampString;
+        imageUrl?: string | null;
+        description?: string | null;
+      } & Episode_Key)[];
+    } & Podcast_Key;
+  })[];
+}
+
+export interface GetOldestSubscribedEpisodesVariables {
+  userId: UUIDString;
+}
+
 export interface GetPodcastByFeedUrlData {
   podcasts: ({
     id: UUIDString;
@@ -478,6 +501,18 @@ export const getLatestSubscribedEpisodesRef: GetLatestSubscribedEpisodesRef;
 
 export function getLatestSubscribedEpisodes(vars: GetLatestSubscribedEpisodesVariables, options?: ExecuteQueryOptions): QueryPromise<GetLatestSubscribedEpisodesData, GetLatestSubscribedEpisodesVariables>;
 export function getLatestSubscribedEpisodes(dc: DataConnect, vars: GetLatestSubscribedEpisodesVariables, options?: ExecuteQueryOptions): QueryPromise<GetLatestSubscribedEpisodesData, GetLatestSubscribedEpisodesVariables>;
+
+interface GetOldestSubscribedEpisodesRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: GetOldestSubscribedEpisodesVariables): QueryRef<GetOldestSubscribedEpisodesData, GetOldestSubscribedEpisodesVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: GetOldestSubscribedEpisodesVariables): QueryRef<GetOldestSubscribedEpisodesData, GetOldestSubscribedEpisodesVariables>;
+  operationName: string;
+}
+export const getOldestSubscribedEpisodesRef: GetOldestSubscribedEpisodesRef;
+
+export function getOldestSubscribedEpisodes(vars: GetOldestSubscribedEpisodesVariables, options?: ExecuteQueryOptions): QueryPromise<GetOldestSubscribedEpisodesData, GetOldestSubscribedEpisodesVariables>;
+export function getOldestSubscribedEpisodes(dc: DataConnect, vars: GetOldestSubscribedEpisodesVariables, options?: ExecuteQueryOptions): QueryPromise<GetOldestSubscribedEpisodesData, GetOldestSubscribedEpisodesVariables>;
 
 interface GetAppCacheRef {
   /* Allow users to create refs without passing in DataConnect */
