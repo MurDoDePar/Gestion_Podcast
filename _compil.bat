@@ -1,8 +1,11 @@
 @echo off
 echo ==========================================
-echo    Verification du code PodStream
+echo    Verification et Compilation PodStream
 echo ==========================================
 echo.
+
+echo [INFO] Mise a jour de la version a partir de version.json...
+powershell.exe -ExecutionPolicy Bypass -File update_version.ps1
 
 :: Se deplacer dans le dossier du projet Flutter
 cd podcast_app
@@ -33,7 +36,7 @@ if %ERRORLEVEL% NEQ 0 (
 echo [INFO] Recuperation des dependances...
 call flutter pub get >nul 2>&1
 echo.
-echo [1/4] Compilation du code (flutter build apk)...
+echo [1/6] Compilation de verification (flutter build apk)...
 call flutter build apk
 if %ERRORLEVEL% NEQ 0 (
     echo.
@@ -44,12 +47,12 @@ if %ERRORLEVEL% NEQ 0 (
 echo [SUCCES] Compilation reussie !
 echo.
 
-echo [2/4] Formatage et correction automatique du code...
+echo [2/6] Formatage et correction automatique du code...
 call dart format .
 call dart fix --apply
 echo.
 
-echo [3/4] Lancement de l'analyse statique (flutter analyze)...
+echo [3/6] Lancement de l'analyse statique (flutter analyze)...
 call flutter analyze
 if %ERRORLEVEL% NEQ 0 (
     echo.
@@ -60,7 +63,7 @@ if %ERRORLEVEL% NEQ 0 (
 echo [SUCCES] Aucune erreur de syntaxe trouvee !
 echo.
 
-echo [4/4] Lancement des tests (flutter test)...
+echo [4/6] Lancement des tests (flutter test)...
 call flutter test
 if %ERRORLEVEL% NEQ 0 (
     echo.
@@ -70,8 +73,28 @@ if %ERRORLEVEL% NEQ 0 (
 echo [SUCCES] Tous les tests sont passes (ou aucun test n'est configure) !
 echo.
 
+echo [5/6] Compilation de l'APK Release finale...
+call flutter build apk --release
+if %ERRORLEVEL% NEQ 0 (
+    echo.
+    echo [ERREUR] La recompilation Release a echoue.
+    goto :fin
+)
+echo [SUCCES] Recompilation Release reussie !
+echo.
+
+echo [6/6] Compilation de l'APK Debug finale...
+call flutter build apk --debug
+if %ERRORLEVEL% NEQ 0 (
+    echo.
+    echo [ERREUR] La recompilation Debug a echoue.
+    goto :fin
+)
+echo [SUCCES] Recompilation Debug reussie !
+echo.
+
 echo ==========================================
-echo    Verification terminee avec succes !
+echo    Verification et compilations terminees avec succes !
 echo ==========================================
 
 :fin

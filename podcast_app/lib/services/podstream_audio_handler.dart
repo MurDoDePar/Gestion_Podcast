@@ -2,6 +2,10 @@ import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
 import 'audio_service.dart' as app_audio;
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+
+import 'package:flutter/foundation.dart';
 
 // The new background audio handler that will replace the old AudioService
 class PodStreamAudioHandler extends BaseAudioHandler
@@ -11,9 +15,62 @@ class PodStreamAudioHandler extends BaseAudioHandler
   // A simple representation of our episodes for Android Auto to browse
   final Map<String, MediaItem> _mediaLibrary = {};
 
+  void _logAA(String message) {
+    try {
+      final now = DateTime.now();
+      final timestamp =
+          "${now.toIso8601String()}.${now.microsecond.toString().padLeft(3, '0')}";
+      debugPrint("AA_DEBUG: $timestamp: $message");
+
+      getApplicationDocumentsDirectory().then((directory) {
+        final logFile = File('${directory.path}/logs_android_auto.txt');
+        logFile
+            .writeAsString('$timestamp: $message\n', mode: FileMode.append)
+            .catchError((e) {
+          debugPrint("AA_DEBUG_ERROR (File write): $e");
+          return logFile;
+        });
+      }).catchError((e) {
+        debugPrint("AA_DEBUG_ERROR (Directory): $e");
+      });
+    } catch (e) {
+      debugPrint("AA_DEBUG_ERROR: Could not log: $e");
+    }
+  }
+
   Stream<Duration> get positionStream => _player.positionStream;
 
   PodStreamAudioHandler() {
+    _logAA(
+        "[INIT] Application lancée - Système de log opérationnel (PodStreamAudioHandler constructor)");
+
+    // Initialisation immédiate du PlaybackState pour Android Auto
+    playbackState.add(playbackState.value.copyWith(
+      controls: [
+        MediaControl.play,
+        MediaControl.pause,
+        MediaControl.skipToNext,
+        MediaControl.skipToPrevious
+      ],
+      systemActions: const {
+        MediaAction.play,
+        MediaAction.pause,
+        MediaAction.seek
+      },
+      processingState: AudioProcessingState.ready,
+      playing: false,
+    ));
+
+    // Initialisation de la Queue (Liste de lecture)
+    queue.add([]);
+
+    // Métadonnées Fantômes (Le Leurre Android Auto)
+    mediaItem.add(const MediaItem(
+      id: 'root',
+      album: 'PodStream',
+      title: 'Chargement...',
+      artist: '',
+    ));
     _init();
   }
 
@@ -45,11 +102,30 @@ class PodStreamAudioHandler extends BaseAudioHandler
   // This method converts the just_audio state into the audio_service state
   void _broadcastState(PlaybackEvent event) {
     final playing = _player.playing;
+
+    // TRICHE ANDROID AUTO : Ne jamais envoyer 'idle', on le force en 'ready'
+    final AudioProcessingState aaProcessingState =
+        _player.processingState == ProcessingState.idle
+            ? AudioProcessingState.ready
+            : const {
+                ProcessingState.idle:
+                    AudioProcessingState.ready, // Fallback par sécurité
+                ProcessingState.loading: AudioProcessingState.loading,
+                ProcessingState.buffering: AudioProcessingState.buffering,
+                ProcessingState.ready: AudioProcessingState.ready,
+                ProcessingState.completed: AudioProcessingState.completed,
+              }[_player.processingState]!;
+
+    _logAA(
+        "[AA] _broadcastState: processingState=$aaProcessingState, playing=$playing");
+
     playbackState.add(playbackState.value.copyWith(
       controls: [
+        MediaControl.skipToPrevious,
         MediaControl.rewind,
         if (playing) MediaControl.pause else MediaControl.play,
         MediaControl.fastForward,
+        MediaControl.skipToNext,
         MediaControl.custom(
           androidIcon: 'drawable/ic_check',
           label: 'Marquer lu',
@@ -60,15 +136,14 @@ class PodStreamAudioHandler extends BaseAudioHandler
         MediaAction.seek,
         MediaAction.seekForward,
         MediaAction.seekBackward,
+        MediaAction.play,
+        MediaAction.pause,
+        MediaAction.stop,
+        MediaAction.skipToNext,
+        MediaAction.skipToPrevious,
       },
-      androidCompactActionIndices: const [0, 1, 3],
-      processingState: const {
-        ProcessingState.idle: AudioProcessingState.idle,
-        ProcessingState.loading: AudioProcessingState.loading,
-        ProcessingState.buffering: AudioProcessingState.buffering,
-        ProcessingState.ready: AudioProcessingState.ready,
-        ProcessingState.completed: AudioProcessingState.completed,
-      }[_player.processingState]!,
+      androidCompactActionIndices: const [1, 2, 3],
+      processingState: aaProcessingState,
       playing: playing,
       updatePosition: _player.position,
       bufferedPosition: _player.bufferedPosition,
@@ -122,18 +197,65 @@ class PodStreamAudioHandler extends BaseAudioHandler
   @override
   Future<List<MediaItem>> getChildren(String parentMediaId,
       [Map<String, dynamic>? options]) async {
-    // For now, return a simple static structure or empty list
-    // You can fetch this from a local DB or Data Connect
-    if (parentMediaId == AudioService.browsableRootId) {
+    _logAA('[AA] onGetRoot / onLoadChildren - parentMediaId: $parentMediaId');
+    if (parentMediaId == 'root' ||
+        parentMediaId == AudioService.browsableRootId ||
+        parentMediaId == AudioService.recentRootId) {
+      _logAA("Returning root folders for $parentMediaId");
       return [
         const MediaItem(
-          id: 'mes_podcasts',
+          id: 'podstream_browse_root',
           title: 'Mes Podcasts',
           playable: false,
+          extras: {
+            'android.media.browse.CONTENT_STYLE_BROWSABLE_HINT': 1,
+            'android.media.browse.CONTENT_STYLE_PLAYABLE_HINT': 1,
+          },
+        ),
+        const MediaItem(
+          id: 'a_ecouter',
+          title: 'À écouter',
+          playable: false,
+          extras: {
+            'android.media.browse.CONTENT_STYLE_BROWSABLE_HINT': 1,
+            'android.media.browse.CONTENT_STYLE_PLAYABLE_HINT': 1,
+          },
         ),
       ];
+    } else if (parentMediaId == 'podstream_browse_root') {
+      _logAA(
+          "Returning library items for 'podstream_browse_root' synchronously");
+      if (_mediaLibrary.isEmpty) {
+        return [
+          const MediaItem(
+            id: 'loading_mes_podcasts',
+            title: 'Chargement des podcasts...',
+            playable: false,
+          )
+        ];
+      }
+      return _mediaLibrary.values.toList();
+    } else if (parentMediaId == 'a_ecouter') {
+      _logAA("Returning loading state for 'a_ecouter' synchronously");
+      // Retour immédiat et synchrone comme demandé pour éviter le timeout
+      return [
+        const MediaItem(
+          id: 'loading_a_ecouter',
+          title: 'Chargement des épisodes...',
+          playable: false,
+        )
+      ];
     } else if (parentMediaId == 'mes_podcasts') {
-      // Returns items in library. We would populate _mediaLibrary from the UI.
+      _logAA("Returning library items for 'mes_podcasts' synchronously");
+      if (_mediaLibrary.isEmpty) {
+        return [
+          const MediaItem(
+            id: 'loading_mes_podcasts',
+            title: 'Chargement des podcasts...',
+            playable: false,
+          )
+        ];
+      }
       return _mediaLibrary.values.toList();
     }
     return [];

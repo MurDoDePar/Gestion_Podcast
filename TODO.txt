@@ -1,13 +1,13 @@
-- la version installé avec _instrall.bat n'est pas compatible android auto
 
-- Implémentation du Système de Cache Global
-stocker en DB les données des onglet par theme et populaire. faire un rafraichissement tous les 7 jours
-  
+- l'affichage android auto doit afficher soit
+    Le ecteur avec le podcast en cour d'ecoute
+    La liste des episodes a ecouter
+
 - au moment de l'installation de l'application mettre l'icone de l'application sur la page d'accueil de l'utilisateur
 
 - Implémentation de la Fonctionnalité de Téléchargement et Écoute Hors Ligne
 
-- A ecouter proposer un choix d'ordre 
+- A ecouter proposer un choix d'ordre ( je reflechi encore )
     1: par date, desc et asc
     2: par ordre alphabétique
     3: par nombre d'ecoute
@@ -16,12 +16,19 @@ stocker en DB les données des onglet par theme et populaire. faire un rafraichi
 
 A tester :
 
-- le lecteur android auto doit etre identique au lecteur de l'application
-    avec les boutons +30sec et -30sec et le bouton marqué comme lu
+- Implémentation du Système de Cache Global
+stocker en DB les données des onglet par theme et populaire. faire un rafraichissement tous les 7 jours
 
-- sur l'affichage d'un podcast, le bouton s'abonné doit afficher se desabonné si l'utilisateur est deja abonné
-    precision : un podcast qui est dans la liste Mes podcast est considrer comme abonné 
-    donc les bouton dans la page detail doit s'afficher se desabonner
+- revoir l'ordre de episodes, pour les plus anciens d'abord (choi dans parametre)
+    - l'ordre dans details, tous les epidodes est bon, doit changer avec le paramete 'ordre des episodes'
+    - la liste des episodes a ecouter 
+        prendre le premier podcast de la liste 'mes podcasts', prendre tous les episode non marquer comme non lu,
+        les preseneté dans l'ordre choisi dans paramete 'ordre des episodes' dans mon cas le plus acien d'abord
+        si la liste ainsi obtenu est vide prendre le podcast suivant de 'mes podcasts'
+
+-------------------------------------------------------------------------------------------------------------------
+
+Fait
 
 - le bouton recherche, 
     je pense que la recheche fait un "ou" entre les mot au lieu de faire un "et"
@@ -29,10 +36,4 @@ A tester :
 - le bouton recherche, 
     si il y a blanc a la fin du mot recherché, il faut l'enlever
 
-- les episodes marque comme lu, sont il enlever des episodes à ecouter ?
 
-- revoir l'ordre de episodes, pour les plus ancien d'abord, choi dans parametre, 
-     le plus ancien doit etre en hau de la liste
-    1: Si le flux est de type serial, trier par numéro d'épisode (itunes:episode) croissant.
-    2: Si des balises itunes:order existent, les utiliser.
-    3: Convertir toutes les pubDate en Long (timestamps) et trier par ordre décroissant.

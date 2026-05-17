@@ -177,7 +177,7 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
               title: title,
               feedUrl: feedUrl,
               createdAt:
-                  Timestamp(0, DateTime.now().millisecondsSinceEpoch ~/ 1000),
+                  Timestamp(DateTime.now().millisecondsSinceEpoch ~/ 1000, 0),
             )
             .id(actualPodcastId)
             .description(_description.substring(
@@ -199,7 +199,7 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
               userId: postgresUuid,
               podcastId: actualPodcastId,
               subscribedAt:
-                  Timestamp(0, DateTime.now().millisecondsSinceEpoch ~/ 1000),
+                  Timestamp(DateTime.now().millisecondsSinceEpoch ~/ 1000, 0),
             )
             .listOrder(currentSubsCount)
             .execute();
@@ -270,7 +270,7 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
         final userOrder = prefs.getString('podstream_order') ?? 'desc';
 
         final epsList = dbEpisodes.toList();
-        
+
         // NE PAS MODIFIER CETTE LOGIQUE DE TRI SANS DEMANDE EXPRESSE DU DÉVELOPPEUR
         epsList.sort((a, b) {
           int cmp = 0;
@@ -289,9 +289,9 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
           }
 
           if (userOrder == 'asc') {
-            return -cmp;
-          } else {
             return cmp;
+          } else {
+            return -cmp;
           }
         });
 
@@ -449,14 +449,14 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
             cmp = a.title.compareTo(b.title); // fallback
           }
           if (userOrder == 'asc') {
-            return -cmp;
-          } else {
             return cmp;
+          } else {
+            return -cmp;
           }
         });
 
-        // Limiter aux 20 premiers selon le tri
-        final topItems = parsedItems.take(20).toList();
+        // Ne pas limiter pour que l'épisode #1 soit toujours accessible s'il est non lu
+        final topItems = parsedItems;
         final eps = <AudioEpisode>[];
 
         for (var parsed in topItems) {
@@ -485,7 +485,7 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
                     audioUrl: audioUrl,
                     duration: BigInt.zero,
                     publishedAt: Timestamp(
-                        0, parsed.pubDate.millisecondsSinceEpoch ~/ 1000),
+                        parsed.pubDate.millisecondsSinceEpoch ~/ 1000, 0),
                   )
                   .id(stableId)
                   .description(

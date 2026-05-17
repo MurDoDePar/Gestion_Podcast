@@ -1,4 +1,4 @@
-mutation InsertUser($googleId: String!, $displayName: String!, $email: String, $photoUrl: String, $createdAt: Timestamp!) @auth(level: USER) {
+mutation InsertUser($googleId: String!, $displayName: String!, $email: String, $photoUrl: String, $createdAt: Timestamp!) @auth(expr: "auth.uid != null && vars.googleId == auth.uid") {
   user_insert(data: {
     googleId: $googleId,
     displayName: $displayName,
@@ -8,7 +8,7 @@ mutation InsertUser($googleId: String!, $displayName: String!, $email: String, $
   })
 }
 
-mutation UpsertUser($id: UUID!, $googleId: String!, $displayName: String!, $email: String, $photoUrl: String, $createdAt: Timestamp!) @auth(level: USER) {
+mutation UpsertUser($id: UUID!, $googleId: String!, $displayName: String!, $email: String, $photoUrl: String, $createdAt: Timestamp!) @auth(expr: "auth.uid != null && vars.googleId == auth.uid") {
   user_upsert(data: {
     id: $id,
     googleId: $googleId,
@@ -19,7 +19,7 @@ mutation UpsertUser($id: UUID!, $googleId: String!, $displayName: String!, $emai
   })
 }
 
-mutation UpsertPodcast($id: UUID, $title: String!, $feedUrl: String!, $description: String, $imageUrl: String, $author: String, $categories: [String!], $createdAt: Timestamp!) @auth(level: USER) {
+mutation UpsertPodcast($id: UUID, $title: String!, $feedUrl: String!, $description: String, $imageUrl: String, $author: String, $categories: [String!], $createdAt: Timestamp!) @auth(expr: "auth.uid != null", insecureReason: "Any authenticated user can add a podcast") {
   podcast_upsert(data: {
     id: $id,
     title: $title,
@@ -32,7 +32,7 @@ mutation UpsertPodcast($id: UUID, $title: String!, $feedUrl: String!, $descripti
   })
 }
 
-mutation UpsertEpisode($id: UUID, $podcastId: UUID!, $title: String!, $audioUrl: String!, $duration: Int64!, $description: String, $imageUrl: String, $publishedAt: Timestamp!) @auth(level: USER) {
+mutation UpsertEpisode($id: UUID, $podcastId: UUID!, $title: String!, $audioUrl: String!, $duration: Int64!, $description: String, $imageUrl: String, $publishedAt: Timestamp!) @auth(expr: "auth.uid != null", insecureReason: "Any authenticated user can add an episode") {
   episode_upsert(data: {
     id: $id,
     podcastId: $podcastId,
@@ -45,10 +45,10 @@ mutation UpsertEpisode($id: UUID, $podcastId: UUID!, $title: String!, $audioUrl:
   })
 }
 
-mutation SubscribeToPodcast($userId: UUID!, $podcastId: UUID!, $subscribedAt: Timestamp!, $listOrder: Int) @auth(level: USER) @transaction {
+mutation SubscribeToPodcast($userId: UUID!, $podcastId: UUID!, $subscribedAt: Timestamp!, $listOrder: Int) @auth(expr: "auth.uid != null") @transaction {
   query @redact {
     user(id: $userId) {
-      googleId
+      googleId @check(expr: "this == auth.uid", message: "Unauthorized")
     }
   }
   subscriptionType_upsert(data: {
@@ -59,28 +59,28 @@ mutation SubscribeToPodcast($userId: UUID!, $podcastId: UUID!, $subscribedAt: Ti
   })
 }
 
-mutation UpdateSubscriptionOrder($userId: UUID!, $podcastId: UUID!, $listOrder: Int!) @auth(level: USER) @transaction {
+mutation UpdateSubscriptionOrder($userId: UUID!, $podcastId: UUID!, $listOrder: Int!) @auth(expr: "auth.uid != null") @transaction {
   query @redact {
     user(id: $userId) {
-      googleId
+      googleId @check(expr: "this == auth.uid", message: "Unauthorized")
     }
   }
   subscriptionType_update(key: { userId: $userId, podcastId: $podcastId }, data: { listOrder: $listOrder })
 }
 
-mutation UnsubscribeFromPodcast($userId: UUID!, $podcastId: UUID!) @auth(level: USER) @transaction {
+mutation UnsubscribeFromPodcast($userId: UUID!, $podcastId: UUID!) @auth(expr: "auth.uid != null") @transaction {
   query @redact {
     user(id: $userId) {
-      googleId
+      googleId @check(expr: "this == auth.uid", message: "Unauthorized")
     }
   }
   subscriptionType_delete(key: { userId: $userId, podcastId: $podcastId })
 }
 
-mutation UpdateListenHistory($userId: UUID!, $episodeId: UUID!, $progressSeconds: Int64!, $finishedListening: Boolean!, $listenedAt: Timestamp!) @auth(level: USER) @transaction {
+mutation UpdateListenHistory($userId: UUID!, $episodeId: UUID!, $progressSeconds: Int64!, $finishedListening: Boolean!, $listenedAt: Timestamp!) @auth(expr: "auth.uid != null") @transaction {
   query @redact {
     user(id: $userId) {
-      googleId
+      googleId @check(expr: "this == auth.uid", message: "Unauthorized")
     }
   }
   listenHistory_upsert(data: {
@@ -94,7 +94,7 @@ mutation UpdateListenHistory($userId: UUID!, $episodeId: UUID!, $progressSeconds
 
 # Utilitaire pour nettoyer les doublons avant de déployer le schéma avec @unique
 # Vous pouvez l'exécuter directement depuis l'extension VS Code (Run Local / Run Production)
-mutation CleanupDuplicates @auth(level: NO_ACCESS) {
+mutation CleanupDuplicates @auth(expr: "auth.uid != null") {
   cleanEpisodes: _execute(sql: """
     DELETE FROM "episode"
     WHERE "id" NOT IN (

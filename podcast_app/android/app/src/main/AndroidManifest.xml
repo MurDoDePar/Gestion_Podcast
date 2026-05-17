@@ -10,6 +10,11 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">
+        <!-- Déclaration de compatibilité Android Auto -->
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -41,17 +46,18 @@
         <!-- Déclaration du service audio pour Android Auto et Background Playback -->
         <service
             android:name="com.ryanheise.audioservice.AudioService"
+            android:label="PodStream"
+            android:icon="@mipmap/ic_launcher"
+            android:permission="android.permission.BIND_BROWSER_SERVICE"
             android:foregroundServiceType="mediaPlayback"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
+            <meta-data
+                android:name="com.google.android.gms.car.application"
+                android:resource="@xml/automotive_app_desc" />
         </service>
-
-        <!-- Déclaration de compatibilité Android Auto -->
-        <meta-data
-            android:name="com.google.android.gms.car.application"
-            android:resource="@xml/automotive_app_desc" />
 
         <!-- Déclaration pour le bouton play/pause des écouteurs -->
         <receiver
@@ -72,5 +78,9 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <intent>
+            <action android:name="android.media.browse.MediaBrowserService" />
+        </intent>
+        <package android:name="com.google.android.projection.gearhead" />
     </queries>
 </manifest>

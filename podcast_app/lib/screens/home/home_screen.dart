@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_data_connect/firebase_data_connect.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,6 +10,7 @@ import '../../theme/app_theme.dart';
 import '../../dataconnect-generated/example.dart';
 import '../../data/themes_data.dart';
 import '../../services/audio_service.dart';
+import '../../services/podcast_repository.dart';
 import '../podcast_details_screen.dart';
 import 'package:flutter_html/flutter_html.dart';
 
@@ -384,6 +384,21 @@ class _MyPodcastsTabState extends State<_MyPodcastsTab> {
   void initState() {
     super.initState();
     _loadData();
+    AudioService().listRefreshNotifier.addListener(_onRefreshRequired);
+  }
+
+  void _onRefreshRequired() {
+    if (mounted) {
+      setState(() {
+        _loadData();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    AudioService().listRefreshNotifier.removeListener(_onRefreshRequired);
+    super.dispose();
   }
 
   void _loadData() {
@@ -403,13 +418,13 @@ class _MyPodcastsTabState extends State<_MyPodcastsTab> {
     _syncPodcastsBackground(googleId).then((_) {
       if (mounted) {
         setState(() {
-          _episodesFuture = _fetchNewEpisodes(googleId);
+          _episodesFuture = PodcastRepository.fetchEpisodesToListen(googleId);
         });
       }
     });
 
     // 2. Lire ce qui est déjà en DB pour afficher tout de suite
-    return _fetchNewEpisodes(googleId);
+    return PodcastRepository.fetchEpisodesToListen(googleId);
   }
 
   Future<void> _handleRefresh() async {
@@ -422,7 +437,6 @@ class _MyPodcastsTabState extends State<_MyPodcastsTab> {
   }
 
   String? get userId {
-    if (Firebase.apps.isEmpty) return null;
     return FirebaseAuth.instance.currentUser?.uid;
   }
 
@@ -457,7 +471,7 @@ class _MyPodcastsTabState extends State<_MyPodcastsTab> {
             )
           else
             SizedBox(
-              height: 180,
+              height: 210,
               child: FutureBuilder(
                 future: _subsFuture,
                 builder: (context, snapshot) {
@@ -601,7 +615,7 @@ class _MyPodcastsTabState extends State<_MyPodcastsTab> {
                       onTap: () {
                         final playlist = history
                             .map((e) => AudioEpisode(
-                                  id: e['audioUrl'],
+                                  id: e['id'],
                                   title: e['title'] ?? fallbackTitle,
                                   podcastName:
                                       e['podcastName'] ?? 'Mon Podcast',
@@ -787,146 +801,6 @@ class _DraggablePodcastListState extends State<_DraggablePodcastList> {
   }
 }
 
-Future<List<Map<String, dynamic>>> _fetchNewEpisodes(String googleId) async {
-  // Lire depuis DataConnect
-  try {
-    final userResult = await ExampleConnector.instance
-        .findUserByGoogleId(googleId: googleId)
-        .execute();
-    if (userResult.data.users.isEmpty) return [];
-    final postgresUuid = userResult.data.users.first.id;
-
-    final historyResult = await ExampleConnector.instance
-        .getListenHistory(userId: postgresUuid)
-        .execute();
-    final readEpisodeIds = historyResult.data.listenHistories
-        .where((h) => h.finishedListening == true)
-        .map((h) => h.episode.id)
-        .toSet();
-
-    final prefs = await SharedPreferences.getInstance();
-    final order = prefs.getString('podstream_order') ?? 'desc';
-
-    final subs = <dynamic>[];
-    if (order == 'asc') {
-      final result = await ExampleConnector.instance
-          .getOldestSubscribedEpisodes(userId: postgresUuid)
-          .execute();
-      subs.addAll(result.data.subscriptionTypes);
-    } else {
-      final result = await ExampleConnector.instance
-          .getLatestSubscribedEpisodes(userId: postgresUuid)
-          .execute();
-      subs.addAll(result.data.subscriptionTypes);
-    }
-
-    List<Map<String, dynamic>> allEpisodes = [];
-
-    // 1) Prendre la liste de tous les épisodes de tous 'mes podcasts'
-    for (var sub in subs) {
-      final podcastName = sub.podcast.title;
-      final podcastImageUrl = sub.podcast.imageUrl;
-      final listOrder = sub.listOrder ?? 9999;
-
-      // Extraire la bonne liste d'épisodes selon le type de résultat retourné par Data Connect
-      List<dynamic> rawEpsList;
-      if (order == 'asc') {
-        // Alias utilisé dans GetOldestSubscribedEpisodes
-        rawEpsList = sub.podcast.oldest_episodes.toList();
-      } else {
-        // Nom natif utilisé dans GetLatestSubscribedEpisodes
-        rawEpsList = sub.podcast.episodes_on_podcast.toList();
-      }
-
-      var epsList = rawEpsList.toList();
-      
-      // NE PAS MODIFIER CETTE LOGIQUE DE TRI SANS DEMANDE EXPRESSE DU DÉVELOPPEUR
-      epsList.sort((a, b) {
-        int cmp = 0;
-
-        final matchA = RegExp(r'#(\d+)').firstMatch(a.title);
-        final matchB = RegExp(r'#(\d+)').firstMatch(b.title);
-
-        if (matchA != null && matchB != null) {
-          final numA = int.parse(matchA.group(1)!);
-          final numB = int.parse(matchB.group(1)!);
-          cmp = numA.compareTo(numB);
-        } else {
-          cmp =
-              a.publishedAt.toDateTime().compareTo(b.publishedAt.toDateTime());
-          if (cmp == 0) cmp = a.title.compareTo(b.title);
-        }
-
-        if (order == 'asc') {
-          return -cmp;
-        } else {
-          return cmp;
-        }
-      });
-
-      int unreadCount = 0;
-      for (var ep in epsList) {
-        if (readEpisodeIds.contains(ep.id)) {
-          continue; // Ne pas afficher les épisodes déjà lus
-        }
-
-        allEpisodes.add({
-          'id': ep.id,
-          'title': ep.title,
-          'audioUrl': ep.audioUrl,
-          'imageUrl': ep.imageUrl ?? podcastImageUrl,
-          'podcastName': podcastName,
-          'publishedAt': ep.publishedAt.toDateTime(),
-          'listOrder': listOrder,
-          'description': ep.description,
-        });
-
-        unreadCount++;
-        if (unreadCount >= 5) break; // Limiter à 5 épisodes non lus par podcast
-      }
-    }
-
-    // 2) Trier et regrouper (Tri principal: 'mes podcasts', Tri secondaire: date)
-    // NE PAS MODIFIER CETTE LOGIQUE DE TRI SANS DEMANDE EXPRESSE DU DÉVELOPPEUR
-    allEpisodes.sort((a, b) {
-      // Tri principal : l'ordre de 'mes podcasts'
-      int orderComparison =
-          (a['listOrder'] as int).compareTo(b['listOrder'] as int);
-      if (orderComparison == 0) {
-        orderComparison = (a['podcastName'] as String)
-            .toLowerCase()
-            .compareTo((b['podcastName'] as String).toLowerCase());
-      }
-      if (orderComparison != 0) {
-        return orderComparison;
-      }
-
-      // Tri secondaire : date de parution
-      final dateA = a['publishedAt'] as DateTime;
-      final dateB = b['publishedAt'] as DateTime;
-      int dateComparison = dateA.compareTo(dateB);
-
-      // Tri tertiaire (sécurité) : si les dates sont exactement identiques
-      if (dateComparison == 0) {
-        final titleA = a['title'] as String;
-        final titleB = b['title'] as String;
-        dateComparison = titleA.compareTo(titleB);
-      }
-
-      if (order == 'asc') {
-        return -dateComparison;
-      } else {
-        return dateComparison;
-      }
-    });
-
-    return allEpisodes;
-  } catch (e) {
-    print("Erreur _fetchNewEpisodes DB: $e");
-    return [];
-  }
-}
-
 Future<void> _syncPodcastsBackground(String googleId) async {
   try {
     final userResult = await ExampleConnector.instance
@@ -1045,14 +919,14 @@ Future<void> _syncPodcastsBackground(String googleId) async {
               cmp = (a['title'] as String).compareTo(b['title'] as String);
             }
             if (userOrder == 'asc') {
-              return -cmp;
-            } else {
               return cmp;
+            } else {
+              return -cmp;
             }
           });
 
-          // On synchro juste les 5 premiers selon le tri pour l'accueil
-          final topItems = parsedItems.take(5).toList();
+          // Ne pas limiter pour que l'épisode #1 soit toujours accessible
+          final topItems = parsedItems;
 
           for (var parsed in topItems) {
             final item = parsed['item'] as xml.XmlElement;
@@ -1069,7 +943,7 @@ Future<void> _syncPodcastsBackground(String googleId) async {
                   audioUrl: audioUrl,
                   duration: BigInt.zero,
                   publishedAt:
-                      Timestamp(0, pubDate.millisecondsSinceEpoch ~/ 1000),
+                      Timestamp(pubDate.millisecondsSinceEpoch ~/ 1000, 0),
                 )
                 .id(stableId)
                 .description(

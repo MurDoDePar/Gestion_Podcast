@@ -64,7 +64,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 googleId: user.uid,
                 displayName: user.displayName ?? 'Utilisateur',
                 createdAt:
-                    Timestamp(0, DateTime.now().millisecondsSinceEpoch ~/ 1000),
+                    Timestamp(DateTime.now().millisecondsSinceEpoch ~/ 1000, 0),
               )
               .email(user.email ?? '')
               .photoUrl(user.photoURL ?? '')

@@ -36,19 +36,21 @@ Architecture du projet
 /dataconnect            : La configuration et les schémas de Firebase Data Connect (PostgreSQL).
 /version.json           : Fichier centralisé gérant le numéro de version de l'application.
 _Android_livre.bat      : Script automatisé permettant de builder la version de production (AAB) pour le Play Store.
-_verif.bat              : Script automatisé pour formater, corriger (linting) et tester le code avant compilation.
+_compil.bat             : Script automatisé pour formater, tester, et générer les APKs (Release et Debug).
+_install.bat            : Script pour installer l'APK Release sur le téléphone connecté via ADB.
+_debug.bat              : Script pour installer l'APK Debug sur le téléphone connecté via ADB.
 _run.bat                : Script de lancement rapide en mode développement (nettoyage, pub get, et run).
 _GIT_livre.bat          : Script pour gérer l'archivage et les envois sur Git.
 Generer_Icones.bat      : Outil pour regénérer les assets d'icônes via flutter_launcher_icons.
 
-Instructions de Vérification (Avant Build)
-------------------------------------------
-Il est fortement recommandé d'exécuter le script `_verif.bat` avant de générer une version de production. Ce script va :
-1. Configurer la "jonction" du dossier build pour éviter les plantages avec Google Drive.
-2. Formater automatiquement le code (`dart format`).
-3. Appliquer les corrections automatiques (`dart fix`).
-4. Lancer l'analyse statique pour détecter toute erreur de syntaxe (`flutter analyze`).
-5. Exécuter les tests unitaires et de widgets (`flutter test`).
+Instructions de Compilation et Vérification
+-------------------------------------------
+Il est fortement recommandé d'exécuter le script `_compil.bat` pour générer vos fichiers. Ce script va :
+1. Mettre à jour la version depuis `version.json`.
+2. Configurer la "jonction" du dossier build pour éviter les plantages avec Google Drive.
+3. Formater automatiquement le code et lancer l'analyse statique (`dart format`, `dart fix`, `flutter analyze`).
+4. Exécuter les tests unitaires et de widgets (`flutter test`).
+5. Compiler les APKs en mode Release (`app-release.apk`) et Debug (`app-debug.apk`).
 
 Instructions de Build (Android)
 -------------------------------

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
-import 'theme/app_theme.dart';
 import 'screens/main_screen.dart';
 import 'screens/login_screen.dart';
+import 'theme/app_theme.dart';
 
 import 'package:audio_service/audio_service.dart';
 import 'services/podstream_audio_handler.dart';
@@ -15,6 +15,23 @@ late PodStreamAudioHandler audioHandler;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   debugPrint('--- DEBUT INITIALISATION ---');
+
+  debugPrint(
+      '--- Initialisation AudioService (PRIORITÉ MAX POUR ANDROID AUTO) ---');
+  try {
+    audioHandler = await AudioService.init(
+      builder: () => PodStreamAudioHandler(),
+      config: const AudioServiceConfig(
+        androidNotificationChannelId: 'com.podstream.channel.audio',
+        androidNotificationChannelName: 'Lecture de Podcast',
+        androidNotificationOngoing: true,
+        androidStopForegroundOnPause: true,
+      ),
+    );
+    debugPrint('--- AudioService OK ---');
+  } catch (e) {
+    debugPrint('Erreur critique AudioService: $e');
+  }
 
   try {
     debugPrint('--- Initialisation Firebase... ---');
@@ -28,23 +45,6 @@ void main() async {
     debugPrint('--- Firebase OK ---');
   } catch (e) {
     debugPrint('Erreur initialisation Firebase: $e');
-  }
-
-  debugPrint('--- Initialisation AudioService... ---');
-  try {
-    audioHandler = await AudioService.init(
-      builder: () => PodStreamAudioHandler(),
-      config: const AudioServiceConfig(
-        androidNotificationChannelId: 'com.PodStream.channel.audio',
-        androidNotificationChannelName: 'Lecture de Podcast',
-        androidNotificationOngoing: true,
-        androidStopForegroundOnPause: true,
-      ),
-    );
-    debugPrint('--- AudioService OK ---');
-  } catch (e) {
-    debugPrint('Erreur critique AudioService: $e');
-    // On ignore temporairement pour permettre à l'app de se lancer
   }
 
   debugPrint('--- Lancement de l\'application ---');
@@ -65,8 +65,9 @@ class PodStreamApp extends StatelessWidget {
   }
 
   Widget _buildAuthResolver() {
-    // Si Firebase n'a pas pu s'initialiser (ex: test sur Chrome sans firebase_options.dart)
+    debugPrint("--- BUILD AUTH RESOLVER ---");
     if (Firebase.apps.isEmpty) {
+      debugPrint("AuthResolver: Firebase.apps.isEmpty");
       return const Scaffold(
         body: Center(
           child: Text(
@@ -80,16 +81,15 @@ class PodStreamApp extends StatelessWidget {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        // En attendant de savoir si l'utilisateur est connecté
+        debugPrint(
+            "AuthResolver: state=${snapshot.connectionState}, hasData=${snapshot.hasData}");
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
         }
 
-        // Si l'utilisateur est connecté
         if (snapshot.hasData) {
-          // We add a tiny delay to ensure login_screen has time to display its errors
           return FutureBuilder(
             future: Future.delayed(const Duration(seconds: 3)),
             builder: (context, delaySnapshot) {
@@ -112,7 +112,6 @@ class PodStreamApp extends StatelessWidget {
           );
         }
 
-        // Sinon, on affiche l'écran de connexion
         return const LoginScreen();
       },
     );

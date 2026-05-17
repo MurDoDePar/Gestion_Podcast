@@ -181,6 +181,14 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                           onPressed: () => _audioService.seekBackward30(),
                         ),
                         const SizedBox(width: 8),
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: const Icon(Icons.forward_30,
+                              color: AppTheme.primaryColor, size: 28),
+                          onPressed: () => _audioService.seekForward30(),
+                        ),
+                        const SizedBox(width: 8),
                         ValueListenableBuilder<bool>(
                           valueListenable: _audioService.isPlayingNotifier,
                           builder: (context, isPlaying, child) {
@@ -199,14 +207,6 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                               },
                             );
                           },
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          icon: const Icon(Icons.forward_30,
-                              color: AppTheme.primaryColor, size: 28),
-                          onPressed: () => _audioService.seekForward30(),
                         ),
                         const SizedBox(width: 8),
                         IconButton(

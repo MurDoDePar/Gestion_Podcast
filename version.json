@@ -1,5 +1,5 @@
 {
-  "version": "2.2.4",
-  "build_number": 224,
-  "release_notes": "ordre des episodes"
+  "version": "2.3.0",
+  "build_number": 230,
+  "release_notes": "mise a jour 2.3.0 Android auto, correction lecture episode precedents"
 }

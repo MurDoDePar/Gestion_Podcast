@@ -36,6 +36,7 @@ class AudioService {
   final ValueNotifier<Duration> progressNotifier = ValueNotifier(Duration.zero);
   final ValueNotifier<Duration> totalDurationNotifier =
       ValueNotifier(Duration.zero);
+  final ValueNotifier<int> listRefreshNotifier = ValueNotifier(0);
 
   List<AudioEpisode> currentPlaylist = [];
   int currentPlaylistIndex = -1;
@@ -47,7 +48,7 @@ class AudioService {
       final processingState = state.processingState;
 
       if (processingState == AudioProcessingState.completed) {
-        playNextEpisode();
+        markAsRead();
       } else {
         isPlayingNotifier.value = isPlaying;
       }
@@ -62,7 +63,7 @@ class AudioService {
     audioHandler.mediaItem.listen((item) {
       if (item != null) {
         currentEpisodeNotifier.value = AudioEpisode(
-          id: item.id,
+          id: item.extras?['episodeId'] as String? ?? item.id,
           title: item.title,
           podcastName: item.artist ?? '',
           imageUrl: item.artUri?.toString(),
@@ -119,6 +120,7 @@ class AudioService {
         title: episode.title,
         artist: episode.podcastName,
         artUri: episode.imageUrl != null ? Uri.parse(episode.imageUrl!) : null,
+        extras: {'episodeId': episode.id},
       );
 
       await audioHandler.playMediaItem(mediaItem);
@@ -130,6 +132,7 @@ class AudioService {
                 title: e.title,
                 artist: e.podcastName,
                 artUri: e.imageUrl != null ? Uri.parse(e.imageUrl!) : null,
+                extras: {'episodeId': e.id},
               ))
           .toList();
       audioHandler.updateLibrary(libraryItems);
@@ -198,7 +201,7 @@ class AudioService {
                     BigInt.from(totalDurationNotifier.value.inSeconds),
                 finishedListening: true,
                 listenedAt:
-                    Timestamp(0, DateTime.now().millisecondsSinceEpoch ~/ 1000),
+                    Timestamp(DateTime.now().millisecondsSinceEpoch ~/ 1000, 0),
               )
               .execute();
         }
@@ -209,6 +212,7 @@ class AudioService {
 
     // On passe directement à l'épisode suivant sans faire planter le lecteur audio natif
     await playNextEpisode();
+    listRefreshNotifier.value++;
     return true;
   }
 
@@ -217,5 +221,6 @@ class AudioService {
     isPlayingNotifier.dispose();
     progressNotifier.dispose();
     totalDurationNotifier.dispose();
+    listRefreshNotifier.dispose();
   }
 }
