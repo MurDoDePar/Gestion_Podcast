@@ -3,6 +3,9 @@
     Le ecteur avec le podcast en cour d'ecoute
     La liste des episodes a ecouter
 
+- verifier maj données, quand ? eviter les maj données intempestives ( trop frecuente)
+
+
 - au moment de l'installation de l'application mettre l'icone de l'application sur la page d'accueil de l'utilisateur
 
 - Implémentation de la Fonctionnalité de Téléchargement et Écoute Hors Ligne
@@ -27,6 +30,8 @@ stocker en DB les données des onglet par theme et populaire. faire un rafraichi
         si la liste ainsi obtenu est vide prendre le podcast suivant de 'mes podcasts'
 
 -------------------------------------------------------------------------------------------------------------------
+"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" logcat | findstr AA_DEBUG
+"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" logcat | findstr /I "flutter"
 
 Fait
 

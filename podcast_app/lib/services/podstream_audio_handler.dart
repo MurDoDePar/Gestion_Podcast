@@ -2,10 +2,11 @@ import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
 import 'audio_service.dart' as app_audio;
-import 'dart:io';
-import 'package:path_provider/path_provider.dart';
-
 import 'package:flutter/foundation.dart';
+
+// Instance globale du service audio pour toute l'application
+AudioHandler? audioHandler;
+PodStreamAudioHandler? podstreamAudioHandler;
 
 // The new background audio handler that will replace the old AudioService
 class PodStreamAudioHandler extends BaseAudioHandler
@@ -21,18 +22,6 @@ class PodStreamAudioHandler extends BaseAudioHandler
       final timestamp =
           "${now.toIso8601String()}.${now.microsecond.toString().padLeft(3, '0')}";
       debugPrint("AA_DEBUG: $timestamp: $message");
-
-      getApplicationDocumentsDirectory().then((directory) {
-        final logFile = File('${directory.path}/logs_android_auto.txt');
-        logFile
-            .writeAsString('$timestamp: $message\n', mode: FileMode.append)
-            .catchError((e) {
-          debugPrint("AA_DEBUG_ERROR (File write): $e");
-          return logFile;
-        });
-      }).catchError((e) {
-        debugPrint("AA_DEBUG_ERROR (Directory): $e");
-      });
     } catch (e) {
       debugPrint("AA_DEBUG_ERROR: Could not log: $e");
     }
@@ -76,10 +65,22 @@ class PodStreamAudioHandler extends BaseAudioHandler
 
   Future<void> _init() async {
     final session = await AudioSession.instance;
-    await session.configure(const AudioSessionConfiguration.speech());
+    await session.configure(const AudioSessionConfiguration.music());
+
+    final focusAccorde = await session.setActive(true);
+    print(
+        'AA_DEBUG_SESSION: Demande d Audio Focus native. Accordé = $focusAccorde');
+
+    session.interruptionEventStream.listen((event) {
+      print(
+          'AA_DEBUG_SESSION_INTERRUPTION: Interruption détectée, type: ${event.type}');
+    });
 
     // Broadcast playback state changes to the system (lock screen, Android Auto)
-    _player.playbackEventStream.listen(_broadcastState);
+    _player.playbackEventStream.listen(_broadcastState,
+        onError: (Object e, StackTrace st) {
+      print('AA_DEBUG_PLAYER_ERROR: Erreur de lecture matérielle: $e');
+    });
 
     // Écouter les changements de durée (récupérée dans les métadonnées du flux audio)
     _player.durationStream.listen((duration) {
@@ -121,26 +122,17 @@ class PodStreamAudioHandler extends BaseAudioHandler
 
     playbackState.add(playbackState.value.copyWith(
       controls: [
-        MediaControl.skipToPrevious,
         MediaControl.rewind,
-        if (playing) MediaControl.pause else MediaControl.play,
+        MediaControl.play,
+        MediaControl.pause,
         MediaControl.fastForward,
-        MediaControl.skipToNext,
-        MediaControl.custom(
-          androidIcon: 'drawable/ic_check',
-          label: 'Marquer lu',
-          name: 'mark_as_read',
-        ),
+        // AJOUT COMPLÉMENTAIRE POUR ANDROID AUTO :
+        MediaControl.stop,
       ],
       systemActions: const {
         MediaAction.seek,
         MediaAction.seekForward,
         MediaAction.seekBackward,
-        MediaAction.play,
-        MediaAction.pause,
-        MediaAction.stop,
-        MediaAction.skipToNext,
-        MediaAction.skipToPrevious,
       },
       androidCompactActionIndices: const [1, 2, 3],
       processingState: aaProcessingState,
@@ -169,25 +161,39 @@ class PodStreamAudioHandler extends BaseAudioHandler
 
   @override
   Future<void> playMediaItem(MediaItem mediaItem) async {
+    print(
+        'AA_DEBUG_HANDLER: playMediaItem reçu pour ${mediaItem.title} - URL: ${mediaItem.id}');
     this.mediaItem.add(mediaItem);
     await _player.setAudioSource(AudioSource.uri(Uri.parse(mediaItem.id)));
+    await _player.setVolume(1.0);
+    print('AA_DEBUG_PLAYER: Lancement de _player.play()');
     _player.play();
   }
 
   @override
   Future<void> fastForward() async {
-    await app_audio.AudioService().seekForward30();
+    final currentPosition = _player.position;
+    final duration = _player.duration ?? Duration.zero;
+    final newPosition = currentPosition + const Duration(seconds: 30);
+    await _player.seek(newPosition < duration ? newPosition : duration);
   }
 
   @override
   Future<void> rewind() async {
-    await app_audio.AudioService().seekBackward30();
+    final currentPosition = _player.position;
+    final newPosition = currentPosition - const Duration(seconds: 30);
+    await _player
+        .seek(newPosition > Duration.zero ? newPosition : Duration.zero);
   }
 
   @override
   Future<void> customAction(String name, [Map<String, dynamic>? extras]) async {
     if (name == 'mark_as_read') {
       await app_audio.AudioService().markAsRead();
+    } else if (name == 'rewind_30') {
+      await app_audio.AudioService().seekBackward30();
+    } else if (name == 'fast_forward_30') {
+      await app_audio.AudioService().seekForward30();
     }
     return super.customAction(name, extras);
   }
@@ -197,68 +203,37 @@ class PodStreamAudioHandler extends BaseAudioHandler
   @override
   Future<List<MediaItem>> getChildren(String parentMediaId,
       [Map<String, dynamic>? options]) async {
-    _logAA('[AA] onGetRoot / onLoadChildren - parentMediaId: $parentMediaId');
-    if (parentMediaId == 'root' ||
-        parentMediaId == AudioService.browsableRootId ||
-        parentMediaId == AudioService.recentRootId) {
-      _logAA("Returning root folders for $parentMediaId");
-      return [
-        const MediaItem(
-          id: 'podstream_browse_root',
-          title: 'Mes Podcasts',
-          playable: false,
-          extras: {
-            'android.media.browse.CONTENT_STYLE_BROWSABLE_HINT': 1,
-            'android.media.browse.CONTENT_STYLE_PLAYABLE_HINT': 1,
-          },
-        ),
-        const MediaItem(
-          id: 'a_ecouter',
-          title: 'À écouter',
-          playable: false,
-          extras: {
-            'android.media.browse.CONTENT_STYLE_BROWSABLE_HINT': 1,
-            'android.media.browse.CONTENT_STYLE_PLAYABLE_HINT': 1,
-          },
-        ),
-      ];
-    } else if (parentMediaId == 'podstream_browse_root') {
-      _logAA(
-          "Returning library items for 'podstream_browse_root' synchronously");
-      if (_mediaLibrary.isEmpty) {
-        return [
-          const MediaItem(
-            id: 'loading_mes_podcasts',
-            title: 'Chargement des podcasts...',
-            playable: false,
-          )
-        ];
+    _logAA('[AA] getChildren - parentMediaId: $parentMediaId');
+
+    if (parentMediaId == 'a_ecouter' || parentMediaId == 'mes_podcasts') {
+      if (_mediaLibrary.isNotEmpty) {
+        return _mediaLibrary.values.toList();
       }
-      return _mediaLibrary.values.toList();
-    } else if (parentMediaId == 'a_ecouter') {
-      _logAA("Returning loading state for 'a_ecouter' synchronously");
-      // Retour immédiat et synchrone comme demandé pour éviter le timeout
       return [
         const MediaItem(
-          id: 'loading_a_ecouter',
-          title: 'Chargement des épisodes...',
+          id: 'loading',
+          title: 'Sélectionnez un podcast sur le téléphone',
           playable: false,
         )
       ];
-    } else if (parentMediaId == 'mes_podcasts') {
-      _logAA("Returning library items for 'mes_podcasts' synchronously");
-      if (_mediaLibrary.isEmpty) {
-        return [
-          const MediaItem(
-            id: 'loading_mes_podcasts',
-            title: 'Chargement des podcasts...',
-            playable: false,
-          )
-        ];
-      }
-      return _mediaLibrary.values.toList();
     }
-    return [];
+
+    // DEBLOCAGE RADICAL D'ANDROID AUTO (onLoadChildren)
+    // Retour IMMEDIAT sans await de la liste des dossiers racines
+    return [
+      const MediaItem(
+        id: 'mes_podcasts',
+        album: '',
+        title: 'Mes Podcasts',
+        playable: false,
+      ),
+      const MediaItem(
+        id: 'a_ecouter',
+        album: '',
+        title: 'À écouter',
+        playable: false,
+      ),
+    ];
   }
 
   @override

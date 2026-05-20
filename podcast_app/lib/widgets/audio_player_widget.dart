@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
-import '../services/audio_service.dart';
+import 'package:audio_service/audio_service.dart' as package_audio_service;
+import 'package:podcast_app/services/audio_handler_locator.dart'; // Pour l'instance globale globalAudioHandler
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AudioPlayerWidget extends StatefulWidget {
   const AudioPlayerWidget({super.key});
@@ -10,7 +12,7 @@ class AudioPlayerWidget extends StatefulWidget {
 }
 
 class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
-  final AudioService _audioService = AudioService();
+  //final AudioService _audioService = AudioService();
 
   String _formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');
@@ -24,10 +26,22 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<AudioEpisode?>(
-      valueListenable: _audioService.currentEpisodeNotifier,
-      builder: (context, episode, child) {
-        if (episode == null) return const SizedBox.shrink();
+    if (globalAudioHandler == null) {
+      return const SizedBox.shrink();
+    }
+
+    return StreamBuilder<package_audio_service.MediaItem?>(
+      stream: globalAudioHandler!.mediaItem,
+      builder: (context, mediaSnapshot) {
+        final item = mediaSnapshot.data;
+        // SECURE: On empêche l'affichage si l'élément est null ou un leurre de chargement Android Auto
+        if (item == null ||
+            item.id == 'root' ||
+            item.id.startsWith('loading_')) {
+          return const SizedBox.shrink();
+        }
+
+        final total = item.duration ?? Duration.zero;
 
         return Container(
           decoration: BoxDecoration(
@@ -44,73 +58,68 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
             mainAxisSize: MainAxisSize.min,
             children: [
               // Barre de progression avec Slider et temps
-              ValueListenableBuilder<Duration>(
-                valueListenable: _audioService.progressNotifier,
-                builder: (context, progress, child) {
-                  return ValueListenableBuilder<Duration>(
-                    valueListenable: _audioService.totalDurationNotifier,
-                    builder: (context, total, child) {
-                      final progressValue = total.inMilliseconds > 0
-                          ? progress.inMilliseconds / total.inMilliseconds
-                          : 0.0;
-                      final remaining =
-                          total.inMilliseconds > progress.inMilliseconds
-                              ? total - progress
-                              : Duration.zero;
+              StreamBuilder<Duration>(
+                stream: package_audio_service.AudioService.position,
+                builder: (context, snapshot) {
+                  // SECURE: Valeur par défaut robuste
+                  final progress = snapshot.data ?? Duration.zero;
 
-                      return Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SliderTheme(
-                            data: SliderTheme.of(context).copyWith(
-                              trackHeight: 3.0,
-                              thumbShape: const RoundSliderThumbShape(
-                                  enabledThumbRadius: 6.0),
-                              overlayShape: const RoundSliderOverlayShape(
-                                  overlayRadius: 14.0),
-                              trackShape: const RectangularSliderTrackShape(),
-                            ),
-                            child: SizedBox(
-                              height: 20,
-                              child: Slider(
-                                value: progressValue.clamp(0.0, 1.0),
-                                onChanged: (value) {
-                                  final newPosition = Duration(
-                                      milliseconds:
-                                          (value * total.inMilliseconds)
-                                              .round());
-                                  _audioService.seek(newPosition);
-                                },
-                                activeColor: AppTheme.primaryColor,
-                                inactiveColor:
-                                    AppTheme.primaryColor.withOpacity(0.3),
-                              ),
-                            ),
+                  final progressValue = total.inMilliseconds > 0
+                      ? progress.inMilliseconds / total.inMilliseconds
+                      : 0.0;
+                  final remaining =
+                      total.inMilliseconds > progress.inMilliseconds
+                          ? total - progress
+                          : Duration.zero;
+
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SliderTheme(
+                        data: SliderTheme.of(context).copyWith(
+                          trackHeight: 3.0,
+                          thumbShape: const RoundSliderThumbShape(
+                              enabledThumbRadius: 6.0),
+                          overlayShape: const RoundSliderOverlayShape(
+                              overlayRadius: 14.0),
+                          trackShape: const RectangularSliderTrackShape(),
+                        ),
+                        child: SizedBox(
+                          height: 20,
+                          child: Slider(
+                            // SECURE: Clamp indispensable pour éviter l'erreur de rendu Flutter (écran gris)
+                            value: progressValue.clamp(0.0, 1.0),
+                            onChanged: (value) {
+                              final newPosition = Duration(
+                                  milliseconds:
+                                      (value * total.inMilliseconds).round());
+                              globalAudioHandler!.seek(newPosition);
+                            },
+                            activeColor: AppTheme.primaryColor,
+                            inactiveColor:
+                                AppTheme.primaryColor.withOpacity(0.3),
                           ),
-                          Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  _formatDuration(progress),
-                                  style: const TextStyle(
-                                      fontSize: 11,
-                                      color: AppTheme.textSecondary),
-                                ),
-                                Text(
-                                  _formatDuration(remaining),
-                                  style: const TextStyle(
-                                      fontSize: 11,
-                                      color: AppTheme.textSecondary),
-                                ),
-                              ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              _formatDuration(progress),
+                              style: const TextStyle(
+                                  fontSize: 11, color: AppTheme.textSecondary),
                             ),
-                          ),
-                        ],
-                      );
-                    },
+                            Text(
+                              _formatDuration(remaining),
+                              style: const TextStyle(
+                                  fontSize: 11, color: AppTheme.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   );
                 },
               ),
@@ -128,14 +137,14 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                       decoration: BoxDecoration(
                         color: AppTheme.bgColor,
                         borderRadius: BorderRadius.circular(8),
-                        image: episode.imageUrl != null
+                        image: item.artUri != null
                             ? DecorationImage(
-                                image: NetworkImage(episode.imageUrl!),
+                                image: NetworkImage(item.artUri!.toString()),
                                 fit: BoxFit.cover,
                               )
                             : null,
                       ),
-                      child: episode.imageUrl == null
+                      child: item.artUri == null
                           ? const Icon(Icons.podcasts, color: Colors.grey)
                           : null,
                     ),
@@ -147,7 +156,7 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            episode.title,
+                            item.title,
                             style: const TextStyle(
                               color: AppTheme.textPrimary,
                               fontWeight: FontWeight.bold,
@@ -157,7 +166,7 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           Text(
-                            episode.podcastName,
+                            item.artist ?? '',
                             style: const TextStyle(
                               color: AppTheme.textSecondary,
                               fontSize: 12,
@@ -178,7 +187,7 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                           constraints: const BoxConstraints(),
                           icon: const Icon(Icons.replay_30,
                               color: AppTheme.primaryColor, size: 28),
-                          onPressed: () => _audioService.seekBackward30(),
+                          onPressed: () => globalAudioHandler!.rewind(),
                         ),
                         const SizedBox(width: 8),
                         IconButton(
@@ -186,12 +195,15 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                           constraints: const BoxConstraints(),
                           icon: const Icon(Icons.forward_30,
                               color: AppTheme.primaryColor, size: 28),
-                          onPressed: () => _audioService.seekForward30(),
+                          onPressed: () => globalAudioHandler!.fastForward(),
                         ),
                         const SizedBox(width: 8),
-                        ValueListenableBuilder<bool>(
-                          valueListenable: _audioService.isPlayingNotifier,
-                          builder: (context, isPlaying, child) {
+                        StreamBuilder<package_audio_service.PlaybackState>(
+                          stream: globalAudioHandler!.playbackState,
+                          builder: (context, snapshot) {
+                            // SECURE: Fallback propre
+                            final state = snapshot.data;
+                            final isPlaying = state?.playing ?? false;
                             return IconButton(
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
@@ -203,7 +215,11 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                                 size: 40,
                               ),
                               onPressed: () {
-                                _audioService.togglePlayPause();
+                                if (isPlaying) {
+                                  globalAudioHandler!.pause();
+                                } else {
+                                  globalAudioHandler!.play();
+                                }
                               },
                             );
                           },
@@ -216,16 +232,34 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                           icon: const Icon(Icons.check_circle_outline,
                               color: AppTheme.primaryColor, size: 28),
                           onPressed: () async {
-                            final success = await _audioService.markAsRead();
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(success
-                                      ? 'Épisode marqué comme lu'
-                                      : 'Impossible de marquer comme lu (êtes-vous abonné à ce podcast ?)'),
-                                  duration: const Duration(seconds: 3),
-                                ),
-                              );
+                            print(
+                                'AA_DEBUG_CLICK_LU: Clic physique détecté sur la coche violette !');
+                            final episodeId =
+                                item.extras?['episodeId'] as String? ?? item.id;
+
+                            print(
+                                'AA_DEBUG_GRAPHQL_VARIABLES: userId (UUID) = Non disponible dans l UI');
+                            print(
+                                'AA_DEBUG_GRAPHQL_VARIABLES: googleId actuel = ${FirebaseAuth.instance.currentUser?.uid ?? 'NULL Auth'}');
+                            print(
+                                'AA_DEBUG_GRAPHQL_VARIABLES: episodeId (UUID) = $episodeId');
+
+                            try {
+                              // ENFIN CONNECTÉ : On envoie l'ID directement au Handler global
+                              globalAudioHandler?.customAction(
+                                  'mark_as_read', {'episodeId': episodeId});
+
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Épisode marqué comme lu'),
+                                    duration: Duration(seconds: 3),
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              print(
+                                  'AA_DEBUG_UI_CRASH_CATCH: Le clic a généré une exception : $e');
                             }
                           },
                         ),

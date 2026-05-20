@@ -3,7 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_data_connect/firebase_data_connect.dart';
 import 'package:audio_service/audio_service.dart';
 import '../dataconnect-generated/example.dart';
-import '../main.dart'; // Pour accéder à audioHandler
+import 'podstream_audio_handler.dart'; // Pour accéder à podstreamAudioHandler
+import 'package:podcast_app/services/audio_handler_locator.dart'; // Pour accéder à l'instance globale globalAudioHandler
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AudioEpisode {
   final String id;
@@ -42,8 +44,10 @@ class AudioService {
   int currentPlaylistIndex = -1;
 
   Future<void> _init() async {
-    // Écoute de l'état de lecture depuis audioHandler
-    audioHandler.playbackState.listen((state) {
+    if (globalAudioHandler == null || podstreamAudioHandler == null) return;
+
+    // Écoute de l'état de lecture depuis globalAudioHandler
+    globalAudioHandler!.playbackState.listen((state) {
       final isPlaying = state.playing;
       final processingState = state.processingState;
 
@@ -55,12 +59,12 @@ class AudioService {
     });
 
     // Écoute de la position en continu (seconde par seconde)
-    audioHandler.positionStream.listen((position) {
+    podstreamAudioHandler!.positionStream.listen((position) {
       progressNotifier.value = position;
     });
 
     // Update current episode from mediaItem
-    audioHandler.mediaItem.listen((item) {
+    globalAudioHandler!.mediaItem.listen((item) {
       if (item != null) {
         currentEpisodeNotifier.value = AudioEpisode(
           id: item.extras?['episodeId'] as String? ?? item.id,
@@ -75,19 +79,21 @@ class AudioService {
   }
 
   Future<void> playNextEpisode() async {
+    if (globalAudioHandler == null) return;
     if (currentPlaylistIndex != -1 &&
         currentPlaylistIndex < currentPlaylist.length - 1) {
       final nextEpisode = currentPlaylist[currentPlaylistIndex + 1];
       await playEpisode(nextEpisode, playlist: currentPlaylist);
     } else {
       isPlayingNotifier.value = false;
-      await audioHandler.stop();
+      await globalAudioHandler!.stop();
     }
   }
 
   /// Jouer un nouvel épisode
   Future<void> playEpisode(AudioEpisode episode,
       {List<AudioEpisode>? playlist}) async {
+    if (globalAudioHandler == null || podstreamAudioHandler == null) return;
     if (playlist != null) {
       currentPlaylist = playlist;
       currentPlaylistIndex =
@@ -103,9 +109,9 @@ class AudioService {
 
     if (currentEpisodeNotifier.value?.audioUrl == episode.audioUrl) {
       if (isPlayingNotifier.value) {
-        await audioHandler.pause();
+        await globalAudioHandler!.pause();
       } else {
-        await audioHandler.play();
+        await globalAudioHandler!.play();
       }
       return;
     }
@@ -123,7 +129,7 @@ class AudioService {
         extras: {'episodeId': episode.id},
       );
 
-      await audioHandler.playMediaItem(mediaItem);
+      await globalAudioHandler!.playMediaItem(mediaItem);
 
       // Update library for Android Auto based on the current playlist
       final libraryItems = currentPlaylist
@@ -135,7 +141,7 @@ class AudioService {
                 extras: {'episodeId': e.id},
               ))
           .toList();
-      audioHandler.updateLibrary(libraryItems);
+      podstreamAudioHandler!.updateLibrary(libraryItems);
     } catch (e) {
       print("Erreur de chargement audio: $e");
       isPlayingNotifier.value = false;
@@ -144,30 +150,33 @@ class AudioService {
 
   /// Reprendre ou Mettre en pause
   Future<void> togglePlayPause() async {
+    if (globalAudioHandler == null) return;
     if (isPlayingNotifier.value) {
-      await audioHandler.pause();
+      await globalAudioHandler!.pause();
     } else {
       if (currentEpisodeNotifier.value != null) {
-        await audioHandler.play();
+        await globalAudioHandler!.play();
       }
     }
   }
 
   /// Chercher une position (Seek)
   Future<void> seek(Duration position) async {
-    await audioHandler.seek(position);
+    await globalAudioHandler?.seek(position);
   }
 
   Future<void> seekForward30() async {
+    if (globalAudioHandler == null) return;
     final currentPosition = progressNotifier.value;
     final newPosition = currentPosition + const Duration(seconds: 30);
-    await audioHandler.seek(newPosition);
+    await globalAudioHandler!.seek(newPosition);
   }
 
   Future<void> seekBackward30() async {
+    if (globalAudioHandler == null) return;
     final currentPosition = progressNotifier.value;
     final newPosition = currentPosition - const Duration(seconds: 30);
-    await audioHandler
+    await globalAudioHandler!
         .seek(newPosition < Duration.zero ? Duration.zero : newPosition);
   }
 
@@ -184,7 +193,9 @@ class AudioService {
     if (episode == null) return false;
 
     final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
+    bool useMockFallback = episode.id.startsWith('mock_');
+
+    if (user != null && !useMockFallback) {
       try {
         final userResult = await ExampleConnector.instance
             .findUserByGoogleId(googleId: user.uid)
@@ -192,6 +203,12 @@ class AudioService {
         if (userResult.data.users.isNotEmpty) {
           final postgresUuid = userResult.data.users.first.id;
           final formattedEpisodeId = _formatUuid(episode.id);
+
+          print('AA_DEBUG_GRAPHQL_VARIABLES: userId (UUID) = $postgresUuid');
+          print(
+              'AA_DEBUG_GRAPHQL_VARIABLES: googleId actuel = ${FirebaseAuth.instance.currentUser?.uid}');
+          print(
+              'AA_DEBUG_GRAPHQL_VARIABLES: episodeId (UUID) = $formattedEpisodeId');
 
           await ExampleConnector.instance
               .updateListenHistory(
@@ -204,9 +221,28 @@ class AudioService {
                     Timestamp(DateTime.now().millisecondsSinceEpoch ~/ 1000, 0),
               )
               .execute();
+        } else {
+          return false;
         }
       } catch (e) {
-        print("Erreur markAsRead historisation ignorée: $e");
+        print(
+            'AA_DEBUG_GRAPHQL_ERROR: Échec de UpdateListenHistory. Erreur complète : $e');
+        return false;
+      }
+    } else if (user == null) {
+      useMockFallback = true;
+    }
+
+    if (useMockFallback) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final localReadList = prefs.getStringList('local_read_episodes') ?? [];
+        if (!localReadList.contains(episode.id)) {
+          localReadList.add(episode.id);
+          await prefs.setStringList('local_read_episodes', localReadList);
+        }
+      } catch (e) {
+        print("Erreur SharedPreferences fallback markAsRead: $e");
       }
     }
 

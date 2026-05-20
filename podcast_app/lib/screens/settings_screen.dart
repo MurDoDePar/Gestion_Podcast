@@ -3,9 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
 import '../theme/app_theme.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -47,30 +44,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _signOut() async {
     await GoogleSignIn().signOut();
     await FirebaseAuth.instance.signOut();
-  }
-
-  Future<void> _shareLogs() async {
-    try {
-      final directory = await getApplicationDocumentsDirectory();
-      final logFile1 = File('${directory.path}/logs_android_auto.txt');
-      if (await logFile1.exists()) {
-        await Share.shareXFiles([XFile(logFile1.path)],
-            text: 'Logs Android Auto');
-        return;
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Aucun log enregistré pour le moment')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors du partage : $e')),
-        );
-      }
-    }
   }
 
   @override
@@ -202,22 +175,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.red.withOpacity(0.2),
             foregroundColor: Colors.redAccent,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          ),
-        ),
-
-        const SizedBox(height: 24),
-
-        // Partager les logs
-        ElevatedButton.icon(
-          onPressed: _shareLogs,
-          icon: const Icon(Icons.share),
-          label: const Text('Partager les Logs AA'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.surfaceColor,
-            foregroundColor: AppTheme.primaryColor,
             padding: const EdgeInsets.symmetric(vertical: 16),
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

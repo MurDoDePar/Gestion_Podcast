@@ -7,10 +7,8 @@ import 'screens/login_screen.dart';
 import 'theme/app_theme.dart';
 
 import 'package:audio_service/audio_service.dart';
-import 'services/podstream_audio_handler.dart';
-
-// Variable globale pour l'AudioHandler
-late PodStreamAudioHandler audioHandler;
+import 'package:podcast_app/services/podstream_audio_handler.dart';
+import 'package:podcast_app/services/audio_handler_locator.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,7 +17,7 @@ void main() async {
   debugPrint(
       '--- Initialisation AudioService (PRIORITÉ MAX POUR ANDROID AUTO) ---');
   try {
-    audioHandler = await AudioService.init(
+    globalAudioHandler = await AudioService.init(
       builder: () => PodStreamAudioHandler(),
       config: const AudioServiceConfig(
         androidNotificationChannelId: 'com.podstream.channel.audio',
@@ -28,6 +26,8 @@ void main() async {
         androidStopForegroundOnPause: true,
       ),
     );
+    print(
+        'AA_DEBUG_INIT_UI: globalAudioHandler est désormais initialisé dans le main principal !');
     debugPrint('--- AudioService OK ---');
   } catch (e) {
     debugPrint('Erreur critique AudioService: $e');

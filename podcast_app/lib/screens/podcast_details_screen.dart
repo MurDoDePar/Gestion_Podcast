@@ -10,6 +10,8 @@ import '../services/audio_service.dart';
 import '../dataconnect-generated/example.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'main_screen.dart';
+import 'package:podcast_app/services/audio_handler_locator.dart'; // Pour globalAudioHandler
+import 'package:audio_service/audio_service.dart'; // Pour MediaItem
 
 class ParsedEpisode {
   final xml.XmlElement element;
@@ -267,7 +269,7 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
 
       if (dbEpisodes.isNotEmpty && mounted) {
         final prefs = await SharedPreferences.getInstance();
-        final userOrder = prefs.getString('podstream_order') ?? 'desc';
+        final userOrder = prefs.getString('podstream_order') ?? 'asc';
 
         final epsList = dbEpisodes.toList();
 
@@ -369,7 +371,7 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
         final isSerial = itunesType == 'serial';
 
         final prefs = await SharedPreferences.getInstance();
-        final userOrder = prefs.getString('podstream_order') ?? 'desc';
+        final userOrder = prefs.getString('podstream_order') ?? 'asc';
 
         final items = document.findAllElements('item');
         final parsedItems = <ParsedEpisode>[];
@@ -650,8 +652,24 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
                     ),
                     title: Text(episode.title,
                         maxLines: 2, overflow: TextOverflow.ellipsis),
-                    onTap: () {
-                      AudioService().playEpisode(episode, playlist: _episodes);
+                    onTap: () async {
+                      print(
+                          'AA_DEBUG_UI: Clic détecté sur l\'épisode ${episode.title}');
+                      if (globalAudioHandler == null) {
+                        print('AA_DEBUG_ERROR: globalAudioHandler is null!');
+                        return;
+                      }
+                      await globalAudioHandler!.playMediaItem(
+                        MediaItem(
+                          id: episode.audioUrl,
+                          title: episode.title,
+                          artist: episode.podcastName,
+                          artUri: episode.imageUrl != null
+                              ? Uri.parse(episode.imageUrl!)
+                              : null,
+                          extras: {'episodeId': episode.id},
+                        ),
+                      );
                     },
                   );
                 },

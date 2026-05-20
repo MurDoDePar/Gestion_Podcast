@@ -10,10 +10,6 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">
-        <!-- Déclaration de compatibilité Android Auto -->
-        <meta-data
-            android:name="com.google.android.gms.car.application"
-            android:resource="@xml/automotive_app_desc" />
 
         <activity
             android:name=".MainActivity"
@@ -48,7 +44,6 @@
             android:name="com.ryanheise.audioservice.AudioService"
             android:label="PodStream"
             android:icon="@mipmap/ic_launcher"
-            android:permission="android.permission.BIND_BROWSER_SERVICE"
             android:foregroundServiceType="mediaPlayback"
             android:exported="true">
             <intent-filter>
@@ -59,6 +54,10 @@
                 android:resource="@xml/automotive_app_desc" />
         </service>
 
+        <!-- Déclaration de compatibilité Android Auto -->
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
         <!-- Déclaration pour le bouton play/pause des écouteurs -->
         <receiver
             android:name="com.ryanheise.audioservice.MediaButtonReceiver"

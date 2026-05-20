@@ -9,10 +9,13 @@ import 'package:xml/xml.dart' as xml;
 import '../../theme/app_theme.dart';
 import '../../dataconnect-generated/example.dart';
 import '../../data/themes_data.dart';
-import '../../services/audio_service.dart';
+import '../../services/audio_service.dart' as custom_audio;
 import '../../services/podcast_repository.dart';
 import '../podcast_details_screen.dart';
-import 'package:flutter_html/flutter_html.dart';
+import '../../models/episode_model.dart';
+import '../../widgets/episode_list_tile.dart';
+// Pour l'instance globale globalAudioHandler
+// Pour MediaItem
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -384,27 +387,38 @@ class _MyPodcastsTabState extends State<_MyPodcastsTab> {
   void initState() {
     super.initState();
     _loadData();
-    AudioService().listRefreshNotifier.addListener(_onRefreshRequired);
+    custom_audio.AudioService()
+        .listRefreshNotifier
+        .addListener(_onRefreshRequired);
   }
+
+  DateTime? _lastRefreshTime;
 
   void _onRefreshRequired() {
     if (mounted) {
-      setState(() {
-        _loadData();
-      });
+      final now = DateTime.now();
+      if (_lastRefreshTime == null ||
+          now.difference(_lastRefreshTime!) > const Duration(minutes: 5)) {
+        _lastRefreshTime = now;
+        setState(() {
+          _loadData();
+        });
+      }
     }
   }
 
   @override
   void dispose() {
-    AudioService().listRefreshNotifier.removeListener(_onRefreshRequired);
+    custom_audio.AudioService()
+        .listRefreshNotifier
+        .removeListener(_onRefreshRequired);
     super.dispose();
   }
 
   void _loadData() {
     final uid = userId;
     if (uid != null) {
-      _subsFuture = _fetchSubscriptions(uid);
+      _subsFuture = PodcastRepository.fetchPodcasts(uid);
       _episodesFuture = _fetchNewEpisodesAndSync(uid);
     } else {
       _subsFuture = Future.value([]);
@@ -475,28 +489,30 @@ class _MyPodcastsTabState extends State<_MyPodcastsTab> {
               child: FutureBuilder(
                 future: _subsFuture,
                 builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
+                  if (snapshot.connectionState == ConnectionState.waiting ||
+                      snapshot.connectionState == ConnectionState.active) {
                     return const Center(child: CircularProgressIndicator());
                   }
                   if (snapshot.hasError) {
                     return Center(
-                      child: Text('Erreur: ${snapshot.error}',
+                      child: Text('Erreur de chargement : ${snapshot.error}',
                           style: const TextStyle(color: Colors.red)),
                     );
                   }
-
-                  final subs = snapshot.data ?? [];
-
-                  if (subs.isEmpty) {
+                  if (!snapshot.hasData ||
+                      snapshot.data == null ||
+                      (snapshot.data as List).isEmpty) {
                     return const Center(
                       child: Text(
-                        'Aucun podcast. Ajoutez-en un !',
+                        'Aucun podcast trouvé. Ajoutez-en un !',
                         style: TextStyle(
                             color: AppTheme.textSecondary,
                             fontStyle: FontStyle.italic),
                       ),
                     );
                   }
+
+                  final subs = snapshot.data!;
 
                   return _DraggablePodcastList(
                     initialSubs: subs,
@@ -526,17 +542,19 @@ class _MyPodcastsTabState extends State<_MyPodcastsTab> {
             FutureBuilder(
               future: _episodesFuture,
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
+                if (snapshot.connectionState == ConnectionState.waiting ||
+                    snapshot.connectionState == ConnectionState.active) {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (snapshot.hasError) {
-                  return Text('Erreur: ${snapshot.error}',
-                      style: const TextStyle(color: Colors.red));
+                  return Center(
+                    child: Text('Erreur de chargement : ${snapshot.error}',
+                        style: const TextStyle(color: Colors.red)),
+                  );
                 }
-
-                final history = snapshot.data ?? [];
-
-                if (history.isEmpty) {
+                if (!snapshot.hasData ||
+                    snapshot.data == null ||
+                    (snapshot.data as List).isEmpty) {
                   return const Center(
                     child: Text(
                       'Pas d\'épisodes à écouter pour le moment.',
@@ -547,87 +565,27 @@ class _MyPodcastsTabState extends State<_MyPodcastsTab> {
                   );
                 }
 
+                final history = snapshot.data!;
+
+                if (history.isEmpty) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Text("Aucun épisode récent"),
+                    ),
+                  );
+                }
+
                 return ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: history.length,
                   itemBuilder: (context, index) {
-                    final item = history[index];
-                    // Extraction d'un nom de fichier approximatif depuis l'URL audio si le titre n'est pas dispo
-                    final fallbackTitle = item['audioUrl']
-                        .toString()
-                        .split('/')
-                        .last
-                        .split('?')
-                        .first;
-
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: AppTheme.surfaceColor,
-                          borderRadius: BorderRadius.circular(8),
-                          image: item['imageUrl'] != null
-                              ? DecorationImage(
-                                  image: NetworkImage(item['imageUrl']),
-                                  fit: BoxFit.cover,
-                                )
-                              : null,
-                        ),
-                        child: item['imageUrl'] == null
-                            ? const Icon(Icons.play_circle_fill,
-                                color: AppTheme.primaryColor)
-                            : null,
-                      ),
-                      title: Text(item['title'] ?? fallbackTitle,
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
-                      subtitle: Text(item['podcastName'] ?? '',
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.more_vert,
-                            color: AppTheme.textSecondary),
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: Text(item['title'] ?? fallbackTitle),
-                              content: SizedBox(
-                                width: double.maxFinite,
-                                child: SingleChildScrollView(
-                                  child: item['description'] == null
-                                      ? const Text(
-                                          'Aucune description disponible.')
-                                      : Html(data: item['description']),
-                                ),
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text('Fermer'),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                      onTap: () {
-                        final playlist = history
-                            .map((e) => AudioEpisode(
-                                  id: e['id'],
-                                  title: e['title'] ?? fallbackTitle,
-                                  podcastName:
-                                      e['podcastName'] ?? 'Mon Podcast',
-                                  imageUrl: e['imageUrl'],
-                                  audioUrl: e['audioUrl'],
-                                ))
-                            .toList();
-
-                        AudioService()
-                            .playEpisode(playlist[index], playlist: playlist);
-                      },
-                    );
+                    final episode = EpisodeModel.fromRawData(history[index]);
+                    if (episode.id.isEmpty || episode.audioUrl.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+                    return EpisodeListTile(episode: episode);
                   },
                 );
               },
@@ -635,27 +593,6 @@ class _MyPodcastsTabState extends State<_MyPodcastsTab> {
         ],
       ),
     );
-  }
-
-  Future<List<GetMySubscriptionsSubscriptionTypes>> _fetchSubscriptions(
-      String googleId) async {
-    final userResult = await ExampleConnector.instance
-        .findUserByGoogleId(googleId: googleId)
-        .execute();
-    final users = userResult.data.users;
-    if (users.isEmpty) return [];
-    final postgresUuid = users.first.id;
-    final subsResult = await ExampleConnector.instance
-        .getMySubscriptions(userId: postgresUuid)
-        .execute();
-    final subs = subsResult.data.subscriptionTypes.toList();
-    subs.sort((a, b) {
-      final orderA = a.listOrder ?? 9999;
-      final orderB = b.listOrder ?? 9999;
-      if (orderA == orderB) return a.podcast.title.compareTo(b.podcast.title);
-      return orderA.compareTo(orderB);
-    });
-    return subs;
   }
 }
 

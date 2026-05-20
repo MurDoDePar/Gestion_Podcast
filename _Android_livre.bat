@@ -23,43 +23,10 @@ set OUTPUT_AAB=%APP_DIR%\build\app\outputs\bundle\release\app-release.aab
 :: ---------------------------------------------------------
 :: ETAPE 1 -- Build du AAB Release avec Flutter
 :: ---------------------------------------------------------
-echo [1/4] Configuration du dossier build (contournement Google Drive)...
+echo [1/3] Compilation du bundle Android (AAB Release)...
+echo (La preparation et le nettoyage sont realises par _compil.bat)
+
 cd /d "%APP_DIR%"
-
-:: Arret des processus pour liberer les fichiers
-cd android
-call gradlew --stop >nul 2>&1
-cd ..
-
-:: Configuration d'un dossier de build externe
-set EXT_BUILD=C:\temp\podstream_build
-if not exist "%EXT_BUILD%" mkdir "%EXT_BUILD%"
-
-:: Remplacement du dossier build par une jonction (raccourci physique)
-:: Cela empeche Google Drive de synchroniser les fichiers de compilation !
-fsutil reparsepoint query build >nul 2>&1
-if errorlevel 1 (
-    echo Suppression de l'ancien dossier build, cela peut prendre un instant...
-    rmdir /s /q build >nul 2>&1
-    if exist build (
-        echo.
-        echo [ERREUR] Google Drive bloque toujours le dossier 'build'.
-        echo Solution : Quittez Google Drive, clic droit sur l'icone dans la barre des taches -^> Quitter,
-        echo relancez ce script, puis vous pourrez rouvrir Google Drive.
-        pause
-        exit /b 1
-    )
-    mklink /J build "%EXT_BUILD%"
-)
-
-echo Nettoyage rapide...
-call flutter clean >nul 2>&1
-
-:: Verifier si flutter clean a supprime la jonction
-if not exist build mklink /J build "%EXT_BUILD%" >nul 2>&1
-
-echo.
-echo [2/4] Compilation du bundle Android (AAB Release)...
 
 call flutter build appbundle --release --build-name=%APP_VERSION% --build-number=%APP_BUILD_NUMBER%
 if errorlevel 1 (
@@ -75,7 +42,7 @@ echo.
 :: ---------------------------------------------------------
 :: ETAPE 2 -- Resultat
 :: ---------------------------------------------------------
-echo [3/4] Verification du fichier de sortie...
+echo [2/3] Verification du fichier de sortie...
 
 if exist "%OUTPUT_AAB%" (
     echo.
@@ -87,7 +54,7 @@ if exist "%OUTPUT_AAB%" (
     echo    %OUTPUT_AAB%
     echo.
     
-    echo [4/4] Commit Git de la version...
+    echo [3/3] Commit Git de la version...
     cd /d "%ROOT%"
     git add .
     git commit -m "Release v!APP_VERSION! - !APP_RELEASE_NOTES!"

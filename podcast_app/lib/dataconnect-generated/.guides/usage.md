@@ -1,16 +1,16 @@
 # Basic Usage
 
 ```dart
-ExampleConnector.instance.FindUserByGoogleId(findUserByGoogleIdVariables).execute();
-ExampleConnector.instance.GetMySubscriptions(getMySubscriptionsVariables).execute();
-ExampleConnector.instance.GetListenHistory(getListenHistoryVariables).execute();
-ExampleConnector.instance.GetRecommendations(getRecommendationsVariables).execute();
-ExampleConnector.instance.GetEpisodesByPodcast(getEpisodesByPodcastVariables).execute();
-ExampleConnector.instance.GetLatestSubscribedEpisodes(getLatestSubscribedEpisodesVariables).execute();
-ExampleConnector.instance.GetOldestSubscribedEpisodes(getOldestSubscribedEpisodesVariables).execute();
-ExampleConnector.instance.GetAppCache(getAppCacheVariables).execute();
-ExampleConnector.instance.GetPodcastByFeedUrl(getPodcastByFeedUrlVariables).execute();
 ExampleConnector.instance.InsertUser(insertUserVariables).execute();
+ExampleConnector.instance.UpsertUser(upsertUserVariables).execute();
+ExampleConnector.instance.UpsertPodcast(upsertPodcastVariables).execute();
+ExampleConnector.instance.UpsertEpisode(upsertEpisodeVariables).execute();
+ExampleConnector.instance.SubscribeToPodcast(subscribeToPodcastVariables).execute();
+ExampleConnector.instance.UpdateSubscriptionOrder(updateSubscriptionOrderVariables).execute();
+ExampleConnector.instance.UnsubscribeFromPodcast(unsubscribeFromPodcastVariables).execute();
+ExampleConnector.instance.UpdateListenHistory(updateListenHistoryVariables).execute();
+ExampleConnector.instance.CleanupDuplicates().execute();
+ExampleConnector.instance.UpsertAppCache(upsertAppCacheVariables).execute();
 
 ```
 
