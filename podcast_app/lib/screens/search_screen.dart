@@ -135,116 +135,118 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: TextField(
-            controller: _searchController,
-            textInputAction: TextInputAction.search,
-            onChanged: _onSearchChanged,
-            onSubmitted: _performSearch,
-            style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(
-              hintText: 'Rechercher un podcast, un auteur...',
-              hintStyle: const TextStyle(color: AppTheme.textSecondary),
-              prefixIcon:
-                  const Icon(Icons.search, color: AppTheme.primaryColor),
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.clear, color: Colors.grey),
-                onPressed: () {
-                  _searchController.clear();
-                  _performSearch('');
-                },
-              ),
-              filled: true,
-              fillColor: AppTheme.surfaceColor,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(30),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(30),
-                borderSide:
-                    const BorderSide(color: AppTheme.primaryColor, width: 2),
+    return SafeArea(
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: TextField(
+              controller: _searchController,
+              textInputAction: TextInputAction.search,
+              onChanged: _onSearchChanged,
+              onSubmitted: _performSearch,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Rechercher un podcast, un auteur...',
+                hintStyle: const TextStyle(color: AppTheme.textSecondary),
+                prefixIcon:
+                    const Icon(Icons.search, color: AppTheme.primaryColor),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.clear, color: Colors.grey),
+                  onPressed: () {
+                    _searchController.clear();
+                    _performSearch('');
+                  },
+                ),
+                filled: true,
+                fillColor: AppTheme.surfaceColor,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30),
+                  borderSide:
+                      const BorderSide(color: AppTheme.primaryColor, width: 2),
+                ),
               ),
             ),
           ),
-        ),
-        Expanded(
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _podcasts.isEmpty
-                  ? Center(
-                      child: Text(
-                        _lastQuery.isEmpty
-                            ? 'Saisissez un terme pour rechercher.'
-                            : 'Aucun résultat trouvé pour "$_lastQuery".',
-                        style: const TextStyle(
-                            color: AppTheme.textSecondary,
-                            fontStyle: FontStyle.italic),
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: _podcasts.length,
-                      itemBuilder: (context, index) {
-                        final p = _podcasts[index];
-                        final imageUrl =
-                            p['artworkUrl600'] ?? p['artworkUrl100'];
-                        final title = p['collectionName'] ?? 'Sans titre';
-                        final author = p['artistName'] ?? 'Inconnu';
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _podcasts.isEmpty
+                    ? Center(
+                        child: Text(
+                          _lastQuery.isEmpty
+                              ? 'Saisissez un terme pour rechercher.'
+                              : 'Aucun résultat trouvé pour "$_lastQuery".',
+                          style: const TextStyle(
+                              color: AppTheme.textSecondary,
+                              fontStyle: FontStyle.italic),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: _podcasts.length,
+                        itemBuilder: (context, index) {
+                          final p = _podcasts[index];
+                          final imageUrl =
+                              p['artworkUrl600'] ?? p['artworkUrl100'];
+                          final title = p['collectionName'] ?? 'Sans titre';
+                          final author = p['artistName'] ?? 'Inconnu';
 
-                        return Card(
-                          color: AppTheme.surfaceColor,
-                          margin: const EdgeInsets.only(bottom: 12),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16)),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.all(12),
-                            leading: Container(
-                              width: 60,
-                              height: 60,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                                color: AppTheme.bgColor,
-                                image: imageUrl != null
-                                    ? DecorationImage(
-                                        image: NetworkImage(imageUrl),
-                                        fit: BoxFit.cover)
+                          return Card(
+                            color: AppTheme.surfaceColor,
+                            margin: const EdgeInsets.only(bottom: 12),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16)),
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.all(12),
+                              leading: Container(
+                                width: 60,
+                                height: 60,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  color: AppTheme.bgColor,
+                                  image: imageUrl != null
+                                      ? DecorationImage(
+                                          image: NetworkImage(imageUrl),
+                                          fit: BoxFit.cover)
+                                      : null,
+                                ),
+                                child: imageUrl == null
+                                    ? const Icon(Icons.podcasts)
                                     : null,
                               ),
-                              child: imageUrl == null
-                                  ? const Icon(Icons.podcasts)
-                                  : null,
+                              title: Text(title,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis),
+                              subtitle: Text(author,
+                                  style: const TextStyle(
+                                      color: AppTheme.textSecondary),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                              trailing: const Icon(Icons.chevron_right,
+                                  color: AppTheme.primaryColor),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        PodcastDetailsScreen(podcast: p),
+                                  ),
+                                );
+                              },
                             ),
-                            title: Text(title,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis),
-                            subtitle: Text(author,
-                                style: const TextStyle(
-                                    color: AppTheme.textSecondary),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis),
-                            trailing: const Icon(Icons.chevron_right,
-                                color: AppTheme.primaryColor),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      PodcastDetailsScreen(podcast: p),
-                                ),
-                              );
-                            },
-                          ),
-                        );
-                      },
-                    ),
-        ),
-      ],
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
     );
   }
 }

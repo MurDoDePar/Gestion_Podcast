@@ -60,10 +60,11 @@ class PodStreamApp extends StatelessWidget {
       title: 'PodStream',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
-      home: _buildAuthResolver(),
+      home: const LoginScreen(),
     );
   }
 
+  // ignore: unused_element
   Widget _buildAuthResolver() {
     debugPrint("--- BUILD AUTH RESOLVER ---");
     if (Firebase.apps.isEmpty) {

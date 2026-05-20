@@ -54,147 +54,150 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     final user = FirebaseAuth.instance.currentUser;
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        if (user != null) ...[
-          // Profil
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          if (user != null) ...[
+            // Profil
+            Card(
+              color: AppTheme.surfaceColor,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 30,
+                      backgroundImage: user.photoURL != null
+                          ? NetworkImage(user.photoURL!)
+                          : null,
+                      child: user.photoURL == null
+                          ? const Icon(Icons.person)
+                          : null,
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(user.displayName ?? 'Utilisateur',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 18)),
+                          Text(user.email ?? '',
+                              style: const TextStyle(
+                                  color: AppTheme.textSecondary)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+
+          // Préférences
+          const Text(
+            'Préférences d\'écoute',
+            style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primaryColor),
+          ),
+          const SizedBox(height: 16),
+
           Card(
             color: AppTheme.surfaceColor,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundImage: user.photoURL != null
-                        ? NetworkImage(user.photoURL!)
-                        : null,
-                    child:
-                        user.photoURL == null ? const Icon(Icons.person) : null,
+            child: Column(
+              children: [
+                ListTile(
+                  leading:
+                      const Icon(Icons.language, color: AppTheme.textPrimary),
+                  title: const Text('Langue des podcasts'),
+                  trailing: DropdownButton<String>(
+                    value: _language,
+                    dropdownColor: AppTheme.surfaceColor,
+                    underline: const SizedBox(),
+                    items: const [
+                      DropdownMenuItem(value: 'all', child: Text('Toutes')),
+                      DropdownMenuItem(value: 'fr', child: Text('Français')),
+                      DropdownMenuItem(value: 'en', child: Text('Anglais')),
+                      DropdownMenuItem(value: 'es', child: Text('Espagnol')),
+                      DropdownMenuItem(value: 'de', child: Text('Allemand')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() {
+                          _language = val;
+                        });
+                        _saveSettings('podstream_lang', val);
+                      }
+                    },
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(user.displayName ?? 'Utilisateur',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 18)),
-                        Text(user.email ?? '',
-                            style:
-                                const TextStyle(color: AppTheme.textSecondary)),
-                      ],
-                    ),
+                ),
+                const Divider(height: 1, color: Colors.white10),
+                ListTile(
+                  leading: const Icon(Icons.sort, color: AppTheme.textPrimary),
+                  title: const Text('Ordre des épisodes'),
+                  trailing: DropdownButton<String>(
+                    value: _order,
+                    dropdownColor: AppTheme.surfaceColor,
+                    underline: const SizedBox(),
+                    items: const [
+                      DropdownMenuItem(
+                          value: 'desc', child: Text('Plus récent d\'abord')),
+                      DropdownMenuItem(
+                          value: 'asc', child: Text('Plus ancien d\'abord')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() {
+                          _order = val;
+                        });
+                        _saveSettings('podstream_order', val);
+                      }
+                    },
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
+
+          const SizedBox(height: 32),
+
+          // Déconnexion
+          ElevatedButton.icon(
+            onPressed: _signOut,
+            icon: const Icon(Icons.logout),
+            label: const Text('Se déconnecter'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.withOpacity(0.2),
+              foregroundColor: Colors.redAccent,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+            ),
+          ),
+
           const SizedBox(height: 24),
-        ],
 
-        // Préférences
-        const Text(
-          'Préférences d\'écoute',
-          style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.primaryColor),
-        ),
-        const SizedBox(height: 16),
-
-        Card(
-          color: AppTheme.surfaceColor,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Column(
-            children: [
-              ListTile(
-                leading:
-                    const Icon(Icons.language, color: AppTheme.textPrimary),
-                title: const Text('Langue des podcasts'),
-                trailing: DropdownButton<String>(
-                  value: _language,
-                  dropdownColor: AppTheme.surfaceColor,
-                  underline: const SizedBox(),
-                  items: const [
-                    DropdownMenuItem(value: 'all', child: Text('Toutes')),
-                    DropdownMenuItem(value: 'fr', child: Text('Français')),
-                    DropdownMenuItem(value: 'en', child: Text('Anglais')),
-                    DropdownMenuItem(value: 'es', child: Text('Espagnol')),
-                    DropdownMenuItem(value: 'de', child: Text('Allemand')),
-                  ],
-                  onChanged: (val) {
-                    if (val != null) {
-                      setState(() {
-                        _language = val;
-                      });
-                      _saveSettings('podstream_lang', val);
-                    }
-                  },
-                ),
+          // Version de l'application
+          Center(
+            child: Text(
+              'Version $_appVersion',
+              style: const TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: 12,
               ),
-              const Divider(height: 1, color: Colors.white10),
-              ListTile(
-                leading: const Icon(Icons.sort, color: AppTheme.textPrimary),
-                title: const Text('Ordre des épisodes'),
-                trailing: DropdownButton<String>(
-                  value: _order,
-                  dropdownColor: AppTheme.surfaceColor,
-                  underline: const SizedBox(),
-                  items: const [
-                    DropdownMenuItem(
-                        value: 'desc', child: Text('Plus récent d\'abord')),
-                    DropdownMenuItem(
-                        value: 'asc', child: Text('Plus ancien d\'abord')),
-                  ],
-                  onChanged: (val) {
-                    if (val != null) {
-                      setState(() {
-                        _order = val;
-                      });
-                      _saveSettings('podstream_order', val);
-                    }
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 32),
-
-        // Déconnexion
-        ElevatedButton.icon(
-          onPressed: _signOut,
-          icon: const Icon(Icons.logout),
-          label: const Text('Se déconnecter'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red.withOpacity(0.2),
-            foregroundColor: Colors.redAccent,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          ),
-        ),
-
-        const SizedBox(height: 24),
-
-        // Version de l'application
-        Center(
-          child: Text(
-            'Version $_appVersion',
-            style: const TextStyle(
-              color: AppTheme.textSecondary,
-              fontSize: 12,
             ),
           ),
-        ),
-        const SizedBox(height: 16),
-      ],
+          const SizedBox(height: 16),
+        ],
+      ),
     );
   }
 }

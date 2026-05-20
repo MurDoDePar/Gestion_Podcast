@@ -19,12 +19,20 @@ echo 3. Ajustement des permissions du fichier...
 "%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" shell chmod 777 /data/local/tmp/app-release.apk
 
 echo.
-echo 4. Installation locale (Contournement SELinux)...
+echo 4. kill-server...
+"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" kill-server
+
+echo.
+echo 5. devices
+"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" devices
+
+echo.
+echo 6. Installation locale (Contournement SELinux)...
 "%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" shell pm install -r -d /data/local/tmp/app-release.apk
 if %errorlevel% neq 0 goto :erreur
 
 echo.
-echo 5. Nettoyage du fichier temporaire sur le telephone...
+echo 7. Nettoyage du fichier temporaire sur le telephone...
 "%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" shell rm /data/local/tmp/app-release.apk
 
 echo.

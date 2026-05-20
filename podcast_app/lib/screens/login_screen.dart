@@ -1,10 +1,8 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:firebase_data_connect/firebase_data_connect.dart';
-import '../dataconnect-generated/example.dart';
 import '../theme/app_theme.dart';
+import 'main_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -22,7 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      // Déclenche le flux d'authentification Google
+      // 1. Déclenche le flux d'authentification Google
       final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
 
       if (googleUser == null) {
@@ -33,63 +31,33 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      // Obtient les détails d'authentification de la demande
+      // 2. Obtient les détails d'authentification de la demande
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
 
-      // Crée un nouvel identifiant Firebase
+      // 3. Crée un nouvel identifiant Firebase
       final OAuthCredential credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      // Connecte l'utilisateur à Firebase
-      final userCredential =
-          await FirebaseAuth.instance.signInWithCredential(credential);
-      final user = userCredential.user;
+      // 4. Connecte l'utilisateur à Firebase
+      await FirebaseAuth.instance.signInWithCredential(credential);
 
-      if (user != null) {
-        // Force le rafraîchissement du token pour s'assurer que Data Connect l'a bien reçu
-        await user.getIdToken(true);
-
-        // Vérifier si l'utilisateur existe déjà
-        final userResult = await ExampleConnector.instance
-            .findUserByGoogleId(googleId: user.uid)
-            .execute();
-
-        if (userResult.data.users.isEmpty) {
-          // Créer l'utilisateur avec InsertUser s'il n'existe pas
-          await ExampleConnector.instance
-              .insertUser(
-                googleId: user.uid,
-                displayName: user.displayName ?? 'Utilisateur',
-                createdAt:
-                    Timestamp(DateTime.now().millisecondsSinceEpoch ~/ 1000, 0),
-              )
-              .email(user.email ?? '')
-              .photoUrl(user.photoURL ?? '')
-              .execute();
-        }
+      // 5. Redirection vers l'écran principal
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainScreen()),
+        );
       }
-
-      // La redirection vers l'écran principal sera gérée par le StreamBuilder dans main.dart
     } catch (e) {
-      debugPrint('Erreur de connexion: $e');
-      // Let's use standard Dart io
-      try {
-        final file = File(
-            'C:\\Users\\domin\\Google Drive\\Code\\Gestion_Podcast\\error.log');
-        file.writeAsStringSync('Error: $e\n', mode: FileMode.append);
-      } catch (_) {}
-
+      debugPrint('Erreur de connexion Google Sign-In: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-                'Erreur de création de profil : $e\nPrenez une capture d\'écran !',
-                style: const TextStyle(fontSize: 12)),
+            content: Text('Échec de la connexion : $e'),
             backgroundColor: AppTheme.dangerColor,
-            duration: const Duration(seconds: 10),
           ),
         );
       }
@@ -105,55 +73,81 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.podcasts,
-                size: 80,
-                color: AppTheme.primaryColor,
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'PodStream',
-                style: TextStyle(
-                  fontSize: 40,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -1,
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Connectez-vous avec Google pour sauvegarder et synchroniser vos podcasts sur le Cloud.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AppTheme.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 48),
-              _isLoading
-                  ? const CircularProgressIndicator()
-                  : ElevatedButton.icon(
-                      onPressed: _signInWithGoogle,
-                      icon: const Icon(Icons.login),
-                      label: const Text('Continuer avec Google',
-                          style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black87,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
+      backgroundColor: AppTheme.bgColor,
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ShaderMask(
+                  shaderCallback: (bounds) =>
+                      AppTheme.primaryGradient.createShader(
+                    Rect.fromLTWH(0, 0, bounds.width, bounds.height),
+                  ),
+                  child: const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.podcasts,
+                        size: 96,
+                        color: Colors.white,
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        'PodStream',
+                        style: TextStyle(
+                          fontSize: 48,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          letterSpacing: -1.5,
                         ),
                       ),
-                    ),
-            ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Votre univers podcast, sans limite.',
+                  style: TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 16,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 64),
+                _isLoading
+                    ? const CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                            AppTheme.primaryColor),
+                      )
+                    : ElevatedButton.icon(
+                        onPressed: _signInWithGoogle,
+                        icon: const Icon(Icons.account_circle,
+                            color: Colors.black87, size: 24),
+                        label: const Text(
+                          'Se connecter avec Google',
+                          style: TextStyle(
+                            color: Colors.black87,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.black87,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 32, vertical: 18),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          elevation: 5,
+                          shadowColor: Colors.black.withOpacity(0.3),
+                        ),
+                      ),
+              ],
+            ),
           ),
         ),
       ),

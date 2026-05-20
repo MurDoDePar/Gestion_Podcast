@@ -3,6 +3,7 @@ import 'package:audio_service/audio_service.dart';
 import '../models/episode_model.dart';
 import '../theme/app_theme.dart';
 import '../services/audio_handler_locator.dart';
+import '../services/audio_service.dart' as app_audio;
 
 class EpisodeListTile extends StatelessWidget {
   final EpisodeModel episode;
@@ -39,17 +40,51 @@ class EpisodeListTile extends StatelessWidget {
           showDialog(
             context: context,
             builder: (context) => AlertDialog(
-              title: Text(episode.title),
+              backgroundColor: AppTheme.surfaceColor,
+              title: Text(
+                episode.title,
+                style: const TextStyle(color: Colors.white),
+              ),
               content: SizedBox(
                 width: double.maxFinite,
                 child: SingleChildScrollView(
-                  child: Text(episode.description),
+                  child: Text(
+                    episode.description,
+                    style: const TextStyle(color: AppTheme.textSecondary),
+                  ),
                 ),
               ),
               actions: [
                 TextButton(
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    await app_audio.AudioService().markEpisodeAsRead(
+                      episode.id,
+                      episode.audioUrl,
+                      episode.title,
+                      episode.podcastName,
+                      episode.imageUrl,
+                    );
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Épisode marqué comme lu'),
+                          duration: Duration(seconds: 3),
+                        ),
+                      );
+                    }
+                  },
+                  child: const Text(
+                    'Marquer comme lu',
+                    style: TextStyle(color: AppTheme.primaryColor),
+                  ),
+                ),
+                TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Fermer'),
+                  child: const Text(
+                    'Fermer',
+                    style: TextStyle(color: Colors.white),
+                  ),
                 ),
               ],
             ),
