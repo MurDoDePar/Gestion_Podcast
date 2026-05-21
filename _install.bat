@@ -6,25 +6,25 @@ echo.
 
 cd podcast_app
 
-echo 1. Desinstallation de l'ancienne version...
+echo.
+echo 1. kill-server...
+"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" kill-server
+
+echo.
+echo 2. devices
+"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" devices
+
+echo 3. Desinstallation de l'ancienne version...
 "%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" uninstall com.podstream
 
 echo.
-echo 2. Copie de l'APK dans le dossier securise du Pixel...
+echo 4. Copie de l'APK dans le dossier securise du Pixel...
 "%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" push "C:\temp\podstream_build\app\outputs\flutter-apk\app-release.apk" /data/local/tmp/app-release.apk
 if %errorlevel% neq 0 goto :erreur
 
 echo.
-echo 3. Ajustement des permissions du fichier...
+echo 5. Ajustement des permissions du fichier...
 "%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" shell chmod 777 /data/local/tmp/app-release.apk
-
-echo.
-echo 4. kill-server...
-"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" kill-server
-
-echo.
-echo 5. devices
-"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" devices
 
 echo.
 echo 6. Installation locale (Contournement SELinux)...

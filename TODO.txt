@@ -1,5 +1,5 @@
 
-le lecteur d'episode chnger l'ordre des bouton comme suit : -30 sec ; +30 sec ; play ; lu
+le lecteur d'episode : changer l'ordre des boutons comme suit : -30 sec ; +30 sec ; play ; lu
 le lecteur d'episode de Android auto (sur l'ecran de la voiture doit etre identique au lecteur du telephone
 
 
@@ -20,6 +20,7 @@ A tester :
 -------------------------------------------------------------------------------------------------------------------
 "%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" logcat | findstr AA_DEBUG
 "%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" logcat | findstr /I "flutter"
+"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" logcat | findstr DEBUG
 
 Fait
 

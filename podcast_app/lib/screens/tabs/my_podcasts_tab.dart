@@ -37,6 +37,8 @@ class _MyPodcastsTabState extends State<MyPodcastsTab> {
   }
 
   void _onListRefresh() {
+    print(
+        'DEBUG MyPodcastsTab: _onListRefresh appelé. Déclenchement de la reconstruction...');
     if (mounted) {
       setState(() {
         _triggerEpisodesRefresh();
@@ -53,9 +55,14 @@ class _MyPodcastsTabState extends State<MyPodcastsTab> {
   }
 
   void _triggerEpisodesRefresh() {
+    print('DEBUG MyPodcastsTab: _triggerEpisodesRefresh appelé.');
     if (_myPodcastsList != null && _myPodcastsList!.isNotEmpty) {
+      print(
+          'DEBUG MyPodcastsTab: Chargement des épisodes pour ${_myPodcastsList!.length} podcasts.');
       _episodesFuture = _fetchAndAggregateEpisodes(_myPodcastsList!);
     } else {
+      print(
+          'DEBUG MyPodcastsTab: Aucun podcast dans la liste ou liste nulle. Retourne un future vide.');
       _episodesFuture = Future.value(<EpisodeModel>[]);
     }
   }
@@ -354,57 +361,68 @@ class _MyPodcastsTabState extends State<MyPodcastsTab> {
               // Section 2 : Liste verticale dynamique issue de tous les abonnements triés/filtrés par priorité
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: FutureBuilder<List<EpisodeModel>>(
-                  future: _episodesFuture,
-                  builder: (context, episodeSnapshot) {
-                    if (episodeSnapshot.connectionState ==
-                        ConnectionState.waiting) {
-                      return const Center(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 24.0),
-                          child: CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                                AppTheme.primaryColor),
-                          ),
-                        ),
-                      );
-                    }
-
-                    if (episodeSnapshot.hasError) {
-                      return Center(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 16.0),
-                          child: Text(
-                            'Erreur lors du chargement des épisodes : ${episodeSnapshot.error}',
-                            style: const TextStyle(color: AppTheme.dangerColor),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      );
-                    }
-
-                    final episodes = episodeSnapshot.data ?? [];
-                    if (episodes.isEmpty) {
-                      return const Center(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 24.0),
-                          child: Text(
-                            'Aucun épisode disponible.',
-                            style: TextStyle(
-                              color: AppTheme.textSecondary,
-                              fontStyle: FontStyle.italic,
+                child: ValueListenableBuilder<int>(
+                  valueListenable: app_audio.AudioService().listRefreshNotifier,
+                  builder: (context, refreshCount, _) {
+                    print(
+                        'DEBUG MyPodcastsTab: ValueListenableBuilder builder appelé avec refreshCount = $refreshCount');
+                    return FutureBuilder<List<EpisodeModel>>(
+                      key: ValueKey(refreshCount),
+                      future: _episodesFuture,
+                      builder: (context, episodeSnapshot) {
+                        if (episodeSnapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(vertical: 24.0),
+                              child: CircularProgressIndicator(
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                    AppTheme.primaryColor),
+                              ),
                             ),
-                          ),
-                        ),
-                      );
-                    }
+                          );
+                        }
 
-                    return ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: episodes.length > 20 ? 20 : episodes.length,
-                      itemBuilder: (context, index) {
-                        return EpisodeListTile(episode: episodes[index]);
+                        if (episodeSnapshot.hasError) {
+                          return Center(
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 16.0),
+                              child: Text(
+                                'Erreur lors du chargement des épisodes : ${episodeSnapshot.error}',
+                                style: const TextStyle(
+                                    color: AppTheme.dangerColor),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          );
+                        }
+
+                        final episodes = episodeSnapshot.data ?? [];
+                        if (episodes.isEmpty) {
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(vertical: 24.0),
+                              child: Text(
+                                'Aucun épisode disponible.',
+                                style: TextStyle(
+                                  color: AppTheme.textSecondary,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+
+                        return ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount:
+                              episodes.length > 20 ? 20 : episodes.length,
+                          itemBuilder: (context, index) {
+                            return EpisodeListTile(episode: episodes[index]);
+                          },
+                        );
                       },
                     );
                   },

@@ -3,7 +3,7 @@ import 'package:audio_service/audio_service.dart';
 import '../models/episode_model.dart';
 import '../theme/app_theme.dart';
 import '../services/audio_handler_locator.dart';
-import '../services/audio_service.dart' as app_audio;
+import '../services/mark_as_read_service.dart';
 
 class EpisodeListTile extends StatelessWidget {
   final EpisodeModel episode;
@@ -58,13 +58,7 @@ class EpisodeListTile extends StatelessWidget {
                 TextButton(
                   onPressed: () async {
                     Navigator.pop(context);
-                    await app_audio.AudioService().markEpisodeAsRead(
-                      episode.id,
-                      episode.audioUrl,
-                      episode.title,
-                      episode.podcastName,
-                      episode.imageUrl,
-                    );
+                    await MarkAsReadService().markAsRead(episode.id);
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(

@@ -179,4 +179,9 @@ class DatabaseRepository {
       print('Erreur lors de la mise à jour de l\'ordre des podcasts : $e');
     }
   }
+
+  /// Récupère la liste des épisodes à écouter (file "À écouter")
+  Future<List<EpisodeModel>> getEpisodesToListen() async {
+    return await PodcastRepository().fetchAllRecentEpisodes();
+  }
 }

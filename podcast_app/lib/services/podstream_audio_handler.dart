@@ -3,6 +3,8 @@ import 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
 import 'audio_service.dart' as app_audio;
 import 'package:flutter/foundation.dart';
+import 'mark_as_read_service.dart';
+import 'database_repository.dart';
 
 // Instance globale du service audio pour toute l'application
 AudioHandler? audioHandler;
@@ -12,6 +14,7 @@ PodStreamAudioHandler? podstreamAudioHandler;
 class PodStreamAudioHandler extends BaseAudioHandler
     with QueueHandler, SeekHandler {
   final AudioPlayer _player = AudioPlayer();
+  String? _lastMarkedEpisodeId;
 
   // A simple representation of our episodes for Android Auto to browse
   final Map<String, MediaItem> _mediaLibrary = {};
@@ -92,10 +95,39 @@ class PodStreamAudioHandler extends BaseAudioHandler
       }
     });
 
-    // Listen for completion
-    _player.processingStateStream.listen((state) {
-      if (state == ProcessingState.completed) {
-        skipToNext();
+    // Réinitialise _lastMarkedEpisodeId quand un nouvel épisode est chargé
+    mediaItem.listen((item) {
+      if (item != null) {
+        final episodeId = item.extras?['episodeId'] as String? ?? item.id;
+        if (episodeId != _lastMarkedEpisodeId) {
+          _lastMarkedEpisodeId = null;
+        }
+      }
+    });
+
+    _initPlaybackListeners();
+  }
+
+  // Écouteur pour l'Auto-Play et le marquage automatique
+  void _initPlaybackListeners() {
+    playbackState.listen((state) async {
+      final currentMediaId = mediaItem.value?.extras?['episodeId'] as String? ??
+          mediaItem.value?.id;
+
+      if (state.processingState == AudioProcessingState.completed &&
+          currentMediaId != null &&
+          currentMediaId != _lastMarkedEpisodeId) {
+        _lastMarkedEpisodeId = currentMediaId;
+        _logAA("Auto-marquage et enchaînement pour : $currentMediaId");
+
+        // 1. Marquer comme lu
+        await MarkAsReadService().markAsRead(currentMediaId);
+
+        // 2. Attente de persistance
+        await Future.delayed(const Duration(milliseconds: 500));
+
+        // 3. Orchestration du suivant
+        await _playNextOrStop();
       }
     });
   }
@@ -161,10 +193,11 @@ class PodStreamAudioHandler extends BaseAudioHandler
 
   @override
   Future<void> playMediaItem(MediaItem mediaItem) async {
+    final audioUrl = mediaItem.extras?['url'] as String? ?? mediaItem.id;
     print(
-        'AA_DEBUG_HANDLER: playMediaItem reçu pour ${mediaItem.title} - URL: ${mediaItem.id}');
+        'AA_DEBUG_HANDLER: playMediaItem reçu pour ${mediaItem.title} - URL: $audioUrl');
     this.mediaItem.add(mediaItem);
-    await _player.setAudioSource(AudioSource.uri(Uri.parse(mediaItem.id)));
+    await _player.setAudioSource(AudioSource.uri(Uri.parse(audioUrl)));
     await _player.setVolume(1.0);
     print('AA_DEBUG_PLAYER: Lancement de _player.play()');
     _player.play();
@@ -184,6 +217,55 @@ class PodStreamAudioHandler extends BaseAudioHandler
     final newPosition = currentPosition - const Duration(seconds: 30);
     await _player
         .seek(newPosition > Duration.zero ? newPosition : Duration.zero);
+  }
+
+  Future<void> _playNextOrStop() async {
+    _logAA("_playNextOrStop: Recherche du prochain épisode...");
+    try {
+      final nextEpisodes = await DatabaseRepository().getEpisodesToListen();
+
+      if (nextEpisodes.isNotEmpty) {
+        final next = nextEpisodes.first;
+        _logAA("_playNextOrStop: Prochain épisode trouvé : ${next.title}");
+
+        final media = MediaItem(
+          id: next.audioUrl,
+          title: next.title,
+          artist: next.podcastName,
+          artUri: next.imageUrl.isNotEmpty ? Uri.parse(next.imageUrl) : null,
+          extras: {'episodeId': next.id},
+        );
+
+        await addQueueItem(media);
+        await play();
+      } else {
+        _logAA("_playNextOrStop: File d'attente vide, arrêt.");
+        await stop();
+      }
+    } catch (e) {
+      _logAA("_playNextOrStop ERREUR CRITIQUE: $e");
+      await stop();
+    }
+  }
+
+  @override
+  Future<void> skipToNext() async {
+    _logAA("skipToNext: Triggering _playNextOrStop...");
+    await _playNextOrStop();
+  }
+
+  @override
+  Future<void> addQueueItem(MediaItem mediaItem) async {
+    // Mise à jour de la queue pour que Android Auto/Lockscreen soient au courant
+    final currentQueue = queue.value;
+    final newQueue = List<MediaItem>.from(currentQueue)..add(mediaItem);
+    queue.add(newQueue);
+
+    // Chargement dans le player
+    this.mediaItem.add(mediaItem);
+    final audioUrl = mediaItem.extras?['url'] as String? ?? mediaItem.id;
+    await _player.setAudioSource(AudioSource.uri(Uri.parse(audioUrl)));
+    await _player.setVolume(1.0);
   }
 
   @override

@@ -1,0 +1,20 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Règle pour l'historique utilisateur (Sécurisé)
+    match /users/{uid}/episode_history/{episodeId} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+    
+    // Collection de podcasts publics
+    match /podcasts/{podcastId} {
+      allow read: if true; // Public
+      allow write: if false; // Admin uniquement
+    }
+    
+    // Blocage par défaut
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

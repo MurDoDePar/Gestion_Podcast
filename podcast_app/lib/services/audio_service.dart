@@ -50,14 +50,7 @@ class AudioService {
 
     // Écoute de l'état de lecture depuis globalAudioHandler
     globalAudioHandler!.playbackState.listen((state) {
-      final isPlaying = state.playing;
-      final processingState = state.processingState;
-
-      if (processingState == AudioProcessingState.completed) {
-        markAsRead();
-      } else {
-        isPlayingNotifier.value = isPlaying;
-      }
+      isPlayingNotifier.value = state.playing;
     });
 
     // Écoute de la position en continu (seconde par seconde)
@@ -73,7 +66,7 @@ class AudioService {
           title: item.title,
           podcastName: item.artist ?? '',
           imageUrl: item.artUri?.toString(),
-          audioUrl: item.id, // Assuming URL is used as ID
+          audioUrl: item.extras?['url'] as String? ?? item.id,
         );
         totalDurationNotifier.value = item.duration ?? Duration.zero;
       }
@@ -124,11 +117,14 @@ class AudioService {
 
     try {
       final mediaItem = MediaItem(
-        id: episode.audioUrl,
+        id: episode.id,
         title: episode.title,
         artist: episode.podcastName,
         artUri: episode.imageUrl != null ? Uri.parse(episode.imageUrl!) : null,
-        extras: {'episodeId': episode.id},
+        extras: {
+          'episodeId': episode.id,
+          'url': episode.audioUrl,
+        },
       );
 
       await globalAudioHandler!.playMediaItem(mediaItem);
@@ -136,11 +132,14 @@ class AudioService {
       // Update library for Android Auto based on the current playlist
       final libraryItems = currentPlaylist
           .map((e) => MediaItem(
-                id: e.audioUrl,
+                id: e.id,
                 title: e.title,
                 artist: e.podcastName,
                 artUri: e.imageUrl != null ? Uri.parse(e.imageUrl!) : null,
-                extras: {'episodeId': e.id},
+                extras: {
+                  'episodeId': e.id,
+                  'url': e.audioUrl,
+                },
               ))
           .toList();
       podstreamAudioHandler!.updateLibrary(libraryItems);
@@ -224,7 +223,9 @@ class AudioService {
                 currentMedia.id == audioUrl ||
                 (currentMedia.extras?['episodeId'] as String? ?? '') ==
                     episodeId)) {
-          if (currentMedia.duration != null) {
+          if (currentMedia.duration != null &&
+              globalAudioHandler!.playbackState.value.processingState !=
+                  AudioProcessingState.completed) {
             try {
               final seekPos =
                   currentMedia.duration! - const Duration(milliseconds: 500);
