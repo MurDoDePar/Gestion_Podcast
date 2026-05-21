@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../services/mark_as_read_service.dart';
 import 'package:audio_service/audio_service.dart' as package_audio_service;
 import 'package:podcast_app/services/audio_handler_locator.dart'; // Pour l'instance globale globalAudioHandler
-import 'package:firebase_auth/firebase_auth.dart';
 
 class AudioPlayerWidget extends StatefulWidget {
   const AudioPlayerWidget({super.key});
@@ -236,19 +236,8 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                                 'AA_DEBUG_CLICK_LU: Clic physique détecté sur la coche violette !');
                             final episodeId =
                                 item.extras?['episodeId'] as String? ?? item.id;
-
-                            print(
-                                'AA_DEBUG_GRAPHQL_VARIABLES: userId (UUID) = Non disponible dans l UI');
-                            print(
-                                'AA_DEBUG_GRAPHQL_VARIABLES: googleId actuel = ${FirebaseAuth.instance.currentUser?.uid ?? 'NULL Auth'}');
-                            print(
-                                'AA_DEBUG_GRAPHQL_VARIABLES: episodeId (UUID) = $episodeId');
-
                             try {
-                              // ENFIN CONNECTÉ : On envoie l'ID directement au Handler global
-                              globalAudioHandler?.customAction(
-                                  'mark_as_read', {'episodeId': episodeId});
-
+                              await MarkAsReadService().markAsRead(episodeId);
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
@@ -258,8 +247,7 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                                 );
                               }
                             } catch (e) {
-                              print(
-                                  'AA_DEBUG_UI_CRASH_CATCH: Le clic a généré une exception : $e');
+                              print('AA_DEBUG_UI_CRASH_CATCH: $e');
                             }
                           },
                         ),

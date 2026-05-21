@@ -1,33 +1,21 @@
 
-- l'affichage android auto doit afficher soit
-    Le ecteur avec le podcast en cour d'ecoute
-    La liste des episodes a ecouter
-
-- verifier maj données, quand ? eviter les maj données intempestives ( trop frecuente)
+le lecteur d'episode chnger l'ordre des bouton comme suit : -30 sec ; +30 sec ; play ; lu
+le lecteur d'episode de Android auto (sur l'ecran de la voiture doit etre identique au lecteur du telephone
 
 
-- au moment de l'installation de l'application mettre l'icone de l'application sur la page d'accueil de l'utilisateur
+les boutons de l'onglet par theme : humour, actualité, sciences, culture, sport, tech., histoire, santé
+doivent etre representé sous forme d'onglet
+avec en dessous les podcasts de la categorie selectionnée
+
+
 
 - Implémentation de la Fonctionnalité de Téléchargement et Écoute Hors Ligne
-
-- A ecouter proposer un choix d'ordre ( je reflechi encore )
-    1: par date, desc et asc
-    2: par ordre alphabétique
-    3: par nombre d'ecoute
 
 -------------------------------------------------------------------------------------------------------------------
 
 A tester :
 
-- Implémentation du Système de Cache Global
-stocker en DB les données des onglet par theme et populaire. faire un rafraichissement tous les 7 jours
 
-- revoir l'ordre de episodes, pour les plus anciens d'abord (choi dans parametre)
-    - l'ordre dans details, tous les epidodes est bon, doit changer avec le paramete 'ordre des episodes'
-    - la liste des episodes a ecouter 
-        prendre le premier podcast de la liste 'mes podcasts', prendre tous les episode non marquer comme non lu,
-        les preseneté dans l'ordre choisi dans paramete 'ordre des episodes' dans mon cas le plus acien d'abord
-        si la liste ainsi obtenu est vide prendre le podcast suivant de 'mes podcasts'
 
 -------------------------------------------------------------------------------------------------------------------
 "%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" logcat | findstr AA_DEBUG

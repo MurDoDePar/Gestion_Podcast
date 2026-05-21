@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:audio_service/audio_service.dart' as package_audio_service;
 import 'package:podcast_app/services/audio_handler_locator.dart';
 import '../theme/app_theme.dart';
+import '../services/mark_as_read_service.dart';
 
 class MiniPlayer extends StatelessWidget {
   const MiniPlayer({super.key});
@@ -171,25 +172,7 @@ class MiniPlayer extends StatelessWidget {
                           final episodeId =
                               item.extras?['episodeId'] as String? ?? item.id;
                           try {
-                            if (globalAudioHandler != null) {
-                              final currentMedia =
-                                  globalAudioHandler!.mediaItem.value;
-                              if (currentMedia?.duration != null) {
-                                try {
-                                  await globalAudioHandler!.seek(
-                                    currentMedia!.duration! -
-                                        const Duration(milliseconds: 500),
-                                  );
-                                } catch (seekError) {
-                                  print(
-                                      'Seek failed in mini player: $seekError');
-                                }
-                              }
-                            }
-
-                            // Conserve la persistance
-                            await globalAudioHandler?.customAction(
-                                'mark_as_read', {'episodeId': episodeId});
+                            await MarkAsReadService().markAsRead(episodeId);
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
