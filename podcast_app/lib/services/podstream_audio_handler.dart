@@ -18,6 +18,26 @@ class PodStreamAudioHandler extends BaseAudioHandler
   // A simple representation of our episodes for Android Auto to browse
   final Map<String, MediaItem> _mediaLibrary = {};
 
+  // Définition de l'ordre souhaité (ton "objet unique")
+  final List<Map<String, dynamic>> myControls = [
+    {'label': '-30s', 'icon': 'drawable/ic_rewind_30', 'action': 'rewind_30'},
+    {
+      'label': '+30s',
+      'icon': 'drawable/ic_fast_forward_30',
+      'action': 'fast_forward_30'
+    },
+    {
+      'label': 'Play',
+      'icon': 'drawable/ic_play',
+      'action': 'play'
+    }, // Ou 'Pause'
+    {
+      'label': 'Lu',
+      'icon': 'drawable/ic_mark_as_read',
+      'action': 'mark_as_read'
+    },
+  ];
+
   void _logAA(String message) {
     try {
       final now = DateTime.now();
@@ -151,30 +171,37 @@ class PodStreamAudioHandler extends BaseAudioHandler
 
     playbackState.add(playbackState.value.copyWith(
       controls: [
+        // 1. -30s (Custom)
         const MediaControl(
           androidIcon: 'drawable/ic_rewind_30',
           label: '-30s',
           action: MediaAction.custom,
         ),
+        // 2. +30s (Custom)
         const MediaControl(
           androidIcon: 'drawable/ic_fast_forward_30',
           label: '+30s',
           action: MediaAction.custom,
         ),
+        // 3. Play/Pause (Forcé en Custom pour garder l'ordre)
+        MediaControl(
+          androidIcon: playing ? 'drawable/ic_pause' : 'drawable/ic_play',
+          label: playing ? 'Pause' : 'Play',
+          action: MediaAction.custom,
+        ),
+        // 4. Lu (Custom)
         const MediaControl(
           androidIcon: 'drawable/ic_mark_as_read',
           label: 'Lu',
           action: MediaAction.custom,
         ),
-        playing ? MediaControl.pause : MediaControl.play,
       ],
       systemActions: const {
         MediaAction.seek,
-        MediaAction
-            .custom, // Indispensable pour capter toutes les actions custom
+        MediaAction.custom,
       },
-      // Indices des boutons affichés en mode compact (0, 1, 3 -> -30s, +30s, Play/Pause)
-      androidCompactActionIndices: const [0, 1, 3],
+      // Affiche les 3 premiers boutons dans la barre compacte (Saut, Saut, Play/Pause)
+      androidCompactActionIndices: const [0, 1, 2],
       processingState: aaProcessingState,
       playing: playing,
       updatePosition: _player.position,
@@ -281,25 +308,42 @@ class PodStreamAudioHandler extends BaseAudioHandler
 
   @override
   Future<void> customAction(String name, [Map<String, dynamic>? extras]) async {
-    // Le nom envoyé par l'action "Lu" (MediaAction.custom)
-    if (name == 'Lu' || name == 'mark_as_read') {
-      final currentMediaId = mediaItem.value?.extras?['episodeId'] as String? ??
-          mediaItem.value?.id;
-      if (currentMediaId != null) {
-        await MarkAsReadService().markAsRead(currentMediaId);
-        // On force l'enchaînement après le clic manuel sur le bouton
-        await _playNextOrStop();
-      }
+    _logAA("customAction reçu: $name");
+
+    switch (name) {
+      case 'Lu':
+        final currentMediaId =
+            mediaItem.value?.extras?['episodeId'] as String? ??
+                mediaItem.value?.id;
+        if (currentMediaId != null) {
+          await MarkAsReadService().markAsRead(currentMediaId);
+          await _playNextOrStop();
+        }
+        break;
+
+      case '-30s':
+        await rewind();
+        break;
+
+      case '+30s':
+        await fastForward();
+        break;
+
+      case 'Play':
+        await play();
+        break;
+
+      case 'Pause':
+        await pause();
+        break;
+
+      default:
+        _logAA("Action inconnue reçue: $name");
+        break;
     }
-    // Actions de saut (si tu les gardes en custom actions)
-    else if (name == 'rewind_30') {
-      await rewind();
-    } else if (name == 'fast_forward_30') {
-      await fastForward();
-    }
+
     return super.customAction(name, extras);
   }
-  // --- Android Auto Integration (MediaBrowserService) ---
 
   @override
   Future<List<MediaItem>> getChildren(String parentMediaId,

@@ -1,5 +1,5 @@
 
-le lecteur d'episode : changer l'ordre des boutons comme suit : -30 sec ; +30 sec ; play ; lu
+le lecteur d'episode : changer l'ordre des boutons comme suit : -30s, +30s, Play/Pause, Lu
 le lecteur d'episode de Android auto (sur l'ecran de la voiture doit etre identique au lecteur du telephone)
 
 

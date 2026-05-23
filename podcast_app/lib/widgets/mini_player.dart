@@ -124,6 +124,16 @@ class MiniPlayer extends StatelessWidget {
                       ),
                       const SizedBox(width: 10),
 
+                      // Avancer de 30s
+                      IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        icon: const Icon(Icons.forward_30,
+                            color: Colors.white, size: 26),
+                        onPressed: () => globalAudioHandler?.fastForward(),
+                      ),
+                      const SizedBox(width: 10),
+
                       // Play/Pause dynamique
                       StreamBuilder<package_audio_service.PlaybackState>(
                         stream: globalAudioHandler!.playbackState,
@@ -149,16 +159,6 @@ class MiniPlayer extends StatelessWidget {
                             },
                           );
                         },
-                      ),
-                      const SizedBox(width: 10),
-
-                      // Avancer de 30s
-                      IconButton(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        icon: const Icon(Icons.forward_30,
-                            color: Colors.white, size: 26),
-                        onPressed: () => globalAudioHandler?.fastForward(),
                       ),
                       const SizedBox(width: 10),
 
