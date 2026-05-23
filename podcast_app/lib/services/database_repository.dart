@@ -181,7 +181,11 @@ class DatabaseRepository {
   }
 
   /// Récupère la liste des épisodes à écouter (file "À écouter")
-  Future<List<EpisodeModel>> getEpisodesToListen() async {
+  Future<List<EpisodeModel>> getEpisodesToListen(
+      {bool forceRefresh = true}) async {
+    if (forceRefresh) {
+      _cacheManager.remove('cache_episodes_to_listen');
+    }
     return await PodcastRepository().fetchAllRecentEpisodes();
   }
 }

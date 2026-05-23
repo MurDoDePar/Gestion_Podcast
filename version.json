@@ -1,5 +1,5 @@
 {
-  "version": "3.0.2",
-  "build_number": 302,
-  "release_notes": "mise a jour 3.0.2 (21/05/2026) refonte objet"
+  "version": "3.0.3",
+  "build_number": 303,
+  "release_notes": "mise a jour 3.0.3 (23/05/2026) correction bug player mobile, correction filtre categorie"
 }

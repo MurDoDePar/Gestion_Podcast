@@ -132,7 +132,6 @@ class PodStreamAudioHandler extends BaseAudioHandler
     });
   }
 
-  // This method converts the just_audio state into the audio_service state
   void _broadcastState(PlaybackEvent event) {
     final playing = _player.playing;
 
@@ -141,32 +140,40 @@ class PodStreamAudioHandler extends BaseAudioHandler
         _player.processingState == ProcessingState.idle
             ? AudioProcessingState.ready
             : const {
-                ProcessingState.idle:
-                    AudioProcessingState.ready, // Fallback par sécurité
+                ProcessingState.idle: AudioProcessingState.ready,
                 ProcessingState.loading: AudioProcessingState.loading,
                 ProcessingState.buffering: AudioProcessingState.buffering,
                 ProcessingState.ready: AudioProcessingState.ready,
                 ProcessingState.completed: AudioProcessingState.completed,
               }[_player.processingState]!;
 
-    _logAA(
-        "[AA] _broadcastState: processingState=$aaProcessingState, playing=$playing");
+    _logAA("[AA] _broadcastState: processingState=$aaProcessingState, playing=$playing");
 
     playbackState.add(playbackState.value.copyWith(
       controls: [
-        MediaControl.rewind,
-        MediaControl.play,
-        MediaControl.pause,
-        MediaControl.fastForward,
-        // AJOUT COMPLÉMENTAIRE POUR ANDROID AUTO :
-        MediaControl.stop,
+        const MediaControl(
+          androidIcon: 'drawable/ic_rewind_30',
+          label: '-30s',
+          action: MediaAction.custom,
+        ),
+        const MediaControl(
+          androidIcon: 'drawable/ic_fast_forward_30',
+          label: '+30s',
+          action: MediaAction.custom,
+        ),
+        const MediaControl(
+          androidIcon: 'drawable/ic_mark_as_read',
+          label: 'Lu',
+          action: MediaAction.custom,
+        ),
+        playing ? MediaControl.pause : MediaControl.play,
       ],
       systemActions: const {
         MediaAction.seek,
-        MediaAction.seekForward,
-        MediaAction.seekBackward,
+        MediaAction.custom, // Indispensable pour capter toutes les actions custom
       },
-      androidCompactActionIndices: const [1, 2, 3],
+      // Indices des boutons affichés en mode compact (0, 1, 3 -> -30s, +30s, Play/Pause)
+      androidCompactActionIndices: const [0, 1, 3],
       processingState: aaProcessingState,
       playing: playing,
       updatePosition: _player.position,
@@ -174,8 +181,7 @@ class PodStreamAudioHandler extends BaseAudioHandler
       speed: _player.speed,
       queueIndex: event.currentIndex,
     ));
-  }
-
+  }  
   @override
   Future<void> play() => _player.play();
 
@@ -220,30 +226,33 @@ class PodStreamAudioHandler extends BaseAudioHandler
   }
 
   Future<void> _playNextOrStop() async {
-    _logAA("_playNextOrStop: Recherche du prochain épisode...");
+    _logAA("_playNextOrStop: Recherche...");
     try {
       final nextEpisodes = await DatabaseRepository().getEpisodesToListen();
 
       if (nextEpisodes.isNotEmpty) {
         final next = nextEpisodes.first;
-        _logAA("_playNextOrStop: Prochain épisode trouvé : ${next.title}");
+        _logAA("_playNextOrStop: Prochain épisode légitime : ${next.title}");
 
         final media = MediaItem(
           id: next.audioUrl,
           title: next.title,
           artist: next.podcastName,
           artUri: next.imageUrl.isNotEmpty ? Uri.parse(next.imageUrl) : null,
-          extras: {'episodeId': next.id},
+          extras: {'episodeId': next.id, 'url': next.audioUrl},
         );
 
-        await addQueueItem(media);
-        await play();
+        // 1. On nettoie la file avant d'ajouter
+        queue.add([]);
+
+        // 2. On utilise playMediaItem pour charger ET jouer proprement
+        await playMediaItem(media);
       } else {
-        _logAA("_playNextOrStop: File d'attente vide, arrêt.");
+        _logAA("_playNextOrStop: File vide, arrêt.");
         await stop();
       }
     } catch (e) {
-      _logAA("_playNextOrStop ERREUR CRITIQUE: $e");
+      _logAA("_playNextOrStop ERREUR: $e");
       await stop();
     }
   }
@@ -270,16 +279,23 @@ class PodStreamAudioHandler extends BaseAudioHandler
 
   @override
   Future<void> customAction(String name, [Map<String, dynamic>? extras]) async {
-    if (name == 'mark_as_read') {
-      await app_audio.AudioService().markAsRead();
-    } else if (name == 'rewind_30') {
-      await app_audio.AudioService().seekBackward30();
+    // Le nom envoyé par l'action "Lu" (MediaAction.custom)
+    if (name == 'Lu' || name == 'mark_as_read') {
+      final currentMediaId = mediaItem.value?.extras?['episodeId'] as String? ?? mediaItem.value?.id;
+      if (currentMediaId != null) {
+        await MarkAsReadService().markAsRead(currentMediaId);
+        // On force l'enchaînement après le clic manuel sur le bouton
+        await _playNextOrStop();
+      }
+    } 
+    // Actions de saut (si tu les gardes en custom actions)
+    else if (name == 'rewind_30') {
+      await rewind();
     } else if (name == 'fast_forward_30') {
-      await app_audio.AudioService().seekForward30();
+      await fastForward();
     }
     return super.customAction(name, extras);
   }
-
   // --- Android Auto Integration (MediaBrowserService) ---
 
   @override

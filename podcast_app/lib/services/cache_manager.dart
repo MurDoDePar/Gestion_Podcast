@@ -20,4 +20,8 @@ class CacheManager {
   void write(String key, dynamic data) {
     _cache[key] = data;
   }
+
+  void remove(String key) {
+    _cache.remove(key);
+  }
 }
