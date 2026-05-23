@@ -1,7 +1,6 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
-import 'audio_service.dart' as app_audio;
 import 'package:flutter/foundation.dart';
 import 'mark_as_read_service.dart';
 import 'database_repository.dart';
@@ -147,7 +146,8 @@ class PodStreamAudioHandler extends BaseAudioHandler
                 ProcessingState.completed: AudioProcessingState.completed,
               }[_player.processingState]!;
 
-    _logAA("[AA] _broadcastState: processingState=$aaProcessingState, playing=$playing");
+    _logAA(
+        "[AA] _broadcastState: processingState=$aaProcessingState, playing=$playing");
 
     playbackState.add(playbackState.value.copyWith(
       controls: [
@@ -170,7 +170,8 @@ class PodStreamAudioHandler extends BaseAudioHandler
       ],
       systemActions: const {
         MediaAction.seek,
-        MediaAction.custom, // Indispensable pour capter toutes les actions custom
+        MediaAction
+            .custom, // Indispensable pour capter toutes les actions custom
       },
       // Indices des boutons affichés en mode compact (0, 1, 3 -> -30s, +30s, Play/Pause)
       androidCompactActionIndices: const [0, 1, 3],
@@ -181,7 +182,8 @@ class PodStreamAudioHandler extends BaseAudioHandler
       speed: _player.speed,
       queueIndex: event.currentIndex,
     ));
-  }  
+  }
+
   @override
   Future<void> play() => _player.play();
 
@@ -281,13 +283,14 @@ class PodStreamAudioHandler extends BaseAudioHandler
   Future<void> customAction(String name, [Map<String, dynamic>? extras]) async {
     // Le nom envoyé par l'action "Lu" (MediaAction.custom)
     if (name == 'Lu' || name == 'mark_as_read') {
-      final currentMediaId = mediaItem.value?.extras?['episodeId'] as String? ?? mediaItem.value?.id;
+      final currentMediaId = mediaItem.value?.extras?['episodeId'] as String? ??
+          mediaItem.value?.id;
       if (currentMediaId != null) {
         await MarkAsReadService().markAsRead(currentMediaId);
         // On force l'enchaînement après le clic manuel sur le bouton
         await _playNextOrStop();
       }
-    } 
+    }
     // Actions de saut (si tu les gardes en custom actions)
     else if (name == 'rewind_30') {
       await rewind();

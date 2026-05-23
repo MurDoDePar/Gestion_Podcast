@@ -4,16 +4,29 @@ class GetLatestSubscribedEpisodesVariablesBuilder {
   String userId;
 
   final FirebaseDataConnect _dataConnect;
-  GetLatestSubscribedEpisodesVariablesBuilder(this._dataConnect, {required  this.userId,});
-  Deserializer<GetLatestSubscribedEpisodesData> dataDeserializer = (dynamic json)  => GetLatestSubscribedEpisodesData.fromJson(jsonDecode(json));
-  Serializer<GetLatestSubscribedEpisodesVariables> varsSerializer = (GetLatestSubscribedEpisodesVariables vars) => jsonEncode(vars.toJson());
-  Future<QueryResult<GetLatestSubscribedEpisodesData, GetLatestSubscribedEpisodesVariables>> execute() {
+  GetLatestSubscribedEpisodesVariablesBuilder(
+    this._dataConnect, {
+    required this.userId,
+  });
+  Deserializer<GetLatestSubscribedEpisodesData> dataDeserializer =
+      (dynamic json) =>
+          GetLatestSubscribedEpisodesData.fromJson(jsonDecode(json));
+  Serializer<GetLatestSubscribedEpisodesVariables> varsSerializer =
+      (GetLatestSubscribedEpisodesVariables vars) => jsonEncode(vars.toJson());
+  Future<
+      QueryResult<GetLatestSubscribedEpisodesData,
+          GetLatestSubscribedEpisodesVariables>> execute() {
     return ref().execute();
   }
 
-  QueryRef<GetLatestSubscribedEpisodesData, GetLatestSubscribedEpisodesVariables> ref() {
-    GetLatestSubscribedEpisodesVariables vars= GetLatestSubscribedEpisodesVariables(userId: userId,);
-    return _dataConnect.query("GetLatestSubscribedEpisodes", dataDeserializer, varsSerializer, vars);
+  QueryRef<GetLatestSubscribedEpisodesData,
+      GetLatestSubscribedEpisodesVariables> ref() {
+    GetLatestSubscribedEpisodesVariables vars =
+        GetLatestSubscribedEpisodesVariables(
+      userId: userId,
+    );
+    return _dataConnect.query(
+        "GetLatestSubscribedEpisodes", dataDeserializer, varsSerializer, vars);
   }
 }
 
@@ -21,27 +34,28 @@ class GetLatestSubscribedEpisodesVariablesBuilder {
 class GetLatestSubscribedEpisodesSubscriptionTypes {
   final int? listOrder;
   final GetLatestSubscribedEpisodesSubscriptionTypesPodcast podcast;
-  GetLatestSubscribedEpisodesSubscriptionTypes.fromJson(dynamic json):
-  
-  listOrder = json['listOrder'] == null ? null : nativeFromJson<int>(json['listOrder']),
-  podcast = GetLatestSubscribedEpisodesSubscriptionTypesPodcast.fromJson(json['podcast']);
+  GetLatestSubscribedEpisodesSubscriptionTypes.fromJson(dynamic json)
+      : listOrder = json['listOrder'] == null
+            ? null
+            : nativeFromJson<int>(json['listOrder']),
+        podcast = GetLatestSubscribedEpisodesSubscriptionTypesPodcast.fromJson(
+            json['podcast']);
   @override
   bool operator ==(Object other) {
-    if(identical(this, other)) {
+    if (identical(this, other)) {
       return true;
     }
-    if(other.runtimeType != runtimeType) {
+    if (other.runtimeType != runtimeType) {
       return false;
     }
 
-    final GetLatestSubscribedEpisodesSubscriptionTypes otherTyped = other as GetLatestSubscribedEpisodesSubscriptionTypes;
-    return listOrder == otherTyped.listOrder && 
-    podcast == otherTyped.podcast;
-    
+    final GetLatestSubscribedEpisodesSubscriptionTypes otherTyped =
+        other as GetLatestSubscribedEpisodesSubscriptionTypes;
+    return listOrder == otherTyped.listOrder && podcast == otherTyped.podcast;
   }
+
   @override
   int get hashCode => Object.hashAll([listOrder.hashCode, podcast.hashCode]);
-  
 
   Map<String, dynamic> toJson() {
     Map<String, dynamic> json = {};
@@ -63,34 +77,44 @@ class GetLatestSubscribedEpisodesSubscriptionTypesPodcast {
   final String id;
   final String title;
   final String? imageUrl;
-  final List<GetLatestSubscribedEpisodesSubscriptionTypesPodcastEpisodesOnPodcast> episodes_on_podcast;
-  GetLatestSubscribedEpisodesSubscriptionTypesPodcast.fromJson(dynamic json):
-  
-  id = nativeFromJson<String>(json['id']),
-  title = nativeFromJson<String>(json['title']),
-  imageUrl = json['imageUrl'] == null ? null : nativeFromJson<String>(json['imageUrl']),
-  episodes_on_podcast = (json['episodes_on_podcast'] as List<dynamic>)
-        .map((e) => GetLatestSubscribedEpisodesSubscriptionTypesPodcastEpisodesOnPodcast.fromJson(e))
-        .toList();
+  final List<
+          GetLatestSubscribedEpisodesSubscriptionTypesPodcastEpisodesOnPodcast>
+      episodes_on_podcast;
+  GetLatestSubscribedEpisodesSubscriptionTypesPodcast.fromJson(dynamic json)
+      : id = nativeFromJson<String>(json['id']),
+        title = nativeFromJson<String>(json['title']),
+        imageUrl = json['imageUrl'] == null
+            ? null
+            : nativeFromJson<String>(json['imageUrl']),
+        episodes_on_podcast = (json['episodes_on_podcast'] as List<dynamic>)
+            .map((e) =>
+                GetLatestSubscribedEpisodesSubscriptionTypesPodcastEpisodesOnPodcast
+                    .fromJson(e))
+            .toList();
   @override
   bool operator ==(Object other) {
-    if(identical(this, other)) {
+    if (identical(this, other)) {
       return true;
     }
-    if(other.runtimeType != runtimeType) {
+    if (other.runtimeType != runtimeType) {
       return false;
     }
 
-    final GetLatestSubscribedEpisodesSubscriptionTypesPodcast otherTyped = other as GetLatestSubscribedEpisodesSubscriptionTypesPodcast;
-    return id == otherTyped.id && 
-    title == otherTyped.title && 
-    imageUrl == otherTyped.imageUrl && 
-    episodes_on_podcast == otherTyped.episodes_on_podcast;
-    
+    final GetLatestSubscribedEpisodesSubscriptionTypesPodcast otherTyped =
+        other as GetLatestSubscribedEpisodesSubscriptionTypesPodcast;
+    return id == otherTyped.id &&
+        title == otherTyped.title &&
+        imageUrl == otherTyped.imageUrl &&
+        episodes_on_podcast == otherTyped.episodes_on_podcast;
   }
+
   @override
-  int get hashCode => Object.hashAll([id.hashCode, title.hashCode, imageUrl.hashCode, episodes_on_podcast.hashCode]);
-  
+  int get hashCode => Object.hashAll([
+        id.hashCode,
+        title.hashCode,
+        imageUrl.hashCode,
+        episodes_on_podcast.hashCode
+      ]);
 
   Map<String, dynamic> toJson() {
     Map<String, dynamic> json = {};
@@ -99,7 +123,8 @@ class GetLatestSubscribedEpisodesSubscriptionTypesPodcast {
     if (imageUrl != null) {
       json['imageUrl'] = nativeToJson<String?>(imageUrl);
     }
-    json['episodes_on_podcast'] = episodes_on_podcast.map((e) => e.toJson()).toList();
+    json['episodes_on_podcast'] =
+        episodes_on_podcast.map((e) => e.toJson()).toList();
     return json;
   }
 
@@ -119,35 +144,47 @@ class GetLatestSubscribedEpisodesSubscriptionTypesPodcastEpisodesOnPodcast {
   final Timestamp publishedAt;
   final String? imageUrl;
   final String? description;
-  GetLatestSubscribedEpisodesSubscriptionTypesPodcastEpisodesOnPodcast.fromJson(dynamic json):
-  
-  id = nativeFromJson<String>(json['id']),
-  title = nativeFromJson<String>(json['title']),
-  audioUrl = nativeFromJson<String>(json['audioUrl']),
-  publishedAt = Timestamp.fromJson(json['publishedAt']),
-  imageUrl = json['imageUrl'] == null ? null : nativeFromJson<String>(json['imageUrl']),
-  description = json['description'] == null ? null : nativeFromJson<String>(json['description']);
+  GetLatestSubscribedEpisodesSubscriptionTypesPodcastEpisodesOnPodcast.fromJson(
+      dynamic json)
+      : id = nativeFromJson<String>(json['id']),
+        title = nativeFromJson<String>(json['title']),
+        audioUrl = nativeFromJson<String>(json['audioUrl']),
+        publishedAt = Timestamp.fromJson(json['publishedAt']),
+        imageUrl = json['imageUrl'] == null
+            ? null
+            : nativeFromJson<String>(json['imageUrl']),
+        description = json['description'] == null
+            ? null
+            : nativeFromJson<String>(json['description']);
   @override
   bool operator ==(Object other) {
-    if(identical(this, other)) {
+    if (identical(this, other)) {
       return true;
     }
-    if(other.runtimeType != runtimeType) {
+    if (other.runtimeType != runtimeType) {
       return false;
     }
 
-    final GetLatestSubscribedEpisodesSubscriptionTypesPodcastEpisodesOnPodcast otherTyped = other as GetLatestSubscribedEpisodesSubscriptionTypesPodcastEpisodesOnPodcast;
-    return id == otherTyped.id && 
-    title == otherTyped.title && 
-    audioUrl == otherTyped.audioUrl && 
-    publishedAt == otherTyped.publishedAt && 
-    imageUrl == otherTyped.imageUrl && 
-    description == otherTyped.description;
-    
+    final GetLatestSubscribedEpisodesSubscriptionTypesPodcastEpisodesOnPodcast
+        otherTyped = other
+            as GetLatestSubscribedEpisodesSubscriptionTypesPodcastEpisodesOnPodcast;
+    return id == otherTyped.id &&
+        title == otherTyped.title &&
+        audioUrl == otherTyped.audioUrl &&
+        publishedAt == otherTyped.publishedAt &&
+        imageUrl == otherTyped.imageUrl &&
+        description == otherTyped.description;
   }
+
   @override
-  int get hashCode => Object.hashAll([id.hashCode, title.hashCode, audioUrl.hashCode, publishedAt.hashCode, imageUrl.hashCode, description.hashCode]);
-  
+  int get hashCode => Object.hashAll([
+        id.hashCode,
+        title.hashCode,
+        audioUrl.hashCode,
+        publishedAt.hashCode,
+        imageUrl.hashCode,
+        description.hashCode
+      ]);
 
   Map<String, dynamic> toJson() {
     Map<String, dynamic> json = {};
@@ -177,31 +214,32 @@ class GetLatestSubscribedEpisodesSubscriptionTypesPodcastEpisodesOnPodcast {
 @immutable
 class GetLatestSubscribedEpisodesData {
   final List<GetLatestSubscribedEpisodesSubscriptionTypes> subscriptionTypes;
-  GetLatestSubscribedEpisodesData.fromJson(dynamic json):
-  
-  subscriptionTypes = (json['subscriptionTypes'] as List<dynamic>)
-        .map((e) => GetLatestSubscribedEpisodesSubscriptionTypes.fromJson(e))
-        .toList();
+  GetLatestSubscribedEpisodesData.fromJson(dynamic json)
+      : subscriptionTypes = (json['subscriptionTypes'] as List<dynamic>)
+            .map(
+                (e) => GetLatestSubscribedEpisodesSubscriptionTypes.fromJson(e))
+            .toList();
   @override
   bool operator ==(Object other) {
-    if(identical(this, other)) {
+    if (identical(this, other)) {
       return true;
     }
-    if(other.runtimeType != runtimeType) {
+    if (other.runtimeType != runtimeType) {
       return false;
     }
 
-    final GetLatestSubscribedEpisodesData otherTyped = other as GetLatestSubscribedEpisodesData;
+    final GetLatestSubscribedEpisodesData otherTyped =
+        other as GetLatestSubscribedEpisodesData;
     return subscriptionTypes == otherTyped.subscriptionTypes;
-    
   }
+
   @override
   int get hashCode => subscriptionTypes.hashCode;
-  
 
   Map<String, dynamic> toJson() {
     Map<String, dynamic> json = {};
-    json['subscriptionTypes'] = subscriptionTypes.map((e) => e.toJson()).toList();
+    json['subscriptionTypes'] =
+        subscriptionTypes.map((e) => e.toJson()).toList();
     return json;
   }
 
@@ -213,26 +251,26 @@ class GetLatestSubscribedEpisodesData {
 @immutable
 class GetLatestSubscribedEpisodesVariables {
   final String userId;
-  @Deprecated('fromJson is deprecated for Variable classes as they are no longer required for deserialization.')
-  GetLatestSubscribedEpisodesVariables.fromJson(Map<String, dynamic> json):
-  
-  userId = nativeFromJson<String>(json['userId']);
+  @Deprecated(
+      'fromJson is deprecated for Variable classes as they are no longer required for deserialization.')
+  GetLatestSubscribedEpisodesVariables.fromJson(Map<String, dynamic> json)
+      : userId = nativeFromJson<String>(json['userId']);
   @override
   bool operator ==(Object other) {
-    if(identical(this, other)) {
+    if (identical(this, other)) {
       return true;
     }
-    if(other.runtimeType != runtimeType) {
+    if (other.runtimeType != runtimeType) {
       return false;
     }
 
-    final GetLatestSubscribedEpisodesVariables otherTyped = other as GetLatestSubscribedEpisodesVariables;
+    final GetLatestSubscribedEpisodesVariables otherTyped =
+        other as GetLatestSubscribedEpisodesVariables;
     return userId == otherTyped.userId;
-    
   }
+
   @override
   int get hashCode => userId.hashCode;
-  
 
   Map<String, dynamic> toJson() {
     Map<String, dynamic> json = {};
@@ -244,4 +282,3 @@ class GetLatestSubscribedEpisodesVariables {
     required this.userId,
   });
 }
-
