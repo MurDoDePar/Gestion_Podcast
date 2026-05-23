@@ -1,6 +1,6 @@
 
 le lecteur d'episode : changer l'ordre des boutons comme suit : -30 sec ; +30 sec ; play ; lu
-le lecteur d'episode de Android auto (sur l'ecran de la voiture doit etre identique au lecteur du telephone
+le lecteur d'episode de Android auto (sur l'ecran de la voiture doit etre identique au lecteur du telephone)
 
 
 les boutons de l'onglet par theme : humour, actualité, sciences, culture, sport, tech., histoire, santé
@@ -21,6 +21,12 @@ A tester :
 "%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" logcat | findstr AA_DEBUG
 "%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" logcat | findstr /I "flutter"
 "%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" logcat | findstr DEBUG
+
+"C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" -printcert -jarfile "podcast_app\build\app\outputs\bundle\release\app-release.aab"
+
+
+"C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" -keystore "podcast_app\build\app\outputs\bundle\release\app-release.aab" -list -v
+"C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" -keystore "C:\Users\domin\Google Drive\Code\Gestion_Podcast\podstream-release.jks" -list -v
 
 Fait
 
