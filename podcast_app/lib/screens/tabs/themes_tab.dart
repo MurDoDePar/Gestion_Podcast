@@ -20,175 +20,119 @@ class ThemesTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(16.0),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 16.0,
-        mainAxisSpacing: 16.0,
-        childAspectRatio: 1.5,
-      ),
-      itemCount: categories.length,
-      itemBuilder: (context, index) {
-        final theme = categories[index];
-        return GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ThemeResultsScreen(theme: theme),
-              ),
-            );
-          },
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16.0),
-              gradient: LinearGradient(
-                colors: [
-                  AppTheme.surfaceColor,
-                  AppTheme.surfaceColor.withOpacity(0.8),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              border: Border.all(
-                color: AppTheme.primaryColor.withOpacity(0.3),
-                width: 1.5,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 6.0,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              theme,
-              style: const TextStyle(
-                fontSize: 18.0,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                letterSpacing: 0.8,
-              ),
+    // Le DefaultTabController lie le TabBar et le TabBarView
+    return DefaultTabController(
+      length: categories.length,
+      child: Column(
+        children: [
+          // Barre d'onglets défilante
+          Container(
+            color: AppTheme.bgColor,
+            child: TabBar(
+              isScrollable: true,
+              indicatorColor: AppTheme.primaryColor,
+              labelColor: Colors.white,
+              unselectedLabelColor: AppTheme.textSecondary,
+              tabs: categories.map((cat) => Tab(text: cat)).toList(),
             ),
           ),
-        );
-      },
+          // Contenu correspondant à chaque onglet
+          Expanded(
+            child: TabBarView(
+              children: categories
+                  .map((cat) => ThemeResultsView(theme: cat))
+                  .toList(),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class ThemeResultsScreen extends StatelessWidget {
+// Widget qui affiche la liste pour une catégorie donnée
+class ThemeResultsView extends StatefulWidget {
   final String theme;
 
-  const ThemeResultsScreen({super.key, required this.theme});
+  const ThemeResultsView({super.key, required this.theme});
+
+  @override
+  State<ThemeResultsView> createState() => _ThemeResultsViewState();
+}
+
+class _ThemeResultsViewState extends State<ThemeResultsView>
+    with AutomaticKeepAliveClientMixin {
+  late Future<List<PodcastModel>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = ItunesService().getPodcastsByTheme(widget.theme);
+  }
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.bgColor,
-      appBar: AppBar(
-        title: Text(theme),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      body: FutureBuilder<List<PodcastModel>>(
-        future: ItunesService().getPodcastsByTheme(theme),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(
-                valueColor:
-                    AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
-              ),
-            );
-          }
+    super.build(context); // Indispensable pour AutomaticKeepAliveClientMixin
+    return FutureBuilder<List<PodcastModel>>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+              child: CircularProgressIndicator(color: AppTheme.primaryColor));
+        }
+        if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+          return Center(
+              child: Text('Aucun podcast trouvé pour ${widget.theme}.',
+                  style: const TextStyle(color: AppTheme.textSecondary)));
+        }
 
-          if (snapshot.hasError) {
-            return const Center(
-              child: Text(
-                'Erreur de connexion',
-                style: TextStyle(color: AppTheme.textSecondary),
-              ),
-            );
-          }
-
-          final podcasts = snapshot.data ?? [];
-
-          if (podcasts.isEmpty) {
-            return const Center(
-              child: Text(
-                'Aucun podcast trouvé pour ce thème.',
-                style: TextStyle(color: AppTheme.textSecondary),
-              ),
-            );
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16.0),
-            itemCount: podcasts.length,
-            itemBuilder: (context, index) {
-              final podcast = podcasts[index];
-              return Card(
-                color: AppTheme.surfaceColor,
-                margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+        final podcasts = snapshot.data!;
+        return ListView.builder(
+          padding: const EdgeInsets.all(16.0),
+          itemCount: podcasts.length,
+          itemBuilder: (context, index) {
+            final podcast = podcasts[index];
+            return Card(
+              color: AppTheme.surfaceColor,
+              margin: const EdgeInsets.only(bottom: 12),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              child: ListTile(
+                contentPadding: const EdgeInsets.all(12),
+                leading: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: podcast.artworkUrl.isNotEmpty
+                      ? Image.network(podcast.artworkUrl,
+                          width: 60, height: 60, fit: BoxFit.cover)
+                      : Container(
+                          width: 60,
+                          height: 60,
+                          color: AppTheme.bgColor,
+                          child: const Icon(Icons.podcasts,
+                              color: AppTheme.textSecondary)),
                 ),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.all(12),
-                  leading: Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      color: AppTheme.bgColor,
-                      image: podcast.artworkUrl.isNotEmpty
-                          ? DecorationImage(
-                              image: NetworkImage(podcast.artworkUrl),
-                              fit: BoxFit.cover,
-                            )
-                          : null,
-                    ),
-                    child: podcast.artworkUrl.isEmpty
-                        ? const Icon(Icons.podcasts,
-                            color: AppTheme.textSecondary)
-                        : null,
-                  ),
-                  title: Text(
-                    podcast.collectionName,
+                title: Text(podcast.collectionName,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                     maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  subtitle: Text(
-                    podcast.artistName,
+                    overflow: TextOverflow.ellipsis),
+                subtitle: Text(podcast.artistName,
                     style: const TextStyle(color: AppTheme.textSecondary),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  trailing: const Icon(
-                    Icons.chevron_right,
-                    color: AppTheme.primaryColor,
-                  ),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => PodcastDetailsScreen(
-                          podcast: podcast.toMap(),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              );
-            },
-          );
-        },
-      ),
+                    maxLines: 1),
+                trailing: const Icon(Icons.chevron_right,
+                    color: AppTheme.primaryColor),
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) =>
+                            PodcastDetailsScreen(podcast: podcast.toMap()))),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

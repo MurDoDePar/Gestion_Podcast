@@ -154,20 +154,15 @@ class PodStreamAudioHandler extends BaseAudioHandler
   void _broadcastState(PlaybackEvent event) {
     final playing = _player.playing;
 
-    // TRICHE ANDROID AUTO : Ne jamais envoyer 'idle', on le force en 'ready'
-    final AudioProcessingState aaProcessingState =
-        _player.processingState == ProcessingState.idle
-            ? AudioProcessingState.ready
-            : const {
-                ProcessingState.idle: AudioProcessingState.ready,
-                ProcessingState.loading: AudioProcessingState.loading,
-                ProcessingState.buffering: AudioProcessingState.buffering,
-                ProcessingState.ready: AudioProcessingState.ready,
-                ProcessingState.completed: AudioProcessingState.completed,
-              }[_player.processingState]!;
-
-    _logAA(
-        "[AA] _broadcastState: processingState=$aaProcessingState, playing=$playing");
+    // Calcul de l'état de lecture
+    final AudioProcessingState aaProcessingState = const {
+          ProcessingState.idle: AudioProcessingState.ready,
+          ProcessingState.loading: AudioProcessingState.loading,
+          ProcessingState.buffering: AudioProcessingState.buffering,
+          ProcessingState.ready: AudioProcessingState.ready,
+          ProcessingState.completed: AudioProcessingState.completed,
+        }[_player.processingState] ??
+        AudioProcessingState.ready;
 
     playbackState.add(playbackState.value.copyWith(
       controls: [
@@ -183,12 +178,8 @@ class PodStreamAudioHandler extends BaseAudioHandler
           label: '+30s',
           action: MediaAction.custom,
         ),
-        // 3. Play/Pause (Forcé en Custom pour garder l'ordre)
-        MediaControl(
-          androidIcon: playing ? 'drawable/ic_pause' : 'drawable/ic_play',
-          label: playing ? 'Pause' : 'Play',
-          action: MediaAction.custom,
-        ),
+        // 3. Play/Pause (On garde le système standard pour la stabilité Android Auto)
+        playing ? MediaControl.pause : MediaControl.play,
         // 4. Lu (Custom)
         const MediaControl(
           androidIcon: 'drawable/ic_mark_as_read',
@@ -196,11 +187,16 @@ class PodStreamAudioHandler extends BaseAudioHandler
           action: MediaAction.custom,
         ),
       ],
+      // CRUCIAL : Déclare les actions système ici pour éviter le mode simplifié
       systemActions: const {
         MediaAction.seek,
+        MediaAction.play,
+        MediaAction.pause,
+        MediaAction.skipToNext,
+        MediaAction.skipToPrevious,
         MediaAction.custom,
       },
-      // Affiche les 3 premiers boutons dans la barre compacte (Saut, Saut, Play/Pause)
+      // Indique les index (0, 1, 2) pour la barre compacte
       androidCompactActionIndices: const [0, 1, 2],
       processingState: aaProcessingState,
       playing: playing,

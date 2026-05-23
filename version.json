@@ -1,5 +1,5 @@
 {
-  "version": "3.0.4",
-  "build_number": 304,
-  "release_notes": "mise a jour 3.0.4 (23/05/2026) ordre du lecteur"
+  "version": "3.0.5",
+  "build_number": 305,
+  "release_notes": "mise a jour 3.0.5 (23/05/2026) themes par onglets, sauvegarde de l'etat"
 }

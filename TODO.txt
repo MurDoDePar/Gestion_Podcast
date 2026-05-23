@@ -7,9 +7,14 @@ les boutons de l'onglet par theme : humour, actualité, sciences, culture, sport
 doivent etre representé sous forme d'onglet
 avec en dessous les podcasts de la categorie selectionnée
 
-
-
 - Implémentation de la Fonctionnalité de Téléchargement et Écoute Hors Ligne
+
+
+Tu as maintenant une vision claire de ton architecture. 
+    Puisque ton système de lecture est opérationnel et que l'ordre des boutons est corrigé, 
+    as-tu une autre partie de l'application que tu souhaites stabiliser ou documenter, 
+    comme la partie synchronisation avec Firebase Data Connect ?
+
 
 -------------------------------------------------------------------------------------------------------------------
 
