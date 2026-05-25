@@ -10,6 +10,7 @@ import '../../services/rss_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/episode_list_tile.dart';
 import '../../services/audio_service.dart' as app_audio;
+import '../../services/database_helper.dart';
 
 class MyPodcastsTab extends StatefulWidget {
   const MyPodcastsTab({super.key});
@@ -127,6 +128,13 @@ class _MyPodcastsTabState extends State<MyPodcastsTab> {
         order = prefs.getString('podstream_order') ?? 'asc';
       } catch (e) {
         print("Error fetching settings in MyPodcastsTab: $e");
+      }
+
+      try {
+        final sqliteReadList = await DatabaseHelper().getReadEpisodeIds();
+        localReadList.addAll(sqliteReadList);
+      } catch (e) {
+        print("Error fetching SQLite read episodes in MyPodcastsTab: $e");
       }
 
       // 3. Traiter les épisodes dans l'ordre exact des abonnements

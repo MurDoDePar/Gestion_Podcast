@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../models/podcast_model.dart';
-import '../../services/itunes_service.dart';
 import '../../services/database_repository.dart';
 import '../../theme/app_theme.dart';
 import '../podcast_details_screen.dart';
@@ -10,13 +9,14 @@ class ThemesTab extends StatelessWidget {
 
   static const List<String> categories = [
     'Humour',
-    'Actualités',
-    'Sciences',
     'Culture',
-    'Sport',
     'Technologie',
     'Histoire',
     'Santé',
+    'Sciences',
+    'Sport',
+    'Actualités',
+    'Populaire',
   ];
 
   @override
@@ -69,7 +69,7 @@ class _ThemeResultsViewState extends State<ThemeResultsView>
   void initState() {
     super.initState();
     _future = Future.wait([
-      ItunesService().getPodcastsByTheme(widget.theme),
+      DatabaseRepository().getPodcastsByThemeWithCache(widget.theme),
       DatabaseRepository().getSubscribedPodcastIds(),
     ]);
   }

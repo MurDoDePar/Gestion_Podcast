@@ -8,11 +8,14 @@ import 'package:firebase_data_connect/firebase_data_connect.dart';
 import '../theme/app_theme.dart';
 import '../services/audio_service.dart';
 import '../services/cache_manager.dart';
+import '../models/podcast_model.dart';
+import '../services/database_repository.dart';
 import '../dataconnect-generated/example.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'main_screen.dart';
 import 'package:podcast_app/services/audio_handler_locator.dart'; // Pour globalAudioHandler
 import 'package:audio_service/audio_service.dart'; // Pour MediaItem
+import '../services/audio_service.dart' as app_audio;
 
 class ParsedEpisode {
   final xml.XmlElement element;
@@ -73,46 +76,28 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
   }
 
   Future<void> _checkSubscription() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    final currentFeedUrl = widget.podcast['feedUrl'];
+    if (currentFeedUrl != null) {
+      try {
+        final subscribedIds =
+            await DatabaseRepository().getSubscribedPodcastIds();
+        setState(() {
+          _isSubscribed = subscribedIds.contains(currentFeedUrl);
+        });
 
-    try {
-      final userResult = await ExampleConnector.instance
-          .findUserByGoogleId(googleId: user.uid)
-          .execute();
-      if (userResult.data.users.isEmpty) return;
-      final postgresUuid = userResult.data.users.first.id;
-
-      final subsResult = await ExampleConnector.instance
-          .getMySubscriptions(userId: postgresUuid)
-          .execute();
-      final mySubs = subsResult.data.subscriptionTypes;
-      final currentFeedUrl = widget.podcast['feedUrl'];
-
-      if (currentFeedUrl != null) {
-        final existingPodcastResult = await ExampleConnector.instance
-            .getPodcastByFeedUrl(feedUrl: currentFeedUrl)
-            .execute();
-        if (existingPodcastResult.data.podcasts.isNotEmpty) {
-          _realPodcastId = existingPodcastResult.data.podcasts.first.id;
+        // Résolution asynchrone de l'ID Data Connect en arrière-plan
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          final existingPodcastResult = await ExampleConnector.instance
+              .getPodcastByFeedUrl(feedUrl: currentFeedUrl)
+              .execute();
+          if (existingPodcastResult.data.podcasts.isNotEmpty) {
+            _realPodcastId = existingPodcastResult.data.podcasts.first.id;
+          }
         }
+      } catch (e) {
+        print("AA_DEBUG: Erreur vérif abonnement SQLite / DataConnect: $e");
       }
-
-      setState(() {
-        _isSubscribed = mySubs.any((s) =>
-            s.podcast.id == actualPodcastId ||
-            (currentFeedUrl != null && s.podcast.feedUrl == currentFeedUrl));
-
-        if (_isSubscribed && _realPodcastId == null) {
-          _realPodcastId = mySubs
-              .firstWhere((s) =>
-                  currentFeedUrl != null && s.podcast.feedUrl == currentFeedUrl)
-              .podcast
-              .id;
-        }
-      });
-    } catch (e) {
-      print("Erreur vérif abonnement: $e");
     }
   }
 
@@ -125,100 +110,62 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
       return;
     }
 
-    try {
-      final userResult = await ExampleConnector.instance
-          .findUserByGoogleId(googleId: user.uid)
-          .execute();
-      if (userResult.data.users.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                  'Profil introuvable. Allez dans les paramètres, déconnectez-vous puis reconnectez-vous pour finaliser la création de votre profil.'),
-              duration: Duration(seconds: 5),
-            ),
-          );
-        }
-        return;
-      }
-      final postgresUuid = userResult.data.users.first.id;
+    final title = widget.podcast['collectionName'] ??
+        widget.podcast['title'] ??
+        'Podcast';
+    final feedUrl = widget.podcast['feedUrl'];
+    if (feedUrl == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Impossible de s\'abonner : feedUrl manquant')),
+      );
+      return;
+    }
 
+    final podcastModel = PodcastModel(
+      collectionId:
+          int.tryParse(widget.podcast['collectionId']?.toString() ?? ''),
+      collectionName: title,
+      artistName: widget.podcast['artistName'] ??
+          widget.podcast['author'] ??
+          'Artiste inconnu',
+      artworkUrl:
+          widget.podcast['artworkUrl600'] ?? widget.podcast['imageUrl'] ?? '',
+      feedUrl: feedUrl,
+    );
+
+    try {
       if (_isSubscribed) {
-        // Mise à jour optimiste de l'UI
+        // 1. Désabonnement optimiste en local dans SQLite
         setState(() {
           _isSubscribed = false;
         });
-
-        // Se désabonner
-        await ExampleConnector.instance
-            .unsubscribeFromPodcast(
-              userId: postgresUuid,
-              podcastId: actualPodcastId,
-            )
-            .execute();
+        await DatabaseRepository()
+            .unsubscribeFromPodcast(feedUrl, actualPodcastId);
 
         CacheManager().remove('my_subscribed_podcasts');
+        app_audio.AudioService().listRefreshNotifier.value++;
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Désabonné avec succès')));
         }
       } else {
-        // Mise à jour optimiste de l'UI
+        // 1. Abonnement optimiste en local dans SQLite
         setState(() {
           _isSubscribed = true;
         });
 
-        // S'abonner : Upsert podcast d'abord
-        final title = widget.podcast['collectionName'] ??
-            widget.podcast['title'] ??
-            'Podcast';
-        final feedUrl = widget.podcast['feedUrl'];
-        if (feedUrl == null) throw Exception("Feed URL manquant");
-
-        // Upsert Podcast dans DataConnect
-        await ExampleConnector.instance
-            .upsertPodcast(
-              title: title,
-              feedUrl: feedUrl,
-              createdAt:
-                  Timestamp(DateTime.now().millisecondsSinceEpoch ~/ 1000, 0),
-            )
-            .id(actualPodcastId)
-            .description(_description.substring(
-                0, _description.length > 500 ? 500 : _description.length))
-            .imageUrl(
-                widget.podcast['artworkUrl600'] ?? widget.podcast['imageUrl'])
-            .author(widget.podcast['artistName'] ?? widget.podcast['author'])
-            .execute();
-
-        // Récupérer le nombre d'abonnements actuels pour définir l'ordre
-        final subsResult = await ExampleConnector.instance
-            .getMySubscriptions(userId: postgresUuid)
-            .execute();
-        final currentSubsCount = subsResult.data.subscriptionTypes.length;
-
-        // Créer l'abonnement
-        await ExampleConnector.instance
-            .subscribeToPodcast(
-              userId: postgresUuid,
-              podcastId: actualPodcastId,
-              subscribedAt:
-                  Timestamp(DateTime.now().millisecondsSinceEpoch ~/ 1000, 0),
-            )
-            .listOrder(currentSubsCount)
-            .execute();
+        await DatabaseRepository().subscribeToPodcast(podcastModel);
 
         CacheManager().remove('my_subscribed_podcasts');
-
-        // Sync des épisodes en base maintenant que le podcast existe
         _syncEpisodesFromRSS();
+        app_audio.AudioService().listRefreshNotifier.value++;
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Abonné avec succès !')));
 
-          // Retourner à la page Mes podcasts (MainScreen par défaut)
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (context) => const MainScreen()),
@@ -227,33 +174,14 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
         }
       }
     } catch (e) {
-      // En cas d'erreur, on annule la mise à jour optimiste
       if (mounted) {
         setState(() {
-          // On inverse pour revenir à l'état précédent
-          // Wait, actually we can just re-check or just invert.
-          // The simplest is to assume we invert what we just did.
-          // To be perfectly safe we could re-call _checkSubscription,
-          // but _isSubscribed = !_isSubscribed works.
           _isSubscribed = !_isSubscribed;
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur : $e')),
+        );
       }
-
-      print("Erreur abonnement: $e");
-      if (e is DataConnectError) {
-        print("Data Connect Exception Message: ${e.message}");
-        try {
-          final dynamic dynE = e;
-          if (dynE.errors != null) {
-            for (var err in dynE.errors) {
-              print("Détail Backend: ${err.message}");
-            }
-          }
-        } catch (_) {}
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e')),
-      );
     }
   }
 

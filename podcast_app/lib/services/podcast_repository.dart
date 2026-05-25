@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/episode_model.dart';
 import '../dataconnect-generated/example.dart';
+import 'database_helper.dart';
 
 class PodcastRepository {
   /// Récupère les IDs des épisodes déjà lus (Source Firestore + Data Connect + Local)
@@ -52,13 +53,20 @@ class PodcastRepository {
       print("Erreur _getReadEpisodeIds Firestore: $e");
     }
 
-    // 3. Source Local (SharedPreferences)
+    // 3. Source Local (SharedPreferences & SQLite)
     try {
       final prefs = await SharedPreferences.getInstance();
       final localReadList = prefs.getStringList('local_read_episodes') ?? [];
       readIds.addAll(localReadList);
     } catch (e) {
       print("Erreur _getReadEpisodeIds SharedPreferences: $e");
+    }
+
+    try {
+      final sqliteReadList = await DatabaseHelper().getReadEpisodeIds();
+      readIds.addAll(sqliteReadList);
+    } catch (e) {
+      print("Erreur _getReadEpisodeIds SQLite: $e");
     }
 
     return readIds;

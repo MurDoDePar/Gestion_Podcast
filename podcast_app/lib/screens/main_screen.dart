@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_data_connect/firebase_data_connect.dart';
+import '../dataconnect-generated/example.dart';
 import '../theme/app_theme.dart';
 import '../widgets/mini_player.dart';
+import '../services/database_repository.dart';
 import 'tabs/my_podcasts_tab.dart';
 import 'tabs/themes_tab.dart';
-import 'tabs/popular_tab.dart';
 import 'tabs/discover_tab.dart';
 import 'tabs/search_tab.dart';
 import 'settings_screen.dart';
@@ -25,68 +28,140 @@ class _MainScreenState extends State<MainScreen> {
     SettingsScreen(),
   ];
 
+  late Future<void> _initFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _initFuture = _initApp();
+  }
+
+  Future<void> _initApp() async {
+    // Nettoyage asynchrone du cache populaire
+    _cleanObsoletePopularCache();
+
+    // Initialisation de la base SQLite et retry sous timeout de 10 secondes
+    try {
+      await DatabaseRepository().init().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          debugPrint(
+              "AA_DEBUG: Initialisation lente de SQLite, utilisation du cache local.");
+        },
+      );
+    } catch (e) {
+      debugPrint("AA_DEBUG: Erreur lors de l'initialisation de SQLite : $e");
+    }
+  }
+
+  Future<void> _cleanObsoletePopularCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final alreadyCleaned = prefs.getBool('popular_cache_cleaned_v2') ?? false;
+      if (!alreadyCleaned) {
+        final languages = ['fr', 'en', 'es', 'de', 'all'];
+        for (var lang in languages) {
+          final cacheKey = 'popular_$lang';
+          try {
+            await ExampleConnector.instance
+                .upsertAppCache(
+                  id: cacheKey,
+                  data: AnyValue('[]'),
+                  updatedAt: Timestamp(0, 0),
+                )
+                .execute();
+            debugPrint(
+                "AA_DEBUG: cleaned DataConnect cache for key: $cacheKey");
+          } catch (e) {
+            debugPrint("AA_DEBUG: error cleaning cache key $cacheKey: $e");
+          }
+        }
+        await prefs.setBool('popular_cache_cleaned_v2', true);
+      }
+    } catch (e) {
+      debugPrint("Erreur cleanObsoletePopularCache: $e");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-
-    return Scaffold(
-      backgroundColor: AppTheme.bgColor,
-      body: Column(
-        children: [
-          Expanded(
-            child: IndexedStack(
-              index: _currentIndex,
-              children: _screens,
+    return FutureBuilder<void>(
+      future: _initFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            backgroundColor: AppTheme.bgColor,
+            body: Center(
+              child: CircularProgressIndicator(
+                valueColor:
+                    AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+              ),
             ),
+          );
+        }
+
+        final user = FirebaseAuth.instance.currentUser;
+
+        return Scaffold(
+          backgroundColor: AppTheme.bgColor,
+          body: Column(
+            children: [
+              Expanded(
+                child: IndexedStack(
+                  index: _currentIndex,
+                  children: _screens,
+                ),
+              ),
+              // Espace réservé pour le mini-lecteur violet
+              const MiniPlayer(),
+            ],
           ),
-          // Espace réservé pour le mini-lecteur violet
-          const MiniPlayer(),
-        ],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: AppTheme.surfaceColor,
-        selectedItemColor: AppTheme.primaryColor,
-        unselectedItemColor: AppTheme.textSecondary,
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        items: [
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Accueil',
+          bottomNavigationBar: BottomNavigationBar(
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: AppTheme.surfaceColor,
+            selectedItemColor: AppTheme.primaryColor,
+            unselectedItemColor: AppTheme.textSecondary,
+            currentIndex: _currentIndex,
+            onTap: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+            items: [
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.home),
+                label: 'Accueil',
+              ),
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.search),
+                label: 'Recherche',
+              ),
+              BottomNavigationBarItem(
+                icon: user?.photoURL != null
+                    ? CircleAvatar(
+                        radius: 12,
+                        backgroundImage: NetworkImage(user!.photoURL!),
+                      )
+                    : const Icon(Icons.settings),
+                activeIcon: user?.photoURL != null
+                    ? Container(
+                        padding: const EdgeInsets.all(1.5),
+                        decoration: const BoxDecoration(
+                          color: AppTheme.primaryColor,
+                          shape: BoxShape.circle,
+                        ),
+                        child: CircleAvatar(
+                          radius: 11,
+                          backgroundImage: NetworkImage(user!.photoURL!),
+                        ),
+                      )
+                    : const Icon(Icons.settings),
+                label: 'Paramètres',
+              ),
+            ],
           ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.search),
-            label: 'Recherche',
-          ),
-          BottomNavigationBarItem(
-            icon: user?.photoURL != null
-                ? CircleAvatar(
-                    radius: 12,
-                    backgroundImage: NetworkImage(user!.photoURL!),
-                  )
-                : const Icon(Icons.settings),
-            activeIcon: user?.photoURL != null
-                ? Container(
-                    padding: const EdgeInsets.all(1.5),
-                    decoration: const BoxDecoration(
-                      color: AppTheme.primaryColor,
-                      shape: BoxShape.circle,
-                    ),
-                    child: CircleAvatar(
-                      radius: 11,
-                      backgroundImage: NetworkImage(user!.photoURL!),
-                    ),
-                  )
-                : const Icon(Icons.settings),
-            label: 'Paramètres',
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -98,7 +173,7 @@ class _AccueilView extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child: DefaultTabController(
-        length: 4,
+        length: 3,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -137,7 +212,6 @@ class _AccueilView extends StatelessWidget {
                 tabs: const [
                   Tab(text: "Mes podcasts"),
                   Tab(text: "Par thème"),
-                  Tab(text: "Populaires"),
                   Tab(text: "Affinités"),
                 ],
               ),
@@ -148,7 +222,6 @@ class _AccueilView extends StatelessWidget {
                 children: [
                   MyPodcastsTab(),
                   ThemesTab(),
-                  PopularTab(),
                   DiscoverTab(),
                 ],
               ),

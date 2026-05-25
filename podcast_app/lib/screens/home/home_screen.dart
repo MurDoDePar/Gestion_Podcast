@@ -23,7 +23,7 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 4,
+      length: 3,
       child: Column(
         children: [
           Container(
@@ -35,7 +35,6 @@ class HomeScreen extends StatelessWidget {
               tabs: [
                 Tab(text: 'Mes podcasts'),
                 Tab(text: 'Par thème'),
-                Tab(text: 'Populaires'),
                 Tab(text: 'Affinités'),
               ],
             ),
@@ -45,7 +44,6 @@ class HomeScreen extends StatelessWidget {
               children: [
                 _MyPodcastsTab(),
                 _ByThemeTab(),
-                _PopularTab(),
                 _AffinitiesTab(),
               ],
             ),
@@ -934,244 +932,6 @@ Future<void> _savePodcastsToCache(
         .execute();
   } catch (e) {
     print('Error saving cache for $cacheKey: $e');
-  }
-}
-
-class _PopularTab extends StatefulWidget {
-  const _PopularTab();
-
-  @override
-  State<_PopularTab> createState() => _PopularTabState();
-}
-
-class _PopularTabState extends State<_PopularTab> {
-  List<dynamic> _podcasts = [];
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchPopular();
-  }
-
-  Future<void> _fetchPopular() async {
-    final prefs = await SharedPreferences.getInstance();
-    final lang = prefs.getString('podstream_lang') ?? 'fr';
-
-    String rssCountry = 'fr';
-    if (lang != 'all') {
-      final langToCountry = {'fr': 'fr', 'en': 'us', 'es': 'es', 'de': 'de'};
-      if (langToCountry.containsKey(lang)) {
-        rssCountry = langToCountry[lang]!;
-      }
-    } else {
-      rssCountry = 'us';
-    }
-
-    final cacheKey = 'popular_$lang';
-    final cachedData = await _getCachedPodcasts(cacheKey);
-    if (cachedData != null) {
-      setState(() {
-        _podcasts = cachedData;
-        _isLoading = false;
-      });
-      return;
-    }
-
-    // Récupérer les top podcasts d'iTunes pour le pays donné
-    final topUrl = Uri.parse(
-        'https://itunes.apple.com/$rssCountry/rss/toppodcasts/limit=50/json');
-
-    try {
-      final topResponse = await http.get(topUrl);
-      if (topResponse.statusCode == 200) {
-        final topData = json.decode(topResponse.body);
-        final entries = topData['feed']['entry'] as List<dynamic>? ?? [];
-
-        List<String> ids = [];
-        for (var entry in entries) {
-          final id = entry['id']?['attributes']?['im:id'];
-          if (id != null) {
-            ids.add(id.toString());
-          }
-        }
-
-        if (ids.isNotEmpty) {
-          final lookupUrl =
-              Uri.parse('https://itunes.apple.com/lookup?id=${ids.join(',')}');
-          final lookupResponse = await http.get(lookupUrl);
-
-          if (lookupResponse.statusCode == 200) {
-            final lookupData = json.decode(lookupResponse.body);
-            List<dynamic> results = lookupData['results'] ?? [];
-
-            // On garde l'ordre de popularité d'iTunes
-
-            if (lang == 'all') {
-              final finalPodcasts = results.take(20).toList();
-              setState(() {
-                _podcasts = finalPodcasts;
-              });
-              _savePodcastsToCache(cacheKey, finalPodcasts);
-            } else {
-              // Filtrage strict par langue via RSS (Identique à l'ancienne version JS)
-              List<dynamic> validPodcasts = [];
-
-              for (var p in results) {
-                if (validPodcasts.length >= 20) {
-                  break; // Limite à 20 résultats
-                }
-                final feedUrl = p['feedUrl'];
-                if (feedUrl == null) continue;
-
-                try {
-                  final feedRes = await http
-                      .get(Uri.parse(feedUrl))
-                      .timeout(const Duration(seconds: 3));
-                  if (feedRes.statusCode == 200) {
-                    final body = feedRes.body.toLowerCase();
-                    // Recherche simple de la balise language
-                    final langMatch =
-                        RegExp(r'<language>\s*([^<\s]+)\s*<\/language>')
-                            .firstMatch(body);
-                    if (langMatch != null) {
-                      final podcastLang =
-                          langMatch.group(1)?.toLowerCase() ?? '';
-                      if (podcastLang.startsWith(lang)) {
-                        validPodcasts.add(p);
-                      }
-                    } else {
-                      // Si pas de balise language, on l'accepte par défaut
-                      validPodcasts.add(p);
-                    }
-                  }
-                } catch (e) {
-                  // Ignorer l'erreur réseau pour un feed spécifique
-                }
-              }
-
-              setState(() {
-                _podcasts = validPodcasts;
-              });
-              _savePodcastsToCache(cacheKey, validPodcasts);
-            }
-          }
-        }
-      }
-    } catch (e) {
-      print('Erreur fetch populaire: $e');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_podcasts.isEmpty) {
-      return const Center(
-        child: Text(
-          'Impossible de charger les suggestions.',
-          style: TextStyle(
-              color: AppTheme.textSecondary, fontStyle: FontStyle.italic),
-        ),
-      );
-    }
-
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 0.65,
-      ),
-      itemCount: _podcasts.length,
-      itemBuilder: (context, index) {
-        final p = _podcasts[index];
-        final imageUrl = p['artworkUrl600'] ?? p['artworkUrl100'];
-        final title = p['collectionName'] ?? 'Podcast';
-        final genre = p['primaryGenreName'] ?? 'Podcast';
-
-        return GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => PodcastDetailsScreen(podcast: p),
-              ),
-            );
-          },
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceColor,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius:
-                          const BorderRadius.vertical(top: Radius.circular(16)),
-                      image: imageUrl != null
-                          ? DecorationImage(
-                              image: NetworkImage(imageUrl), fit: BoxFit.cover)
-                          : null,
-                      color: AppTheme.bgColor,
-                    ),
-                    child: imageUrl == null
-                        ? const Center(
-                            child: Icon(Icons.podcasts,
-                                size: 40, color: Colors.grey))
-                        : null,
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 13),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          genre,
-                          style: const TextStyle(
-                              color: AppTheme.primaryColor, fontSize: 10),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
   }
 }
 

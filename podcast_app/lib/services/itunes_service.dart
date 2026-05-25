@@ -56,6 +56,9 @@ class ItunesService {
   }
 
   Future<List<PodcastModel>> getPodcastsByTheme(String theme) async {
+    if (theme.trim().toLowerCase() == 'populaire') {
+      return getTopPodcasts();
+    }
     final String encodedTheme = Uri.encodeComponent(theme.trim());
     final Uri url = Uri.parse(
       'https://itunes.apple.com/search?term=$encodedTheme&country=fr&entity=podcast&limit=25',

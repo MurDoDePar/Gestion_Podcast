@@ -1,19 +1,26 @@
 
+- onglet affinité : 
+    ce sont les podcast que d'autre utilisateurs écoutent et ont dans leur liste 'mes podcasts' 
+        au moins un podcasts en commun avec l'utilisateur connecté.
+    la liste de 'mes podcastas' est copié dans la DB firebase, il faut la mettre a jour. table : user, liste podcasts
+    pour l'affichage de l'onglet 'affinité' recuperer dans la table de firebase les podcasts en commun 
+        et afficher que ceux qui ne sont pas dans 'mes podcasts'
+
 - le lecteur d'episode de Android auto (sur l'ecran de la voiture doit etre -30s, Play/Pause, +30s)
-
-- tous fonctionne bien, est il possible migrer les données de la DB firebase dans une DB local (sur le tel) dans une DB sqlite.
-    C'est une migration complexe, car il faudra non seulement copier les données, mais aussi recréer toute la structure
-    je veux garder l'onglet affinité qui sera les podcasr des autres utilisateur qui ont en commun au moins un podcast
-
--Tu as maintenant une vision claire de ton architecture. 
-    Puisque ton système de lecture est opérationnel et que l'ordre des boutons est corrigé, 
-    as-tu une autre partie de l'application que tu souhaites stabiliser ou documenter, 
-    comme la partie synchronisation avec Firebase Data Connect ?
 
 -------------------------------------------------------------------------------------------------------------------
 A tester :
 
 - Implémentation de la Fonctionnalité de Téléchargement et Écoute Hors Ligne
+
+- je vais passé a sqlite local (sur le tel). Ne supprime pas de table dans firebase pour le moment.
+    Dans la base sqlite, 
+    - il faudra créer une table pour 'mes podcasts' avec l'ordre des podcasts, 
+        a chaque modification de l'ordre (glisser poser d'un podcast dans 'mes podcasts') il faut le sauvegarder dans cette table.
+        - il faut faire une copie de cette table dans firebase, elle sera utilisé pour l'onglet affinité
+            rappel l'onglet affinité sont les podcasts des autres utilisateurs qui ont au moins un podcas en commun.
+    - une table avec les episodes marquer 'lu'
+    - une table themes avec le liste de podcasts de l'onglet 'par theme' qui sera rafaichie chaque semaine
 
 -------------------------------------------------------------------------------------------------------------------
 "%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" logcat | findstr AA_DEBUG
@@ -35,3 +42,4 @@ Fait
 - le bouton recherche, 
     si il y a blanc a la fin du mot recherché, il faut l'enlever
 
+- par themes : 'Humour', 'Culture', 'Technologie', 'Histoire', 'Santé', 'Sciences', 'Sport', 'Actualités',  'Populaire'
