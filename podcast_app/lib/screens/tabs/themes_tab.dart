@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/podcast_model.dart';
 import '../../services/itunes_service.dart';
+import '../../services/database_repository.dart';
 import '../../theme/app_theme.dart';
 import '../podcast_details_screen.dart';
 
@@ -62,12 +63,15 @@ class ThemeResultsView extends StatefulWidget {
 
 class _ThemeResultsViewState extends State<ThemeResultsView>
     with AutomaticKeepAliveClientMixin {
-  late Future<List<PodcastModel>> _future;
+  late Future<List<dynamic>> _future;
 
   @override
   void initState() {
     super.initState();
-    _future = ItunesService().getPodcastsByTheme(widget.theme);
+    _future = Future.wait([
+      ItunesService().getPodcastsByTheme(widget.theme),
+      DatabaseRepository().getSubscribedPodcastIds(),
+    ]);
   }
 
   @override
@@ -76,20 +80,41 @@ class _ThemeResultsViewState extends State<ThemeResultsView>
   @override
   Widget build(BuildContext context) {
     super.build(context); // Indispensable pour AutomaticKeepAliveClientMixin
-    return FutureBuilder<List<PodcastModel>>(
+    return FutureBuilder<List<dynamic>>(
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
               child: CircularProgressIndicator(color: AppTheme.primaryColor));
         }
-        if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+        if (snapshot.hasError || !snapshot.hasData) {
           return Center(
-              child: Text('Aucun podcast trouvé pour ${widget.theme}.',
+              child: Text(
+                  'Erreur lors du chargement des podcasts de ${widget.theme}.',
                   style: const TextStyle(color: AppTheme.textSecondary)));
         }
 
-        final podcasts = snapshot.data!;
+        final results = snapshot.data!;
+        final allPodcasts = results[0] as List<PodcastModel>;
+        final subscribedIds = results[1] as Set<String>;
+
+        // Filtrer les podcasts déjà abonnés
+        final podcasts = allPodcasts
+            .where((p) => !subscribedIds.contains(p.feedUrl))
+            .toList();
+
+        if (podcasts.isEmpty) {
+          return const Center(
+              child: Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text(
+              'Tous les podcasts de ce thème sont dans vos abonnements !',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppTheme.textSecondary, fontSize: 15),
+            ),
+          ));
+        }
+
         return ListView.builder(
           padding: const EdgeInsets.all(16.0),
           itemCount: podcasts.length,

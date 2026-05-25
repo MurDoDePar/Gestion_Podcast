@@ -1,16 +1,38 @@
 import 'package:flutter/material.dart';
 import '../../models/podcast_model.dart';
 import '../../services/itunes_service.dart';
+import '../../services/database_repository.dart';
 import '../../theme/app_theme.dart';
 import '../podcast_details_screen.dart';
 
-class PopularTab extends StatelessWidget {
+class PopularTab extends StatefulWidget {
   const PopularTab({super.key});
 
   @override
+  State<PopularTab> createState() => _PopularTabState();
+}
+
+class _PopularTabState extends State<PopularTab>
+    with AutomaticKeepAliveClientMixin {
+  late Future<List<dynamic>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = Future.wait([
+      ItunesService().getTopPodcasts(),
+      DatabaseRepository().getSubscribedPodcastIds(),
+    ]);
+  }
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<PodcastModel>>(
-      future: ItunesService().getTopPodcasts(),
+    super.build(context);
+    return FutureBuilder<List<dynamic>>(
+      future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
@@ -20,7 +42,7 @@ class PopularTab extends StatelessWidget {
           );
         }
 
-        if (snapshot.hasError) {
+        if (snapshot.hasError || !snapshot.hasData) {
           return const Center(
             child: Text(
               'Erreur lors du chargement',
@@ -29,13 +51,24 @@ class PopularTab extends StatelessWidget {
           );
         }
 
-        final podcasts = snapshot.data ?? [];
+        final results = snapshot.data!;
+        final allPodcasts = results[0] as List<PodcastModel>;
+        final subscribedIds = results[1] as Set<String>;
+
+        // Filtrer les podcasts abonnés
+        final podcasts = allPodcasts
+            .where((p) => !subscribedIds.contains(p.feedUrl))
+            .toList();
 
         if (podcasts.isEmpty) {
           return const Center(
-            child: Text(
-              'Aucun podcast populaire trouvé',
-              style: TextStyle(color: AppTheme.textSecondary),
+            child: Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text(
+                'Tous les podcasts populaires sont dans vos abonnements !',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppTheme.textSecondary, fontSize: 15),
+              ),
             ),
           );
         }
@@ -72,7 +105,7 @@ class PopularTab extends StatelessWidget {
                         borderRadius: BorderRadius.circular(16.0),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.3),
+                            color: Colors.black.withValues(alpha: 0.3),
                             blurRadius: 8.0,
                             offset: const Offset(0, 4),
                           ),

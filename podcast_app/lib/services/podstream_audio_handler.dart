@@ -22,19 +22,14 @@ class PodStreamAudioHandler extends BaseAudioHandler
   final List<Map<String, dynamic>> myControls = [
     {'label': '-30s', 'icon': 'drawable/ic_rewind_30', 'action': 'rewind_30'},
     {
-      'label': '+30s',
-      'icon': 'drawable/ic_fast_forward_30',
-      'action': 'fast_forward_30'
-    },
-    {
       'label': 'Play',
       'icon': 'drawable/ic_play',
       'action': 'play'
     }, // Ou 'Pause'
     {
-      'label': 'Lu',
-      'icon': 'drawable/ic_mark_as_read',
-      'action': 'mark_as_read'
+      'label': '+30s',
+      'icon': 'drawable/ic_fast_forward_30',
+      'action': 'fast_forward_30'
     },
   ];
 
@@ -172,18 +167,12 @@ class PodStreamAudioHandler extends BaseAudioHandler
           label: '-30s',
           action: MediaAction.custom,
         ),
-        // 2. +30s (Custom)
+        // 2. Play/Pause (On garde le système standard pour la stabilité Android Auto)
+        playing ? MediaControl.pause : MediaControl.play,
+        // 3. +30s (Custom)
         const MediaControl(
           androidIcon: 'drawable/ic_fast_forward_30',
           label: '+30s',
-          action: MediaAction.custom,
-        ),
-        // 3. Play/Pause (On garde le système standard pour la stabilité Android Auto)
-        playing ? MediaControl.pause : MediaControl.play,
-        // 4. Lu (Custom)
-        const MediaControl(
-          androidIcon: 'drawable/ic_mark_as_read',
-          label: 'Lu',
           action: MediaAction.custom,
         ),
       ],
@@ -192,9 +181,9 @@ class PodStreamAudioHandler extends BaseAudioHandler
         MediaAction.seek,
         MediaAction.play,
         MediaAction.pause,
-        MediaAction.skipToNext,
-        MediaAction.skipToPrevious,
-        MediaAction.custom,
+        //MediaAction.skipToNext,
+        //MediaAction.skipToPrevious,
+        //MediaAction.custom,
       },
       // Indique les index (0, 1, 2) pour la barre compacte
       androidCompactActionIndices: const [0, 1, 2],

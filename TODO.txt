@@ -1,30 +1,19 @@
 
-le lecteur d'episode : changer l'ordre des boutons comme suit : -30s, +30s, Play/Pause, Lu
-le lecteur d'episode de Android auto (sur l'ecran de la voiture doit etre identique au lecteur du telephone)
-
-
-les boutons de l'onglet par theme : humour, actualité, sciences, culture, sport, tech., histoire, santé
-    doivent etre representé sous forme d'onglet
-    avec en dessous les podcasts de la categorie selectionnée
+- le lecteur d'episode de Android auto (sur l'ecran de la voiture doit etre -30s, Play/Pause, +30s)
 
 - Implémentation de la Fonctionnalité de Téléchargement et Écoute Hors Ligne
 
-
-tous fonctionne bien, est il possible migrer les données de la DB firebase dans une DB local (sur le tel) dans une DB sqlite.
+- tous fonctionne bien, est il possible migrer les données de la DB firebase dans une DB local (sur le tel) dans une DB sqlite.
     C'est une migration complexe, car il faudra non seulement copier les données, mais aussi recréer toute la structure
     je veux garder l'onglet affinité qui sera les podcasr des autres utilisateur qui ont en commun au moins un podcast
 
-Tu as maintenant une vision claire de ton architecture. 
+-Tu as maintenant une vision claire de ton architecture. 
     Puisque ton système de lecture est opérationnel et que l'ordre des boutons est corrigé, 
     as-tu une autre partie de l'application que tu souhaites stabiliser ou documenter, 
     comme la partie synchronisation avec Firebase Data Connect ?
 
-
 -------------------------------------------------------------------------------------------------------------------
-
 A tester :
-
-
 
 -------------------------------------------------------------------------------------------------------------------
 "%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" logcat | findstr AA_DEBUG
@@ -33,16 +22,16 @@ A tester :
 
 "C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" -printcert -jarfile "podcast_app\build\app\outputs\bundle\release\app-release.aab"
 
-
 "C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" -keystore "podcast_app\build\app\outputs\bundle\release\app-release.aab" -list -v
 "C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" -keystore "C:\Users\domin\Google Drive\Code\Gestion_Podcast\podstream-release.jks" -list -v
 
 Fait
+
+- le lecteur d'episode : changer l'ordre des boutons comme suit : -30s, +30s, Play/Pause, Lu
 
 - le bouton recherche, 
     je pense que la recheche fait un "ou" entre les mot au lieu de faire un "et"
 
 - le bouton recherche, 
     si il y a blanc a la fin du mot recherché, il faut l'enlever
-
 

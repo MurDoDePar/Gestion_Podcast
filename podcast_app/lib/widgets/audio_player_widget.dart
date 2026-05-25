@@ -48,7 +48,7 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
             color: AppTheme.surfaceColor,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.5),
+                color: Colors.black.withValues(alpha: 0.5),
                 blurRadius: 10,
                 offset: const Offset(0, -2),
               ),
@@ -97,7 +97,7 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                             },
                             activeColor: AppTheme.primaryColor,
                             inactiveColor:
-                                AppTheme.primaryColor.withOpacity(0.3),
+                                AppTheme.primaryColor.withValues(alpha: 0.3),
                           ),
                         ),
                       ),

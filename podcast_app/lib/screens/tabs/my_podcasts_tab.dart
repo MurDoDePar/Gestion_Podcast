@@ -67,12 +67,9 @@ class _MyPodcastsTabState extends State<MyPodcastsTab> {
     }
   }
 
-  void _onReorder(int oldIndex, int newIndex) {
+  void _onReorderItem(int oldIndex, int newIndex) {
     if (_myPodcastsList == null) return;
     setState(() {
-      if (newIndex > oldIndex) {
-        newIndex -= 1;
-      }
       final item = _myPodcastsList!.removeAt(oldIndex);
       _myPodcastsList!.insert(newIndex, item);
 
@@ -266,7 +263,7 @@ class _MyPodcastsTabState extends State<MyPodcastsTab> {
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     itemCount: podcasts.length,
-                    onReorder: _onReorder,
+                    onReorderItem: _onReorderItem,
                     itemBuilder: (context, index) {
                       final podcast = podcasts[index];
                       return GestureDetector(

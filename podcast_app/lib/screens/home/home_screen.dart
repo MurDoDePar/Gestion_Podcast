@@ -276,7 +276,7 @@ class _ByThemeTabState extends State<_ByThemeTab> {
                     ],
                   ),
                   selected: isSelected,
-                  selectedColor: AppTheme.primaryColor.withOpacity(0.8),
+                  selectedColor: AppTheme.primaryColor.withValues(alpha: 0.8),
                   backgroundColor: AppTheme.bgColor,
                   labelStyle: TextStyle(
                     color: isSelected ? Colors.white : AppTheme.textSecondary,
@@ -624,8 +624,7 @@ class _DraggablePodcastListState extends State<_DraggablePodcastList> {
     }
   }
 
-  Future<void> _onReorder(int oldIndex, int newIndex) async {
-    if (newIndex > oldIndex) newIndex -= 1;
+  Future<void> _onReorderItem(int oldIndex, int newIndex) async {
     setState(() {
       final item = _subs.removeAt(oldIndex);
       _subs.insert(newIndex, item);
@@ -669,7 +668,7 @@ class _DraggablePodcastListState extends State<_DraggablePodcastList> {
     return ReorderableListView.builder(
       scrollDirection: Axis.horizontal,
       itemCount: _subs.length,
-      onReorder: _onReorder,
+      onReorderItem: _onReorderItem,
       itemBuilder: (context, index) {
         final sub = _subs[index];
         return Container(
@@ -1153,7 +1152,7 @@ class _PopularTabState extends State<_PopularTab> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withOpacity(0.2),
+                          color: AppTheme.primaryColor.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(

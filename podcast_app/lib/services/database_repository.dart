@@ -40,17 +40,22 @@ class DatabaseRepository {
     }
   }
 
-  Future<List<PodcastModel>> getMySubscribedPodcasts() async {
+  Future<List<PodcastModel>> getMySubscribedPodcasts(
+      {bool forceRefresh = false}) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return [];
 
     const String cacheKey = 'my_subscribed_podcasts';
 
-    // 1. Vérifier le cache en mémoire pour éviter des requêtes inutiles
-    if (_cacheManager.hasKey(cacheKey)) {
-      final cachedData = _cacheManager.read(cacheKey);
-      if (cachedData is List<PodcastModel>) {
-        return cachedData;
+    if (forceRefresh) {
+      _cacheManager.remove(cacheKey);
+    } else {
+      // 1. Vérifier le cache en mémoire pour éviter des requêtes inutiles
+      if (_cacheManager.hasKey(cacheKey)) {
+        final cachedData = _cacheManager.read(cacheKey);
+        if (cachedData is List<PodcastModel>) {
+          return cachedData;
+        }
       }
     }
 
@@ -177,6 +182,21 @@ class DatabaseRepository {
       _cacheManager.write('my_subscribed_podcasts', reorderedPodcasts);
     } catch (e) {
       print('Erreur lors de la mise à jour de l\'ordre des podcasts : $e');
+    }
+  }
+
+  Future<Set<String>> getSubscribedPodcastIds(
+      {bool forceRefresh = false}) async {
+    try {
+      final List<PodcastModel> subscribed =
+          await getMySubscribedPodcasts(forceRefresh: forceRefresh);
+      return subscribed
+          .map((p) => p.feedUrl)
+          .where((url) => url.isNotEmpty)
+          .toSet();
+    } catch (e) {
+      print('Erreur lors de la récupération des IDs des podcasts abonnés : $e');
+      return <String>{};
     }
   }
 

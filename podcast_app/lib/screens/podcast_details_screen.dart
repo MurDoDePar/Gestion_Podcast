@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_data_connect/firebase_data_connect.dart';
 import '../theme/app_theme.dart';
 import '../services/audio_service.dart';
+import '../services/cache_manager.dart';
 import '../dataconnect-generated/example.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'main_screen.dart';
@@ -156,6 +157,8 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
             )
             .execute();
 
+        CacheManager().remove('my_subscribed_podcasts');
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Désabonné avec succès')));
@@ -205,6 +208,8 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
             )
             .listOrder(currentSubsCount)
             .execute();
+
+        CacheManager().remove('my_subscribed_podcasts');
 
         // Sync des épisodes en base maintenant que le podcast existe
         _syncEpisodesFromRSS();

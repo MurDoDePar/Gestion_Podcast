@@ -195,7 +195,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             icon: const Icon(Icons.logout),
             label: const Text('Se déconnecter'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.withOpacity(0.2),
+              backgroundColor: Colors.red.withValues(alpha: 0.2),
               foregroundColor: Colors.redAccent,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(

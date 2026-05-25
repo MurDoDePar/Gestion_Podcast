@@ -47,7 +47,7 @@ class AppTheme {
         type: BottomNavigationBarType.fixed,
         elevation: 8,
       ),
-      tabBarTheme: TabBarTheme(
+      tabBarTheme: TabBarThemeData(
         labelColor: textPrimary,
         unselectedLabelColor: textSecondary,
         indicator: BoxDecoration(

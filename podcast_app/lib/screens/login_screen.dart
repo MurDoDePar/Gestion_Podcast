@@ -139,7 +139,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             borderRadius: BorderRadius.circular(30),
                           ),
                           elevation: 5,
-                          shadowColor: Colors.black.withOpacity(0.3),
+                          shadowColor: Colors.black.withValues(alpha: 0.3),
                         ),
                       ),
               ],

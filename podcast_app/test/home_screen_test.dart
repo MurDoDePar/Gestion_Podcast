@@ -25,7 +25,9 @@ void main() {
     FlutterError.onError = (FlutterErrorDetails details) {
       final errorString = details.exception.toString();
       if (errorString.contains('Firebase') ||
-          errorString.contains('ClientException')) return;
+          errorString.contains('ClientException')) {
+        return;
+      }
       originalOnError?.call(details);
     };
 

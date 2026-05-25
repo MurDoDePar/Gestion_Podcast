@@ -31,3 +31,29 @@ desktop.ini
 *.jks
 *.keystore
 **/google-services.json
+
+# --- Android ---
+# Ignorer le dossier build racine et ceux des modules
+android/build/
+android/app/build/
+
+# Ignorer explicitement les dossiers générés par le Gradle cache
+.gradle/
+**/build/
+**/bin/
+
+# Ignorer les fichiers temporaires de build générés par les plugins
+**/.transforms/
+**/.cxx/
+
+# Ignorer le cache Flutter
+.dart_tool/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Ignorer les fichiers de build Flutter
+build/
+
+# Ignorer tous les dossiers nommés logs, quel que soit leur emplacement
+**/logs/

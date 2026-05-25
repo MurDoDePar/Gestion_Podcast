@@ -44,10 +44,11 @@ class MiniPlayer extends StatelessWidget {
                 0xFF24163B), // Elegant dark violet for contrast with AppTheme.primaryColor
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-                color: AppTheme.primaryColor.withOpacity(0.3), width: 1.0),
+                color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                width: 1.0),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.3),
+                color: Colors.black.withValues(alpha: 0.3),
                 blurRadius: 8,
                 offset: const Offset(0, 4),
               ),
@@ -218,7 +219,7 @@ class MiniPlayer extends StatelessWidget {
                               overlayRadius: 10.0),
                           activeTrackColor: AppTheme.primaryColor,
                           inactiveTrackColor:
-                              AppTheme.primaryColor.withOpacity(0.2),
+                              AppTheme.primaryColor.withValues(alpha: 0.2),
                           thumbColor: AppTheme.primaryColor,
                         ),
                         child: SizedBox(

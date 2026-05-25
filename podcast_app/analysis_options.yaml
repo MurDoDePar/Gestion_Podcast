@@ -12,6 +12,8 @@ include: package:flutter_lints/flutter.yaml
 analyzer:
   exclude:
     - "lib/dataconnect-generated/**"
+    - "debug_details_sort.dart"
+    - "debug_itunes.dart"
 
 linter:
   # The lint rules applied to this project can be customized in the
