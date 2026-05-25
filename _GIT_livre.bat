@@ -7,19 +7,16 @@ for /f "usebackq tokens=*" %%a in (`powershell -Command "(Get-Content version.js
 for /f "usebackq tokens=*" %%a in (`powershell -Command "(Get-Content version.json | ConvertFrom-Json).release_notes"`) do set APP_RELEASE_NOTES=%%a
 echo Version detectee : %APP_VERSION%
 
-:: 2. Nettoyage de l'index Git (Fixe l'erreur de "Filename too long")
-echo [+] Nettoyage de l'index pour appliquer le .gitignore...
-git rm -r --cached .
-
-:: 3. Ajout des fichiers
+:: 2. SUPPRIME CETTE LIGNE : git rm -r --cached . 
+:: Au lieu de cela, on ajoute simplement les changements
 echo [+] Ajout des fichiers...
 git add .
 
-:: 4. Commit
+:: 3. Commit
 echo [+] Commit...
 git commit -m "Livraison version %APP_VERSION% - %APP_RELEASE_NOTES%"
 
-:: 5. Tag et Push
+:: 4. Tag et Push
 echo [+] Tag de la version...
 git tag -a v%APP_VERSION% -m "Version %APP_VERSION% - %APP_RELEASE_NOTES%"
 
