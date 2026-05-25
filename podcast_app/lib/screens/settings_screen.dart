@@ -42,8 +42,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _signOut() async {
-    await GoogleSignIn().signOut();
-    await FirebaseAuth.instance.signOut();
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('is_logged_in', false);
+      await GoogleSignIn().signOut();
+      await FirebaseAuth.instance.signOut();
+    } catch (e) {
+      debugPrint('Erreur de déconnexion : $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de la déconnexion : $e'),
+            backgroundColor: AppTheme.dangerColor,
+          ),
+        );
+      }
+    }
   }
 
   @override

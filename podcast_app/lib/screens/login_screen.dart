@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
-import 'main_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -44,13 +44,9 @@ class _LoginScreenState extends State<LoginScreen> {
       // 4. Connecte l'utilisateur à Firebase
       await FirebaseAuth.instance.signInWithCredential(credential);
 
-      // 5. Redirection vers l'écran principal
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const MainScreen()),
-        );
-      }
+      // 5. Sauvegarde de l'état de connexion localement
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('is_logged_in', true);
     } catch (e) {
       debugPrint('Erreur de connexion Google Sign-In: $e');
       if (mounted) {

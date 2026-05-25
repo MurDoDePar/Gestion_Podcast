@@ -4,11 +4,15 @@ le lecteur d'episode de Android auto (sur l'ecran de la voiture doit etre identi
 
 
 les boutons de l'onglet par theme : humour, actualité, sciences, culture, sport, tech., histoire, santé
-doivent etre representé sous forme d'onglet
-avec en dessous les podcasts de la categorie selectionnée
+    doivent etre representé sous forme d'onglet
+    avec en dessous les podcasts de la categorie selectionnée
 
 - Implémentation de la Fonctionnalité de Téléchargement et Écoute Hors Ligne
 
+
+tous fonctionne bien, est il possible migrer les données de la DB firebase dans une DB local (sur le tel) dans une DB sqlite.
+    C'est une migration complexe, car il faudra non seulement copier les données, mais aussi recréer toute la structure
+    je veux garder l'onglet affinité qui sera les podcasr des autres utilisateur qui ont en commun au moins un podcast
 
 Tu as maintenant une vision claire de ton architecture. 
     Puisque ton système de lecture est opérationnel et que l'ordre des boutons est corrigé, 

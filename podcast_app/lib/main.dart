@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
-import 'screens/main_screen.dart';
-import 'screens/login_screen.dart';
 import 'theme/app_theme.dart';
+import 'screens/auth_wrapper.dart';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:podcast_app/services/podstream_audio_handler.dart';
@@ -60,61 +58,7 @@ class PodStreamApp extends StatelessWidget {
       title: 'PodStream',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
-      home: const LoginScreen(),
-    );
-  }
-
-  // ignore: unused_element
-  Widget _buildAuthResolver() {
-    debugPrint("--- BUILD AUTH RESOLVER ---");
-    if (Firebase.apps.isEmpty) {
-      debugPrint("AuthResolver: Firebase.apps.isEmpty");
-      return const Scaffold(
-        body: Center(
-          child: Text(
-            'Firebase non configuré pour cette plateforme.\nVeuillez tester sur Android ou configurer le Web.',
-            textAlign: TextAlign.center,
-          ),
-        ),
-      );
-    }
-
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (context, snapshot) {
-        debugPrint(
-            "AuthResolver: state=${snapshot.connectionState}, hasData=${snapshot.hasData}");
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        if (snapshot.hasData) {
-          return FutureBuilder(
-            future: Future.delayed(const Duration(seconds: 3)),
-            builder: (context, delaySnapshot) {
-              if (delaySnapshot.connectionState == ConnectionState.waiting) {
-                return const Scaffold(
-                  body: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 16),
-                        Text('Synchronisation du profil...'),
-                      ],
-                    ),
-                  ),
-                );
-              }
-              return const MainScreen();
-            },
-          );
-        }
-
-        return const LoginScreen();
-      },
+      home: const AuthWrapper(),
     );
   }
 }
