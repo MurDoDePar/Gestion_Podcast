@@ -4,6 +4,7 @@ import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
 import 'mark_as_read_service.dart';
 import 'database_repository.dart';
+import 'download_service.dart';
 
 // Instance globale du service audio pour toute l'application
 AudioHandler? audioHandler;
@@ -14,6 +15,8 @@ class PodStreamAudioHandler extends BaseAudioHandler
     with QueueHandler, SeekHandler {
   final AudioPlayer _player = AudioPlayer();
   String? _lastMarkedEpisodeId;
+  bool _prefetchedNext =
+      false; // Flag pour éviter le multi-déclenchement du prefetch
 
   // A simple representation of our episodes for Android Auto to browse
   final Map<String, MediaItem> _mediaLibrary = {};
@@ -119,6 +122,18 @@ class PodStreamAudioHandler extends BaseAudioHandler
       }
     });
 
+    // Écouter la position de lecture pour le préchargement à 80%
+    _player.positionStream.listen((position) {
+      final duration = _player.duration;
+      if (duration != null && duration > Duration.zero && !_prefetchedNext) {
+        final ratio = position.inMilliseconds / duration.inMilliseconds;
+        if (ratio >= 0.8) {
+          _prefetchedNext = true;
+          _prefetchNextEpisode();
+        }
+      }
+    });
+
     _initPlaybackListeners();
   }
 
@@ -214,10 +229,23 @@ class PodStreamAudioHandler extends BaseAudioHandler
   @override
   Future<void> playMediaItem(MediaItem mediaItem) async {
     final audioUrl = mediaItem.extras?['url'] as String? ?? mediaItem.id;
+    final episodeId = mediaItem.extras?['episodeId'] as String? ?? mediaItem.id;
     print(
         'AA_DEBUG_HANDLER: playMediaItem reçu pour ${mediaItem.title} - URL: $audioUrl');
+
     this.mediaItem.add(mediaItem);
-    await _player.setAudioSource(AudioSource.uri(Uri.parse(audioUrl)));
+    _prefetchedNext = false; // Réinitialiser le flag de préchargement
+
+    // Essayer de lire le fichier local s'il existe, sinon fallback en streaming
+    final localPath = await DownloadService().getLocalFilePath(episodeId);
+    if (localPath != null && localPath.isNotEmpty) {
+      print('AA_DEBUG_PLAYER: Lecture locale depuis $localPath');
+      await _player.setAudioSource(AudioSource.file(localPath));
+    } else {
+      print('AA_DEBUG_PLAYER: Fallback en streaming sur $audioUrl');
+      await _player.setAudioSource(AudioSource.uri(Uri.parse(audioUrl)));
+    }
+
     await _player.setVolume(1.0);
     print('AA_DEBUG_PLAYER: Lancement de _player.play()');
     _player.play();
@@ -271,6 +299,29 @@ class PodStreamAudioHandler extends BaseAudioHandler
     }
   }
 
+  Future<void> _prefetchNextEpisode() async {
+    _logAA(
+        "_prefetchNextEpisode: Début de la détection de l'épisode suivant...");
+    try {
+      final nextEpisodes = await DatabaseRepository().getEpisodesToListen();
+
+      if (nextEpisodes.isNotEmpty) {
+        final next = nextEpisodes.first;
+        _logAA(
+            "_prefetchNextEpisode: Épisode trouvé pour le préchargement : ${next.title}");
+
+        // Démarrer le téléchargement en tâche de fond pour qu'il soit disponible localement
+        // Cela sert de mécanisme de préchargement sans coupure audio
+        DownloadService().downloadEpisode(next.id, next.audioUrl);
+      } else {
+        _logAA(
+            "_prefetchNextEpisode: Aucun épisode suivant disponible pour le préchargement.");
+      }
+    } catch (e) {
+      _logAA("_prefetchNextEpisode ERREUR: $e");
+    }
+  }
+
   @override
   Future<void> skipToNext() async {
     _logAA("skipToNext: Triggering _playNextOrStop...");
@@ -286,8 +337,17 @@ class PodStreamAudioHandler extends BaseAudioHandler
 
     // Chargement dans le player
     this.mediaItem.add(mediaItem);
+    _prefetchedNext = false; // Réinitialiser le flag de préchargement
+
     final audioUrl = mediaItem.extras?['url'] as String? ?? mediaItem.id;
-    await _player.setAudioSource(AudioSource.uri(Uri.parse(audioUrl)));
+    final episodeId = mediaItem.extras?['episodeId'] as String? ?? mediaItem.id;
+
+    final localPath = await DownloadService().getLocalFilePath(episodeId);
+    if (localPath != null && localPath.isNotEmpty) {
+      await _player.setAudioSource(AudioSource.file(localPath));
+    } else {
+      await _player.setAudioSource(AudioSource.uri(Uri.parse(audioUrl)));
+    }
     await _player.setVolume(1.0);
   }
 

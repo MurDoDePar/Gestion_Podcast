@@ -1,8 +1,6 @@
 
 - le lecteur d'episode de Android auto (sur l'ecran de la voiture doit etre -30s, Play/Pause, +30s)
 
-- Implémentation de la Fonctionnalité de Téléchargement et Écoute Hors Ligne
-
 - tous fonctionne bien, est il possible migrer les données de la DB firebase dans une DB local (sur le tel) dans une DB sqlite.
     C'est une migration complexe, car il faudra non seulement copier les données, mais aussi recréer toute la structure
     je veux garder l'onglet affinité qui sera les podcasr des autres utilisateur qui ont en commun au moins un podcast
@@ -14,6 +12,8 @@
 
 -------------------------------------------------------------------------------------------------------------------
 A tester :
+
+- Implémentation de la Fonctionnalité de Téléchargement et Écoute Hors Ligne
 
 -------------------------------------------------------------------------------------------------------------------
 "%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" logcat | findstr AA_DEBUG
