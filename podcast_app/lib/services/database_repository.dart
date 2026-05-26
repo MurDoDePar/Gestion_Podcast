@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Timestamp;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,10 +11,12 @@ import 'cache_manager.dart';
 import 'podcast_repository.dart';
 import 'database_helper.dart';
 import 'itunes_service.dart';
+import 'audio_service.dart' as app_audio;
 
 class DatabaseRepository {
   final CacheManager _cacheManager = CacheManager();
   static bool _isSyncing = false;
+  static List<EpisodeModel>? _cachedEpisodesToListen;
 
   Future<List<EpisodeModel>> getMyEpisodes() async {
     const String cacheKey = 'my_episodes';
@@ -65,7 +68,37 @@ class DatabaseRepository {
 
   Future<void> init() async {
     await ensureInitialized();
+    await _cleanObsoletePopularCache();
     await retryUnsyncedOrders();
+  }
+
+  Future<void> _cleanObsoletePopularCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final alreadyCleaned = prefs.getBool('popular_cache_cleaned_v2') ?? false;
+      if (!alreadyCleaned) {
+        final languages = ['fr', 'en', 'es', 'de', 'all'];
+        for (var lang in languages) {
+          final cacheKey = 'popular_$lang';
+          try {
+            await ExampleConnector.instance
+                .upsertAppCache(
+                  id: cacheKey,
+                  data: AnyValue('[]'),
+                  updatedAt: Timestamp(0, 0),
+                )
+                .execute();
+            debugPrint(
+                "AA_DEBUG: cleaned DataConnect cache for key: $cacheKey");
+          } catch (e) {
+            debugPrint("AA_DEBUG: error cleaning cache key $cacheKey: $e");
+          }
+        }
+        await prefs.setBool('popular_cache_cleaned_v2', true);
+      }
+    } catch (e) {
+      debugPrint("Erreur cleanObsoletePopularCache: $e");
+    }
   }
 
   Future<List<PodcastModel>> getMySubscribedPodcasts(
@@ -225,24 +258,40 @@ class DatabaseRepository {
     }
   }
 
-  Future<void> updatePodcastsOrder(List<PodcastModel> reorderedPodcasts) async {
+  Future<void> updatePodcastsOrder(List<PodcastModel> updatedList) async {
     try {
-      // 1. Mettre à jour localement SQLite d'abord
+      print(
+          "AA_DEBUG: updatePodcastsOrder appelé pour réordonner ${updatedList.length} podcasts.");
+
+      // 1. Mettre à jour l'ordre dans SQLite
       final List<Map<String, dynamic>> orderUpdates = [];
-      for (int i = 0; i < reorderedPodcasts.length; i++) {
+      for (int i = 0; i < updatedList.length; i++) {
         orderUpdates.add({
-          'feedUrl': reorderedPodcasts[i].feedUrl,
+          'feedUrl': updatedList[i].feedUrl,
           'sortOrder': i,
-          'isSynced': 0, // Unsynced
+          'isSynced': 0, // Non synchronisé
         });
       }
       await DatabaseHelper().updatePodcastsSortOrder(orderUpdates);
       print("AA_DEBUG: Ordre mis à jour en local dans SQLite.");
 
       // Mettre à jour le cache local en mémoire
-      _cacheManager.write('my_subscribed_podcasts', reorderedPodcasts);
+      _cacheManager.write('my_subscribed_podcasts', updatedList);
 
-      // 2. Déclencher la synchronisation en tâche de fond (retryUnsyncedOrders)
+      // 2. Vider le cache mémoire et persistant et rafraîchir la file
+      _refreshEpisodesToListen().then((_) {
+        // 5. Assurer que l'UI est notifiée du changement via AudioService().listRefreshNotifier
+        try {
+          app_audio.AudioService().listRefreshNotifier.value++;
+          print(
+              "AA_DEBUG: UI notifiée de la reconstruction de la file d'attente.");
+        } catch (e) {
+          print(
+              "AA_DEBUG: Impossible de notifier listRefreshNotifier dans updatePodcastsOrder: $e");
+        }
+      });
+
+      // 4. Déclencher la synchronisation vers Firebase en tâche de fond
       retryUnsyncedOrders();
     } catch (e) {
       print('Erreur lors de la mise à jour de l\'ordre des podcasts : $e');
@@ -572,11 +621,275 @@ class DatabaseRepository {
   }
 
   Future<List<EpisodeModel>> getEpisodesToListen(
-      {bool forceRefresh = true}) async {
-    if (forceRefresh) {
-      _cacheManager.remove('cache_episodes_to_listen');
+      {bool forceRefresh = false}) async {
+    final prefs = await SharedPreferences.getInstance();
+    const String cacheKey = 'cache_episodes_to_listen';
+    const String timeKey = 'cache_episodes_to_listen_time';
+    List<EpisodeModel>? list;
+
+    // Si on ne force pas le rafraîchissement, tenter de lire le cache
+    if (!forceRefresh) {
+      if (_cachedEpisodesToListen != null) {
+        list = _cachedEpisodesToListen!;
+      } else {
+        final cachedJson = prefs.getString(cacheKey);
+        if (cachedJson != null) {
+          try {
+            final List<dynamic> decoded = jsonDecode(cachedJson);
+            list = decoded
+                .map((item) =>
+                    EpisodeModel.fromMap(item as Map<String, dynamic>))
+                .toList();
+            _cachedEpisodesToListen = list;
+
+            // Vérification de la fraîcheur du cache
+            final lastCachedTime = prefs.getInt(timeKey) ?? 0;
+            final now = DateTime.now().millisecondsSinceEpoch;
+            final cacheAgeMs = now - lastCachedTime;
+            // Si le cache a plus de 24 heures (86400000 ms), on avertit
+            if (cacheAgeMs > 24 * 60 * 60 * 1000) {
+              print("AA_DEBUG: Le cache des épisodes à écouter a plus de 24h.");
+            }
+          } catch (e) {
+            print(
+                "AA_DEBUG: Erreur lors de la lecture du cache episodes_to_listen: $e");
+          }
+        }
+      }
     }
-    return await PodcastRepository().fetchAllRecentEpisodes();
+
+    if (list == null) {
+      // Sinon, on effectue un rafraîchissement depuis le réseau
+      try {
+        final List<EpisodeModel> episodes =
+            await PodcastRepository().fetchAllRecentEpisodes();
+
+        // Enregistrer dans SharedPreferences
+        final jsonList = episodes.map((e) => e.toMap()).toList();
+        await prefs.setString(cacheKey, jsonEncode(jsonList));
+        await prefs.setInt(timeKey, DateTime.now().millisecondsSinceEpoch);
+
+        _cachedEpisodesToListen = episodes;
+        list = episodes;
+      } catch (e) {
+        print(
+            "AA_DEBUG: Erreur récupération en ligne des épisodes (offline/timeout), fallback sur le cache: $e");
+
+        // Si la récupération en ligne échoue, fallback silencieux sur le cache local
+        final cachedJson = prefs.getString(cacheKey);
+        if (cachedJson != null) {
+          try {
+            final List<dynamic> decoded = jsonDecode(cachedJson);
+            list = decoded
+                .map((item) =>
+                    EpisodeModel.fromMap(item as Map<String, dynamic>))
+                .toList();
+            _cachedEpisodesToListen = list;
+          } catch (_) {}
+        }
+      }
+    }
+
+    // Filtrage dynamique strict avec SQLite local (isRead = 0)
+    if (list != null) {
+      try {
+        final readIds = await DatabaseHelper().getReadEpisodeIds();
+        final readIdsSet = readIds.toSet();
+        final filtered = list.where((ep) {
+          return !readIdsSet.contains(ep.id) &&
+              !readIdsSet.contains(ep.audioUrl);
+        }).toList();
+        return filtered;
+      } catch (e) {
+        print(
+            "AA_DEBUG: Erreur lors du filtrage SQLite des épisodes à écouter: $e");
+        return list;
+      }
+    }
+
+    return [];
+  }
+
+  Future<void> _refreshEpisodesToListen() async {
+    print("AA_DEBUG: _refreshEpisodesToListen lancé en arrière-plan...");
+    _cachedEpisodesToListen = null;
+    _cacheManager.remove('cache_episodes_to_listen');
+
+    // Recharger immédiatement en tâche de fond pour reconstruire le cache
+    // Cette opération asynchrone gère elle-même son exception/réseau sans bloquer l'UI
+    try {
+      await getEpisodesToListen(forceRefresh: true);
+      print(
+          "AA_DEBUG: Cache des épisodes reconstruit avec succès en arrière-plan.");
+    } catch (e) {
+      print(
+          "AA_DEBUG: Échec de la reconstruction immédiate du cache (offline ou erreur) : $e");
+    }
+  }
+
+  Future<void> markEpisodeAsRead(String episodeId) async {
+    print(
+        'AA_DEBUG: markEpisodeAsRead appelé dans DatabaseRepository pour l\'épisode: $episodeId');
+
+    // Essayer de retrouver l'épisode dans la mémoire cache pour extraire les métadonnées
+    EpisodeModel? matchedEpisode;
+    try {
+      if (_cachedEpisodesToListen != null) {
+        matchedEpisode = _cachedEpisodesToListen!.firstWhere(
+          (e) => e.id == episodeId || e.audioUrl == episodeId,
+        );
+      }
+    } catch (_) {}
+
+    if (matchedEpisode == null) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final cachedJson = prefs.getString('cache_episodes_to_listen');
+        if (cachedJson != null) {
+          final List<dynamic> decoded = jsonDecode(cachedJson);
+          final matchedMap = decoded.firstWhere(
+            (item) {
+              final id = item['id']?.toString() ?? '';
+              final audioUrl = item['audioUrl']?.toString() ?? '';
+              return id == episodeId || audioUrl == episodeId;
+            },
+            orElse: () => null,
+          );
+          if (matchedMap != null) {
+            matchedEpisode =
+                EpisodeModel.fromMap(matchedMap as Map<String, dynamic>);
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 1. Écriture locale immédiate dans SQLite (table episodes_status)
+    try {
+      await DatabaseHelper().markEpisodeAsRead(
+        episodeId,
+        title: matchedEpisode?.title,
+        audioUrl: matchedEpisode?.audioUrl,
+        imageUrl: matchedEpisode?.imageUrl,
+        podcastName: matchedEpisode?.podcastName,
+        pubDate: matchedEpisode?.pubDate?.toIso8601String(),
+        description: matchedEpisode?.description,
+      );
+      print(
+          'AA_DEBUG: Écriture SQLite réussie dans DatabaseRepository pour $episodeId');
+    } catch (e) {
+      print('AA_DEBUG: Erreur écriture SQLite dans DatabaseRepository: $e');
+    }
+
+    // 2. Écriture dans SharedPreferences (local_read_episodes)
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final List<String> readList =
+          prefs.getStringList('local_read_episodes') ?? [];
+      if (!readList.contains(episodeId)) {
+        readList.add(episodeId);
+        await prefs.setStringList('local_read_episodes', readList);
+        print(
+            'AA_DEBUG: Écriture SharedPreferences réussie dans DatabaseRepository pour $episodeId');
+      }
+    } catch (e) {
+      print(
+          'AA_DEBUG: Erreur écriture SharedPreferences dans DatabaseRepository: $e');
+    }
+
+    // 3. Mettre à jour le cache local d'épisodes de manière atomique (opération extrêmement légère)
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedJson = prefs.getString('cache_episodes_to_listen');
+      if (cachedJson != null) {
+        final List<dynamic> decoded = jsonDecode(cachedJson);
+        final initialLength = decoded.length;
+        decoded.removeWhere((item) {
+          final id = item['id']?.toString() ?? '';
+          final audioUrl = item['audioUrl']?.toString() ?? '';
+          return id == episodeId || audioUrl == episodeId;
+        });
+        if (decoded.length < initialLength) {
+          await prefs.setString(
+              'cache_episodes_to_listen', jsonEncode(decoded));
+          print(
+              'AA_DEBUG: Cache SharedPreferences mis à jour de manière atomique après lecture.');
+        }
+      }
+
+      // Mettre à jour le cache en mémoire aussi s'il existe
+      if (_cacheManager.hasKey('cache_episodes_to_listen')) {
+        final cachedData = _cacheManager.read('cache_episodes_to_listen');
+        if (cachedData is List<EpisodeModel>) {
+          cachedData
+              .removeWhere((e) => e.id == episodeId || e.audioUrl == episodeId);
+          _cacheManager.write('cache_episodes_to_listen', cachedData);
+        }
+      }
+    } catch (e) {
+      print('AA_DEBUG: Erreur lors de la mise à jour atomique du cache : $e');
+    }
+
+    // 4. Synchronisation distante asynchrone (Firestore & Data Connect) en arrière-plan
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && !episodeId.startsWith('mock_')) {
+      _syncEpisodeReadToFirebase(user.uid, episodeId).catchError((e) {
+        print(
+            'AA_DEBUG: Échec de la synchronisation en arrière-plan pour $episodeId : $e');
+      });
+    }
+  }
+
+  Future<void> _syncEpisodeReadToFirebase(String uid, String episodeId) async {
+    final String encodedId = base64UrlEncode(utf8.encode(episodeId));
+
+    // A. Sync to Firestore
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('episode_history')
+          .doc(encodedId)
+          .set({'finishedListening': true}, SetOptions(merge: true)).timeout(
+              const Duration(seconds: 4));
+      print('AA_DEBUG: Synchro Firestore réussie pour l\'épisode: $episodeId');
+    } catch (e) {
+      print('AA_DEBUG: Échec synchro Firestore (timeout/hors-ligne) : $e');
+    }
+
+    // B. Sync to Data Connect (ExampleConnector)
+    try {
+      final userResult = await ExampleConnector.instance
+          .findUserByGoogleId(googleId: uid)
+          .execute();
+      if (userResult.data.users.isNotEmpty) {
+        final postgresUuid = userResult.data.users.first.id;
+        final String formattedEpisodeId = _formatUuidForSync(episodeId);
+
+        int durationSeconds = 600;
+        await ExampleConnector.instance
+            .updateListenHistory(
+              userId: postgresUuid,
+              episodeId: formattedEpisodeId,
+              progressSeconds: BigInt.from(durationSeconds),
+              finishedListening: true,
+              listenedAt:
+                  Timestamp(DateTime.now().millisecondsSinceEpoch ~/ 1000, 0),
+            )
+            .execute();
+        print(
+            'AA_DEBUG: Synchro Data Connect réussie pour l\'épisode: $episodeId');
+      }
+    } catch (e) {
+      print('AA_DEBUG: Échec synchro Data Connect: $e');
+    }
+  }
+
+  String _formatUuidForSync(String rawId) {
+    if (rawId.contains('-')) return rawId;
+    if (rawId.length == 32) {
+      return '${rawId.substring(0, 8)}-${rawId.substring(8, 12)}-${rawId.substring(12, 16)}-${rawId.substring(16, 20)}-${rawId.substring(20, 32)}';
+    }
+    return rawId;
   }
 
   Future<List<PodcastModel>> getPodcastsByThemeWithCache(String theme) async {
@@ -617,6 +930,35 @@ class DatabaseRepository {
           return cached;
         }
       } catch (_) {}
+      return [];
+    }
+  }
+
+  Future<List<EpisodeModel>> getReadEpisodesHistory() async {
+    try {
+      final db = await DatabaseHelper().database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'episodes_status',
+        where: 'isRead = ?',
+        whereArgs: [1],
+        orderBy: 'readAt DESC',
+      );
+
+      return maps.map((map) {
+        return EpisodeModel(
+          id: map['episodeId'] as String,
+          title: map['title'] as String? ?? 'Sans titre',
+          audioUrl: map['audioUrl'] as String? ?? '',
+          imageUrl: map['imageUrl'] as String? ?? '',
+          podcastName: map['podcastName'] as String? ?? '',
+          pubDate: map['pubDate'] != null
+              ? DateTime.tryParse(map['pubDate'] as String) ?? DateTime.now()
+              : DateTime.now(),
+          description: map['description'] as String? ?? '',
+        );
+      }).toList();
+    } catch (e) {
+      print("AA_DEBUG: Erreur getReadEpisodesHistory: $e");
       return [];
     }
   }

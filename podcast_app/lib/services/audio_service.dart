@@ -1,11 +1,8 @@
 import 'package:flutter/foundation.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_data_connect/firebase_data_connect.dart';
 import 'package:audio_service/audio_service.dart';
-import '../dataconnect-generated/example.dart';
 import 'podstream_audio_handler.dart'; // Pour accéder à podstreamAudioHandler
 import 'package:podcast_app/services/audio_handler_locator.dart'; // Pour accéder à l'instance globale globalAudioHandler
-import 'package:shared_preferences/shared_preferences.dart';
+import 'database_repository.dart';
 
 class AudioEpisode {
   final String id;
@@ -181,14 +178,6 @@ class AudioService {
         .seek(newPosition < Duration.zero ? Duration.zero : newPosition);
   }
 
-  String _formatUuid(String rawId) {
-    if (rawId.contains('-')) return rawId;
-    if (rawId.length == 32) {
-      return '${rawId.substring(0, 8)}-${rawId.substring(8, 12)}-${rawId.substring(12, 16)}-${rawId.substring(16, 20)}-${rawId.substring(20, 32)}';
-    }
-    return rawId;
-  }
-
   /// Marque l'épisode actuellement actif comme lu
   Future<bool> markAsRead() async {
     final episode = currentEpisodeNotifier.value;
@@ -241,62 +230,8 @@ class AudioService {
         }
       }
 
-      // 2. Persistance dans Firestore (finishedListening = true)
-      final user = FirebaseAuth.instance.currentUser;
-      bool useMockFallback = episodeId.startsWith('mock_');
-
-      if (user != null && !useMockFallback) {
-        try {
-          final userResult = await ExampleConnector.instance
-              .findUserByGoogleId(googleId: user.uid)
-              .execute();
-          if (userResult.data.users.isNotEmpty) {
-            final postgresUuid = userResult.data.users.first.id;
-            final formattedEpisodeId = _formatUuid(episodeId);
-
-            int durationSeconds = 600;
-            if (globalAudioHandler != null) {
-              final activeMediaItem = globalAudioHandler!.mediaItem.value;
-              if (activeMediaItem != null) {
-                final activeEpisodeId =
-                    activeMediaItem.extras?['episodeId'] as String? ??
-                        activeMediaItem.id;
-                if (activeEpisodeId == episodeId ||
-                    activeMediaItem.id == audioUrl) {
-                  durationSeconds = activeMediaItem.duration?.inSeconds ?? 600;
-                }
-              }
-            }
-
-            await ExampleConnector.instance
-                .updateListenHistory(
-                  userId: postgresUuid,
-                  episodeId: formattedEpisodeId,
-                  progressSeconds: BigInt.from(durationSeconds),
-                  finishedListening: true,
-                  listenedAt: Timestamp(
-                      DateTime.now().millisecondsSinceEpoch ~/ 1000, 0),
-                )
-                .execute();
-          }
-        } catch (e) {
-          print('AA_DEBUG_GRAPHQL_ERROR: updateListenHistory failed: $e');
-        }
-      } else {
-        useMockFallback = true;
-      }
-
-      // 3. Sauvegarde locale dans les SharedPreferences (inconditionnelle pour masquage instantané)
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        final localReadList = prefs.getStringList('local_read_episodes') ?? [];
-        if (!localReadList.contains(episodeId)) {
-          localReadList.add(episodeId);
-          await prefs.setStringList('local_read_episodes', localReadList);
-        }
-      } catch (e) {
-        print("Erreur SharedPreferences markEpisodeAsRead: $e");
-      }
+      // 2. Déléguer les écritures SQLite/SharedPreferences/Firestore/Data Connect au DatabaseRepository
+      await DatabaseRepository().markEpisodeAsRead(episodeId);
 
       // Déclencher le rafraîchissement des listes
       listRefreshNotifier.value++;

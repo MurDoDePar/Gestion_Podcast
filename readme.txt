@@ -94,6 +94,32 @@ L'application Flutter est structurée en plusieurs dossiers clés dans /podcast_
    - EpisodeListTile (episode_list_tile.dart) : Composant graphique représentant un épisode avec son bouton de lecture rapide, 
       son indicateur de lecture (pastille de statut) et son résumé disponible en popup.
 
+5. Structure de la Base de Données Locale (SQLite)
+   La base de données locale `podstream.db` est gérée par DatabaseHelper (dans /lib/services/database_helper.dart). Elle contient les tables suivantes :
+
+   - Table `my_podcasts` (Abonnements locaux et ordre de tri) :
+     * `feedUrl` (TEXT PRIMARY KEY) : URL du flux RSS du podcast.
+     * `collectionId` (INTEGER) : Identifiant de la collection.
+     * `collectionName` (TEXT) : Nom du podcast.
+     * `artistName` (TEXT) : Nom de l'artiste/auteur.
+     * `artworkUrl` (TEXT) : URL de l'image de couverture.
+     * `sortOrder` (INTEGER) : Ordre d'affichage (Drag & Drop).
+     * `isSynced` (INTEGER) : Statut de synchronisation avec Firebase (0 = non synchronisé, 1 = synchronisé).
+
+   - Table `episodes_status` (Historique des épisodes lus) :
+     * `episodeId` (TEXT PRIMARY KEY) : Identifiant unique de l'épisode.
+     * `isRead` (INTEGER) : Statut lu (0 = non lu, 1 = lu).
+
+   - Table `themes_cache` (Cache hebdomadaire des thèmes) :
+     * `id` (INTEGER PRIMARY KEY AUTOINCREMENT) : Clé primaire.
+     * `theme` (TEXT) : Nom de la thématique (indexé).
+     * `collectionId` (INTEGER) : Identifiant de la collection.
+     * `collectionName` (TEXT) : Nom du podcast.
+     * `artistName` (TEXT) : Nom de l'artiste.
+     * `artworkUrl` (TEXT) : URL de l'image de couverture.
+     * `feedUrl` (TEXT) : URL du flux.
+     * `cachedAt` (INTEGER) : Timestamp d'enregistrement du cache (millisecondes).
+
 Instructions de Compilation et Vérification
 -------------------------------------------
 Il est fortement recommandé d'exécuter le script `_compil.bat` pour générer vos fichiers. Ce script va :

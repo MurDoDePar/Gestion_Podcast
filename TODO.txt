@@ -1,3 +1,21 @@
+- gestion de la liste a écouter et du lecteur. a vérifier et corriger si nécessaire.
+    - l'épisode en cours de lecture est le premier de la liste 'a écouter'
+    - quand un episode est lu,
+        - charger l'episode suivant en memoire cache 
+            pour eviter un temps d'attente trop logn entre 2 episodes.
+            verifier qu'il n'y a qu'un episode en cache
+        - il faut le marquer comme lu c'est a dire l'enregistrer en DB (sqlite table episodes_status)
+        - il faut rafraichir la liste 'a écouter'
+        - lancer en lecture l'episode suivant : 
+            l'episode suivant est le premier de la liste 'a écouter' mise à jour 
+            c'est a dire la liste 'a ecouter' sans les episode deja lu.
+            vide le cache des episodes a lire
+    - sur un chamgement d'ordre de 'mes podcasts' (glisser poser),
+        - il faut rafraichir la liste 'a écouter'
+        - vide la memoire cache des episodes
+
+- au chagement d'ordre de 'mes podcasts' il faut vider la memoire cache et la rafrichir
+
 
 - onglet affinité : 
     ce sont les podcast que d'autre utilisateurs écoutent et ont dans leur liste 'mes podcasts' 
@@ -8,6 +26,7 @@
 
 - le lecteur d'episode de Android auto (sur l'ecran de la voiture doit etre -30s, Play/Pause, +30s)
 
+- si tu lance _compil.bat montre moi l'avancement, affiche la log dans le console.
 -------------------------------------------------------------------------------------------------------------------
 A tester :
 

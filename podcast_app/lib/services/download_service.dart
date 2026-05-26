@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 
 enum DownloadStatus {
   idle,
@@ -207,5 +208,56 @@ class DownloadService {
       debugPrint(
           "DownloadService: Impossible de nettoyer le fichier temporaire: $e");
     }
+  }
+
+  /// Supprime tous les fichiers cache (mp3 et tmp) sauf celui de l'épisode spécifié.
+  /// Attend que les fichiers soient supprimés avant de renvoyer la main pour éviter la concurrence.
+  Future<void> clearCacheExcept(String episodeId) async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final downloadDir = Directory('${directory.path}/downloads');
+      if (await downloadDir.exists()) {
+        final safeName = _getSafeFileName(episodeId);
+        final safeTempName = '$safeName.tmp';
+
+        final List<FileSystemEntity> files = await downloadDir.list().toList();
+        for (var file in files) {
+          if (file is File) {
+            final filename = p.basename(file.path);
+            // On ne supprime que les .mp3 et .tmp obsolètes
+            if ((filename.endsWith('.mp3') || filename.endsWith('.tmp')) &&
+                filename != safeName &&
+                filename != safeTempName) {
+              try {
+                await file.delete();
+                debugPrint(
+                    "DownloadService [clearCacheExcept]: Supprimé le fichier cache obsolète $filename");
+              } catch (e) {
+                debugPrint("DownloadService error deleting file $filename: $e");
+              }
+            }
+          }
+        }
+      }
+
+      // Notification de l'UI pour tous les autres épisodes supprimés
+      _statusNotifiers.forEach((key, notifier) {
+        if (key != episodeId && notifier.value != DownloadStatus.idle) {
+          notifier.value = DownloadStatus.idle;
+        }
+      });
+      _progressNotifiers.forEach((key, notifier) {
+        if (key != episodeId && notifier.value != 0.0) {
+          notifier.value = 0.0;
+        }
+      });
+    } catch (e) {
+      debugPrint("DownloadService error [clearCacheExcept]: $e");
+    }
+  }
+
+  /// Alias asynchrone pour télécharger un épisode
+  Future<void> download(String episodeId, String url) async {
+    await downloadEpisode(episodeId, url);
   }
 }

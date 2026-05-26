@@ -379,7 +379,7 @@ class PodcastRepository {
       return allEpisodes;
     } catch (e) {
       print("Erreur PodcastRepository.fetchAllRecentEpisodes: $e");
-      return [];
+      rethrow;
     }
   }
 }

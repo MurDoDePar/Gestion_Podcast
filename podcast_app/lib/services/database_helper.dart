@@ -23,8 +23,9 @@ class DatabaseHelper {
     final pathString = join(dbPath, 'podstream.db');
     return await openDatabase(
       pathString,
-      version: 1,
+      version: 2,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -42,13 +43,24 @@ class DatabaseHelper {
       )
     ''');
 
-    // 2. episodes_status Table: stores read/unread status of episodes
+    // 2. episodes_status Table: stores read/unread status of episodes and metadata
     await db.execute('''
       CREATE TABLE episodes_status (
         episodeId TEXT PRIMARY KEY,
-        isRead INTEGER DEFAULT 0
+        isRead INTEGER DEFAULT 0,
+        readAt INTEGER,
+        title TEXT,
+        audioUrl TEXT,
+        imageUrl TEXT,
+        podcastName TEXT,
+        pubDate TEXT,
+        description TEXT
       )
     ''');
+
+    // Create index on episodes_status.readAt for fast history ordering
+    await db.execute(
+        'CREATE INDEX idx_episodes_status_readAt ON episodes_status(readAt)');
 
     // 3. themes_cache Table: caches weekly podcast results for themes
     await db.execute('''
@@ -67,6 +79,30 @@ class DatabaseHelper {
     // Create index on themes_cache.theme for fast queries
     await db
         .execute('CREATE INDEX idx_themes_cache_theme ON themes_cache(theme)');
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      try {
+        await db
+            .execute('ALTER TABLE episodes_status ADD COLUMN readAt INTEGER');
+        await db.execute('ALTER TABLE episodes_status ADD COLUMN title TEXT');
+        await db
+            .execute('ALTER TABLE episodes_status ADD COLUMN audioUrl TEXT');
+        await db
+            .execute('ALTER TABLE episodes_status ADD COLUMN imageUrl TEXT');
+        await db
+            .execute('ALTER TABLE episodes_status ADD COLUMN podcastName TEXT');
+        await db.execute('ALTER TABLE episodes_status ADD COLUMN pubDate TEXT');
+        await db
+            .execute('ALTER TABLE episodes_status ADD COLUMN description TEXT');
+        await db.execute(
+            'CREATE INDEX idx_episodes_status_readAt ON episodes_status(readAt)');
+      } catch (e) {
+        debugPrint(
+            "AA_DEBUG: Erreur lors de la mise à jour des colonnes de episodes_status : $e");
+      }
+    }
   }
 
   Future<bool> isTableEmpty(String tableName) async {
@@ -167,13 +203,29 @@ class DatabaseHelper {
 
   // --- EPISODES STATUS OPERATIONS ---
 
-  Future<void> markEpisodeAsRead(String episodeId) async {
+  Future<void> markEpisodeAsRead(
+    String episodeId, {
+    String? title,
+    String? audioUrl,
+    String? imageUrl,
+    String? podcastName,
+    String? pubDate,
+    String? description,
+  }) async {
     final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
     await db.insert(
       'episodes_status',
       {
         'episodeId': episodeId,
         'isRead': 1,
+        'readAt': now,
+        'title': title,
+        'audioUrl': audioUrl,
+        'imageUrl': imageUrl,
+        'podcastName': podcastName,
+        'pubDate': pubDate,
+        'description': description,
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );

@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:firebase_data_connect/firebase_data_connect.dart';
-import '../dataconnect-generated/example.dart';
 import '../theme/app_theme.dart';
 import '../widgets/mini_player.dart';
 import '../services/database_repository.dart';
 import 'tabs/my_podcasts_tab.dart';
 import 'tabs/themes_tab.dart';
 import 'tabs/discover_tab.dart';
+import 'tabs/history_tab.dart';
 import 'tabs/search_tab.dart';
 import 'settings_screen.dart';
 
@@ -37,9 +35,6 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Future<void> _initApp() async {
-    // Nettoyage asynchrone du cache populaire
-    _cleanObsoletePopularCache();
-
     // Initialisation de la base SQLite et retry sous timeout de 10 secondes
     try {
       await DatabaseRepository().init().timeout(
@@ -51,35 +46,6 @@ class _MainScreenState extends State<MainScreen> {
       );
     } catch (e) {
       debugPrint("AA_DEBUG: Erreur lors de l'initialisation de SQLite : $e");
-    }
-  }
-
-  Future<void> _cleanObsoletePopularCache() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final alreadyCleaned = prefs.getBool('popular_cache_cleaned_v2') ?? false;
-      if (!alreadyCleaned) {
-        final languages = ['fr', 'en', 'es', 'de', 'all'];
-        for (var lang in languages) {
-          final cacheKey = 'popular_$lang';
-          try {
-            await ExampleConnector.instance
-                .upsertAppCache(
-                  id: cacheKey,
-                  data: AnyValue('[]'),
-                  updatedAt: Timestamp(0, 0),
-                )
-                .execute();
-            debugPrint(
-                "AA_DEBUG: cleaned DataConnect cache for key: $cacheKey");
-          } catch (e) {
-            debugPrint("AA_DEBUG: error cleaning cache key $cacheKey: $e");
-          }
-        }
-        await prefs.setBool('popular_cache_cleaned_v2', true);
-      }
-    } catch (e) {
-      debugPrint("Erreur cleanObsoletePopularCache: $e");
     }
   }
 
@@ -173,7 +139,7 @@ class _AccueilView extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child: DefaultTabController(
-        length: 3,
+        length: 4,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -213,6 +179,7 @@ class _AccueilView extends StatelessWidget {
                   Tab(text: "Mes podcasts"),
                   Tab(text: "Par thème"),
                   Tab(text: "Affinités"),
+                  Tab(text: "Historique"),
                 ],
               ),
             ),
@@ -223,6 +190,7 @@ class _AccueilView extends StatelessWidget {
                   MyPodcastsTab(),
                   ThemesTab(),
                   DiscoverTab(),
+                  HistoryTab(),
                 ],
               ),
             ),

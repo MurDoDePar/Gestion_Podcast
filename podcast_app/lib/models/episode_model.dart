@@ -77,4 +77,16 @@ class EpisodeModel {
       pubDate: parsedPubDate,
     );
   }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'audioUrl': audioUrl,
+      'title': title,
+      'podcastName': podcastName,
+      'imageUrl': imageUrl,
+      'description': description,
+      'pubDate': pubDate?.toIso8601String(),
+    };
+  }
 }

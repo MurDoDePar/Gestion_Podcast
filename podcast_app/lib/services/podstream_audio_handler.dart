@@ -2,7 +2,6 @@ import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
-import 'mark_as_read_service.dart';
 import 'database_repository.dart';
 import 'download_service.dart';
 
@@ -139,18 +138,18 @@ class PodStreamAudioHandler extends BaseAudioHandler
 
   // Écouteur pour l'Auto-Play et le marquage automatique
   void _initPlaybackListeners() {
-    playbackState.listen((state) async {
+    _player.playerStateStream.listen((state) async {
       final currentMediaId = mediaItem.value?.extras?['episodeId'] as String? ??
           mediaItem.value?.id;
 
-      if (state.processingState == AudioProcessingState.completed &&
+      if (state.processingState == ProcessingState.completed &&
           currentMediaId != null &&
           currentMediaId != _lastMarkedEpisodeId) {
         _lastMarkedEpisodeId = currentMediaId;
         _logAA("Auto-marquage et enchaînement pour : $currentMediaId");
 
         // 1. Marquer comme lu
-        await MarkAsReadService().markAsRead(currentMediaId);
+        await DatabaseRepository().markEpisodeAsRead(currentMediaId);
 
         // 2. Attente de persistance
         await Future.delayed(const Duration(milliseconds: 500));
@@ -276,6 +275,14 @@ class PodStreamAudioHandler extends BaseAudioHandler
         final next = nextEpisodes.first;
         _logAA("_playNextOrStop: Prochain épisode légitime : ${next.title}");
 
+        // 1. Supprimer le cache de tous les autres épisodes sauf le prochain
+        await DownloadService().clearCacheExcept(next.id);
+
+        // 2. Démarrer/Vérifier le téléchargement du prochain épisode en arrière-plan
+        // Ne pas await pour permettre le démarrage immédiat de la lecture (en local si déjà
+        // téléchargé via prefetch, ou en streaming s'il reste une partie à charger).
+        DownloadService().download(next.id, next.audioUrl);
+
         final media = MediaItem(
           id: next.audioUrl,
           title: next.title,
@@ -284,10 +291,10 @@ class PodStreamAudioHandler extends BaseAudioHandler
           extras: {'episodeId': next.id, 'url': next.audioUrl},
         );
 
-        // 1. On nettoie la file avant d'ajouter
+        // 3. On nettoie la file avant d'ajouter
         queue.add([]);
 
-        // 2. On utilise playMediaItem pour charger ET jouer proprement
+        // 4. On utilise playMediaItem pour charger ET jouer proprement le suivant
         await playMediaItem(media);
       } else {
         _logAA("_playNextOrStop: File vide, arrêt.");
@@ -361,7 +368,7 @@ class PodStreamAudioHandler extends BaseAudioHandler
             mediaItem.value?.extras?['episodeId'] as String? ??
                 mediaItem.value?.id;
         if (currentMediaId != null) {
-          await MarkAsReadService().markAsRead(currentMediaId);
+          await DatabaseRepository().markEpisodeAsRead(currentMediaId);
           await _playNextOrStop();
         }
         break;
