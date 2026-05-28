@@ -1,8 +1,8 @@
-- Test Manuel Phase 1 (Migration SharedPreferences) :
+- Test Manuel Phase 1 (Migration SharedPreferences) : > fait
     Simuler des données SharedPreferences (cache_my_podcasts et local_read_episodes).
     Lancer l'application, vérifier les insertions SQLite.
     Vérifier que les clés SharedPreferences ont été nettoyées si et seulement si les abonnements et l'historique apparaissent dans SQLite.
-- Test Manuel Phase 2 (Écritures SQLite Bloquantes) :
+- Test Manuel Phase 2 (Écritures SQLite Bloquantes) : > fait
     Injecter temporairement une exception SQLite simulée (ex: erreur de table bloquée).
     Appeler markEpisodeAsRead().
     Vérifier que le cache local cache_episodes_to_listen n'est pas altéré et que Firebase n'est pas contacté.
@@ -10,7 +10,13 @@
     Exécuter le script avec l'option dry-run et vérifier la console.
     Exécuter le script en conditions réelles et vérifier la disparition des collections obsolètes dans la console Firestore.
 
-- supprimer les log
+- supprimer les logs
+
+- multi langue : 
+    allemand, anglais, bulgare, croate, danois, espagnol, 
+    estonien, finnois, français, grec, hongrois, irlandais, 
+    italien, letton, lituanien, maltais, néerlandais, polonais, 
+    portugais, roumain, slovaque, slovène, suédois et tchèque.
 
 - le lecteur d'episode de Android auto (sur l'ecran de la voiture doit etre -30s, Play/Pause, +30s)
 

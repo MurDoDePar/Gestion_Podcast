@@ -21,23 +21,32 @@ set APP_DIR=%ROOT%podcast_app
 set OUTPUT_AAB=%APP_DIR%\build\app\outputs\bundle\release\app-release.aab
 
 :: ---------------------------------------------------------
-:: ETAPE 1 -- Build du AAB Release avec Flutter
+:: ETAPE 1 -- Verification ou compilation du AAB Release
 :: ---------------------------------------------------------
-echo [1/3] Compilation du bundle Android (AAB Release)...
-echo (La preparation et le nettoyage sont realises par _compil.bat)
+echo [1/3] Verification du bundle Android (AAB Release)...
 
-cd /d "%APP_DIR%"
-
-call flutter build appbundle --release --build-name=%APP_VERSION% --build-number=%APP_BUILD_NUMBER%
-if errorlevel 1 (
+if not exist "%OUTPUT_AAB%" (
+    echo [INFO] Aucun fichier AAB trouve dans le dossier de build.
+    echo Lancement d'une compilation propre complete via _compil.bat...
     echo.
-    echo  ECHEC de la compilation Flutter.
-    echo  Consultez les erreurs ci-dessus.
-    pause
-    exit /b 1
+    cd /d "%ROOT%"
+    call _compil.bat
+    cd /d "%APP_DIR%"
+) else (
+    echo [INFO] Un bundle AAB recemment compile a ete trouve :
+    echo    %OUTPUT_AAB%
+    echo.
+    set /p CHOICE="Voulez-vous utiliser ce bundle existant (U) ou lancer une recompilation propre (R) ? [U/R] : "
+    if /I "!CHOICE!"=="R" (
+        echo Lancement d'une compilation propre complete via _compil.bat...
+        echo.
+        cd /d "%ROOT%"
+        call _compil.bat
+        cd /d "%APP_DIR%"
+    ) else (
+        echo [INFO] Utilisation du bundle AAB existant.
+    )
 )
-echo  OK : Compilation terminee
-echo.
 
 :: ---------------------------------------------------------
 :: ETAPE 2 -- Resultat

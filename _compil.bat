@@ -76,7 +76,7 @@ if !ERRORLEVEL! NEQ 0 (
 )
 
 echo.
-echo %CLR_CYAN%[1/6] Compilation de verification (flutter build apk)...%CLR_RESET%
+echo %CLR_CYAN%[1/7] Compilation de verification (flutter build apk)...%CLR_RESET%
 call flutter build apk > "%TEMP%\podstream_verify_apk.log" 2>&1
 if !ERRORLEVEL! NEQ 0 (
     echo %CLR_RED%[ERREUR] La compilation de verification a echoue !%CLR_RESET%
@@ -87,7 +87,7 @@ if !ERRORLEVEL! NEQ 0 (
 echo %CLR_GREEN%[SUCCES] Compilation de verification reussie !%CLR_RESET%
 echo.
 
-echo %CLR_CYAN%[2/6] Formatage et correction automatique du code...%CLR_RESET%
+echo %CLR_CYAN%[2/7] Formatage et correction automatique du code...%CLR_RESET%
 call dart format . > "%TEMP%\podstream_format.log" 2>&1
 if !ERRORLEVEL! NEQ 0 (
     echo %CLR_YELLOW%[ATTENTION] Des fichiers n'ont pas pu etre formates.%CLR_RESET%
@@ -99,7 +99,7 @@ if !ERRORLEVEL! NEQ 0 (
 echo %CLR_GREEN%[SUCCES] Formatage et corrections automatiques termines.%CLR_RESET%
 echo.
 
-echo %CLR_CYAN%[3/6] Lancement de l'analyse statique (flutter analyze)...%CLR_RESET%
+echo %CLR_CYAN%[3/7] Lancement de l'analyse statique (flutter analyze)...%CLR_RESET%
 call flutter analyze > "%TEMP%\podstream_analyze.log" 2>&1
 if !ERRORLEVEL! NEQ 0 (
     echo %CLR_RED%[ERREUR] Des problemes d'analyse statique ont ete trouves !%CLR_RESET%
@@ -110,7 +110,7 @@ if !ERRORLEVEL! NEQ 0 (
 echo %CLR_GREEN%[SUCCES] Analyse statique reussie (aucune erreur ni avertissement) !%CLR_RESET%
 echo.
 
-echo %CLR_CYAN%[4/6] Lancement des tests (flutter test)...%CLR_RESET%
+echo %CLR_CYAN%[4/7] Lancement des tests (flutter test)...%CLR_RESET%
 call flutter test > "%TEMP%\podstream_test.log" 2>&1
 if !ERRORLEVEL! NEQ 0 (
     echo %CLR_RED%[ERREUR] Un ou plusieurs tests ont echoue !%CLR_RESET%
@@ -121,7 +121,7 @@ if !ERRORLEVEL! NEQ 0 (
 echo %CLR_GREEN%[SUCCES] Tous les tests unitaires et de widgets sont passes !%CLR_RESET%
 echo.
 
-echo %CLR_CYAN%[5/6] Compilation de l'APK Release finale...%CLR_RESET%
+echo %CLR_CYAN%[5/7] Compilation de l'APK Release finale...%CLR_RESET%
 call flutter build apk --release > "%TEMP%\podstream_release_apk.log" 2>&1
 if !ERRORLEVEL! NEQ 0 (
     echo %CLR_RED%[ERREUR] La compilation de l'APK Release a echoue !%CLR_RESET%
@@ -132,7 +132,21 @@ if !ERRORLEVEL! NEQ 0 (
 echo %CLR_GREEN%[SUCCES] APK Release compilee avec succes !%CLR_RESET%
 echo.
 
-echo %CLR_CYAN%[6/6] Compilation de l'APK Debug finale...%CLR_RESET%
+echo %CLR_CYAN%[6/7] Compilation du bundle Android (AAB Release)...%CLR_RESET%
+cd android
+call gradlew.bat bundleRelease > "%TEMP%\podstream_release_aab.log" 2>&1
+set GRADLE_ERR=!ERRORLEVEL!
+cd ..
+if !GRADLE_ERR! NEQ 0 (
+    echo %CLR_RED%[ERREUR] La compilation du bundle Android AAB a echoue !%CLR_RESET%
+    echo %CLR_YELLOW%Dernieres lignes du log d'erreur [%TEMP%\podstream_release_aab.log] :%CLR_RESET%
+    powershell -Command "Get-Content '%TEMP%\podstream_release_aab.log' -Tail 20"
+    goto :erreur_fin
+)
+echo %CLR_GREEN%[SUCCES] Bundle Android AAB compile avec succes !%CLR_RESET%
+echo.
+
+echo %CLR_CYAN%[7/7] Compilation de l'APK Debug finale...%CLR_RESET%
 call flutter build apk --debug > "%TEMP%\podstream_debug_apk.log" 2>&1
 if !ERRORLEVEL! NEQ 0 (
     echo %CLR_RED%[ERREUR] La compilation de l'APK Debug a echoue !%CLR_RESET%
