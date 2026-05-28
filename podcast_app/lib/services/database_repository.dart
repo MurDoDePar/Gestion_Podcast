@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart' hide Timestamp;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_data_connect/firebase_data_connect.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../dataconnect-generated/example.dart';
 import '../models/episode_model.dart';
 import '../models/podcast_model.dart';
@@ -12,11 +13,20 @@ import 'podcast_repository.dart';
 import 'database_helper.dart';
 import 'itunes_service.dart';
 import 'audio_service.dart' as app_audio;
+import 'rss_service.dart';
+
+class UpdateRequiredException implements Exception {
+  final String message;
+  UpdateRequiredException(this.message);
+  @override
+  String toString() => message;
+}
 
 class DatabaseRepository {
   final CacheManager _cacheManager = CacheManager();
   static bool _isSyncing = false;
   static List<EpisodeModel>? _cachedEpisodesToListen;
+  static bool debugSimulateSqliteFailure = false;
 
   Future<List<EpisodeModel>> getMyEpisodes() async {
     const String cacheKey = 'my_episodes';
@@ -50,6 +60,153 @@ class DatabaseRepository {
     }
   }
 
+  Future<void> migrateFromPreferencesToSqlite() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Vérification double validation : Si la migration a déjà été validée et enregistrée, on ignore.
+      final doneVersion = prefs.getInt('migration_done_version') ?? 0;
+      if (doneVersion >= 1) {
+        print(
+            'AA_DEBUG: Migration des préférences déjà effectuée (version $doneVersion). Passage.');
+        return;
+      }
+
+      final helper = DatabaseHelper();
+      bool subscriptionsMigrationOk = true;
+      bool readHistoryMigrationOk = true;
+
+      // 1. Migration des abonnements (cache_my_podcasts)
+      if (prefs.containsKey('cache_my_podcasts')) {
+        final cachedStr = prefs.getString('cache_my_podcasts');
+        if (cachedStr != null && cachedStr.isNotEmpty) {
+          final List<dynamic> decoded = jsonDecode(cachedStr);
+          final List<String> expectedFeedUrls = [];
+
+          for (var item in decoded) {
+            try {
+              final podcastData = item['podcast'] as Map<String, dynamic>?;
+              if (podcastData != null) {
+                final feedUrl = podcastData['feedUrl']?.toString() ?? '';
+                if (feedUrl.isNotEmpty) {
+                  final podcast = PodcastModel(
+                    collectionId:
+                        int.tryParse(podcastData['id']?.toString() ?? ''),
+                    collectionName:
+                        podcastData['title']?.toString() ?? 'Sans titre',
+                    artistName: podcastData['author']?.toString() ?? 'Inconnu',
+                    artworkUrl: podcastData['imageUrl']?.toString() ?? '',
+                    feedUrl: feedUrl,
+                  );
+                  final sortOrder = item['listOrder'] as int? ?? 0;
+                  await helper.insertPodcast(podcast, sortOrder, isSynced: 1);
+                  expectedFeedUrls.add(feedUrl);
+                }
+              }
+            } catch (err) {
+              print(
+                  'AA_DEBUG: Erreur lors de la migration d\'un abonnement pref : $err');
+              subscriptionsMigrationOk = false;
+            }
+          }
+
+          // Validation stricte post-migration pour les abonnements
+          if (subscriptionsMigrationOk && expectedFeedUrls.isNotEmpty) {
+            final sqliteSubs = await helper.getSubscribedPodcasts();
+            final sqliteFeedUrls = sqliteSubs.map((p) => p.feedUrl).toSet();
+
+            bool allFound = true;
+            for (var expectedUrl in expectedFeedUrls) {
+              if (!sqliteFeedUrls.contains(expectedUrl)) {
+                allFound = false;
+                print(
+                    'AA_DEBUG: Validation Échouée - Flux abonnement absent de SQLite: $expectedUrl');
+                break;
+              }
+            }
+
+            if (allFound) {
+              print(
+                  'AA_DEBUG: Migration et validation des abonnements réussies (${expectedFeedUrls.length} abonnements vérifiés). Nettoyage SharedPreferences.');
+              await prefs.remove('cache_my_podcasts');
+            } else {
+              subscriptionsMigrationOk = false;
+              print(
+                  'AA_DEBUG: ERREUR CRITIQUE - Échec de validation d\'intégrité des abonnements insérés.');
+            }
+          } else if (expectedFeedUrls.isEmpty) {
+            // Aucun abonnement à migrer, c'est OK
+            await prefs.remove('cache_my_podcasts');
+          }
+        } else {
+          await prefs.remove('cache_my_podcasts');
+        }
+      }
+
+      // 2. Migration de l'historique de lecture (local_read_episodes)
+      if (prefs.containsKey('local_read_episodes')) {
+        final readList = prefs.getStringList('local_read_episodes');
+        if (readList != null && readList.isNotEmpty) {
+          final List<String> expectedReadEpisodes = [];
+          for (var epId in readList) {
+            try {
+              final isRead = await helper.isEpisodeRead(epId);
+              if (!isRead) {
+                await helper.markEpisodeAsRead(epId);
+              }
+              expectedReadEpisodes.add(epId);
+            } catch (err) {
+              print(
+                  'AA_DEBUG: Erreur lors de la migration d\'un statut de lecture pref : $err');
+              readHistoryMigrationOk = false;
+            }
+          }
+
+          // Validation stricte post-migration pour l'historique de lecture
+          if (readHistoryMigrationOk && expectedReadEpisodes.isNotEmpty) {
+            bool allFound = true;
+            for (var epId in expectedReadEpisodes) {
+              final verifiedRead = await helper.isEpisodeRead(epId);
+              if (!verifiedRead) {
+                allFound = false;
+                print(
+                    'AA_DEBUG: Validation Échouée - Épisode non marqué comme lu dans SQLite: $epId');
+                break;
+              }
+            }
+
+            if (allFound) {
+              print(
+                  'AA_DEBUG: Migration et validation de l\'historique réussies (${expectedReadEpisodes.length} épisodes vérifiés). Nettoyage SharedPreferences.');
+              await prefs.remove('local_read_episodes');
+            } else {
+              readHistoryMigrationOk = false;
+              print(
+                  'AA_DEBUG: ERREUR CRITIQUE - Échec de validation d\'intégrité de l\'historique de lecture.');
+            }
+          } else if (expectedReadEpisodes.isEmpty) {
+            await prefs.remove('local_read_episodes');
+          }
+        } else {
+          await prefs.remove('local_read_episodes');
+        }
+      }
+
+      // Si l'une des migrations a rencontré un problème d'intégrité, on ne marque pas comme totalement terminé pour permettre un retry.
+      if (subscriptionsMigrationOk && readHistoryMigrationOk) {
+        await prefs.setInt('migration_done_version', 1);
+        print(
+            'AA_DEBUG: Migration SharedPreferences -> SQLite validée globalement et enregistrée.');
+      } else {
+        print(
+            'AA_DEBUG: ATTENTION - Une ou plusieurs étapes de migration ont échoué la validation. La migration globale sera retentée au prochain lancement.');
+      }
+    } catch (e) {
+      print(
+          'AA_DEBUG: Erreur globale lors de la migration SharedPreferences -> SQLite : $e');
+    }
+  }
+
   Future<void> ensureInitialized() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -66,7 +223,43 @@ class DatabaseRepository {
     }
   }
 
+  Future<void> checkRemoteVersionAndRequirements() async {
+    try {
+      final configDoc = await FirebaseFirestore.instance
+          .collection('system')
+          .doc('config')
+          .get(const GetOptions(source: Source.serverAndCache))
+          .timeout(const Duration(seconds: 4));
+
+      if (!configDoc.exists) return;
+
+      final data = configDoc.data()!;
+      final minSupportedBuild = data['min_supported_build'] as int? ?? 0;
+      final killSwitchActive = data['kill_switch_active'] as bool? ?? false;
+      final messages = data['deprecation_messages'] as Map<String, dynamic>?;
+
+      // Récupérer le build number actuel de l'application
+      final packageInfo = await PackageInfo.fromPlatform();
+      final currentBuild = int.tryParse(packageInfo.buildNumber) ?? 0;
+
+      if (killSwitchActive || currentBuild < minSupportedBuild) {
+        final errorMsg = messages?['fr'] ??
+            "Une mise à jour importante est requise pour continuer à utiliser PodStream.";
+        throw UpdateRequiredException(errorMsg);
+      }
+    } on UpdateRequiredException {
+      rethrow;
+    } catch (e) {
+      // En cas de problème réseau temporaire ou d'indisponibilité de Firestore,
+      // on tolère le démarrage en mode dégradé (Offline-First) plutôt que de bloquer l'utilisateur.
+      print(
+          "AA_DEBUG: Impossible de vérifier la version distante : $e. Mode hors-ligne actif.");
+    }
+  }
+
   Future<void> init() async {
+    await checkRemoteVersionAndRequirements();
+    await migrateFromPreferencesToSqlite();
     await ensureInitialized();
     await _cleanObsoletePopularCache();
     await retryUnsyncedOrders();
@@ -121,6 +314,151 @@ class DatabaseRepository {
     }
   }
 
+  Future<List<PodcastModel>> getAffinityPodcasts() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return [];
+
+    const String cacheKey = 'affinity_podcasts_cache';
+    final prefs = await SharedPreferences.getInstance();
+
+    try {
+      // 1. Récupérer les abonnements locaux (SQLite)
+      final localSubs = await DatabaseHelper().getSubscribedPodcasts();
+      final localFeedUrls = localSubs
+          .map((p) => p.feedUrl)
+          .where((url) => url.isNotEmpty)
+          .toSet();
+
+      if (localFeedUrls.isEmpty) {
+        return [];
+      }
+
+      // 2. Trouver les utilisateurs ayant au moins un podcast en commun
+      // Firestore 'whereIn' est limité à 30 éléments max. On découpe notre liste.
+      final List<String> localFeedUrlsList = localFeedUrls.toList();
+      final List<List<String>> chunks = [];
+      for (var i = 0; i < localFeedUrlsList.length; i += 30) {
+        chunks.add(localFeedUrlsList.sublist(
+          i,
+          i + 30 > localFeedUrlsList.length ? localFeedUrlsList.length : i + 30,
+        ));
+      }
+
+      final Map<String, int> peerOverlapCounts =
+          {}; // peerUserId -> overlap count
+
+      // Effectuer les requêtes de recherche de pairs en parallèle
+      final List<Future<QuerySnapshot>> peerQueries = chunks.map((chunk) {
+        return FirebaseFirestore.instance
+            .collection('subscriptions')
+            .where('feedUrl', whereIn: chunk)
+            .get();
+      }).toList();
+
+      final List<QuerySnapshot> peerSnapshots = await Future.wait(peerQueries);
+
+      for (var snapshot in peerSnapshots) {
+        for (var doc in snapshot.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final peerId = data['userId'] as String?;
+          if (peerId != null && peerId != user.uid) {
+            peerOverlapCounts[peerId] = (peerOverlapCounts[peerId] ?? 0) + 1;
+          }
+        }
+      }
+
+      if (peerOverlapCounts.isEmpty) {
+        return [];
+      }
+
+      // Trier les pairs par score d'affinité décroissant et garder le top 10 pour limiter les lectures
+      final sortedPeers = peerOverlapCounts.entries.toList()
+        ..sort((a, b) => b.value.compareTo(a.value));
+      final topPeers = sortedPeers.take(10).map((e) => e.key).toList();
+
+      // 3. Récupérer tous les abonnements de ces pairs en parallèle
+      final List<Future<QuerySnapshot>> peerSubsQueries =
+          topPeers.map((peerId) {
+        return FirebaseFirestore.instance
+            .collection('subscriptions')
+            .where('userId', isEqualTo: peerId)
+            .get();
+      }).toList();
+
+      final List<QuerySnapshot> peerSubsSnapshots =
+          await Future.wait(peerSubsQueries);
+
+      final Map<String, PodcastModel> recommendedPodcasts = {};
+      final Map<String, double> recommendedScores =
+          {}; // feedUrl -> score cumulé
+
+      for (int i = 0; i < topPeers.length; i++) {
+        final peerId = topPeers[i];
+        final peerAffinityWeight = peerOverlapCounts[peerId] ?? 1;
+        final snapshot = peerSubsSnapshots[i];
+
+        for (var doc in snapshot.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final feedUrl = data['feedUrl'] as String?;
+          if (feedUrl == null || feedUrl.isEmpty) continue;
+
+          // Exclure les podcasts déjà possédés par l'utilisateur connecté
+          if (localFeedUrls.contains(feedUrl)) continue;
+
+          // Si pas encore recommandé, extraire les métadonnées
+          if (!recommendedPodcasts.containsKey(feedUrl)) {
+            recommendedPodcasts[feedUrl] = PodcastModel(
+              collectionName:
+                  data['collectionName']?.toString() ?? 'Sans titre',
+              artistName: data['artistName']?.toString() ?? 'Artiste inconnu',
+              artworkUrl: data['artworkUrl600']?.toString() ??
+                  data['artworkUrl100']?.toString() ??
+                  '',
+              feedUrl: feedUrl,
+              collectionId: data['collectionId'] is int?
+                  ? data['collectionId'] as int?
+                  : int.tryParse(data['collectionId']?.toString() ?? ''),
+            );
+          }
+
+          // Accumuler le score : plus le pair a d'affinité, plus son avis pèse
+          recommendedScores[feedUrl] =
+              (recommendedScores[feedUrl] ?? 0) + peerAffinityWeight;
+        }
+      }
+
+      // 4. Classer les recommandations par score d'affinité décroissant
+      final sortedRecommendations = recommendedScores.entries.toList()
+        ..sort((a, b) => b.value.compareTo(a.value));
+
+      final List<PodcastModel> result = sortedRecommendations
+          .map((entry) => recommendedPodcasts[entry.key]!)
+          .toList();
+
+      // Sauvegarder dans le cache local (SharedPreferences) pour le support Offline-First
+      final jsonList = result.map((p) => p.toMap()).toList();
+      await prefs.setString(cacheKey, jsonEncode(jsonList));
+
+      return result;
+    } catch (e) {
+      print(
+          "AA_DEBUG: Erreur dans getAffinityPodcasts, chargement du cache : $e");
+
+      // Fallback hors-ligne : lire le dernier calcul depuis le cache local
+      final cachedJson = prefs.getString(cacheKey);
+      if (cachedJson != null) {
+        try {
+          final List<dynamic> decoded = jsonDecode(cachedJson);
+          return decoded
+              .map(
+                  (item) => PodcastModel.fromJson(item as Map<String, dynamic>))
+              .toList();
+        } catch (_) {}
+      }
+      return [];
+    }
+  }
+
   Future<void> initializeFromFirebase() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -137,8 +475,24 @@ class DatabaseRepository {
 
       // A. Essayer Data Connect
       try {
-        final subs = await PodcastRepository.fetchPodcasts(user.uid);
-        if (subs.isNotEmpty) {
+        final userResult = await ExampleConnector.instance
+            .findUserByGoogleId(googleId: user.uid)
+            .execute();
+        final users = userResult.data.users;
+        if (users.isNotEmpty) {
+          final postgresUuid = users.first.id;
+          final subsResult = await ExampleConnector.instance
+              .getMySubscriptions(userId: postgresUuid)
+              .execute();
+          final subs = subsResult.data.subscriptionTypes.toList();
+          subs.sort((a, b) {
+            final orderA = a.listOrder ?? 9999;
+            final orderB = b.listOrder ?? 9999;
+            if (orderA == orderB) {
+              return a.podcast.title.compareTo(b.podcast.title);
+            }
+            return orderA.compareTo(orderB);
+          });
           podcasts = subs.map((sub) {
             return PodcastModel(
               collectionName: sub.podcast.title,
@@ -204,8 +558,24 @@ class DatabaseRepository {
       List<PodcastModel> podcasts = [];
       // Fetch from Data Connect
       try {
-        final subs = await PodcastRepository.fetchPodcasts(user.uid);
-        if (subs.isNotEmpty) {
+        final userResult = await ExampleConnector.instance
+            .findUserByGoogleId(googleId: user.uid)
+            .execute();
+        final users = userResult.data.users;
+        if (users.isNotEmpty) {
+          final postgresUuid = users.first.id;
+          final subsResult = await ExampleConnector.instance
+              .getMySubscriptions(userId: postgresUuid)
+              .execute();
+          final subs = subsResult.data.subscriptionTypes.toList();
+          subs.sort((a, b) {
+            final orderA = a.listOrder ?? 9999;
+            final orderB = b.listOrder ?? 9999;
+            if (orderA == orderB) {
+              return a.podcast.title.compareTo(b.podcast.title);
+            }
+            return orderA.compareTo(orderB);
+          });
           podcasts = subs.map((sub) {
             return PodcastModel(
               collectionName: sub.podcast.title,
@@ -217,7 +587,9 @@ class DatabaseRepository {
             );
           }).toList();
         }
-      } catch (_) {}
+      } catch (e) {
+        print("AA_DEBUG: _forceSyncFromFirebase DataConnect failed: $e");
+      }
 
       // Fetch from Firestore fallback
       if (podcasts.isEmpty) {
@@ -727,7 +1099,15 @@ class DatabaseRepository {
     }
   }
 
-  Future<void> markEpisodeAsRead(String episodeId) async {
+  Future<void> markEpisodeAsRead(
+    String episodeId, {
+    String? title,
+    String? audioUrl,
+    String? imageUrl,
+    String? podcastName,
+    String? pubDate,
+    String? description,
+  }) async {
     print(
         'AA_DEBUG: markEpisodeAsRead appelé dans DatabaseRepository pour l\'épisode: $episodeId');
 
@@ -763,40 +1143,47 @@ class DatabaseRepository {
       } catch (_) {}
     }
 
-    // 1. Écriture locale immédiate dans SQLite (table episodes_status)
+    final finalTitle = title ?? matchedEpisode?.title;
+    final finalAudioUrl = audioUrl ?? matchedEpisode?.audioUrl;
+    final finalImageUrl = imageUrl ?? matchedEpisode?.imageUrl;
+    final finalPodcastName = podcastName ?? matchedEpisode?.podcastName;
+    final finalPubDate = pubDate ?? matchedEpisode?.pubDate?.toIso8601String();
+    final finalDescription = description ?? matchedEpisode?.description;
+
+    // 1. Écriture locale immédiate et OBLIGATOIRE dans SQLite (table episodes_status)
+    // C'est notre Source Unique de Vérité (SSOT) locale.
+    // L'exécution locale est prioritaire et bloquante : si elle échoue, aucune autre action n'est entreprise.
     try {
+      if (debugSimulateSqliteFailure) {
+        throw Exception(
+            "AA_DEBUG_TEST: Simulation d'une exception SQLite (erreur de table bloquée).");
+      }
+
       await DatabaseHelper().markEpisodeAsRead(
         episodeId,
-        title: matchedEpisode?.title,
-        audioUrl: matchedEpisode?.audioUrl,
-        imageUrl: matchedEpisode?.imageUrl,
-        podcastName: matchedEpisode?.podcastName,
-        pubDate: matchedEpisode?.pubDate?.toIso8601String(),
-        description: matchedEpisode?.description,
+        title: finalTitle,
+        audioUrl: finalAudioUrl,
+        imageUrl: finalImageUrl,
+        podcastName: finalPodcastName,
+        pubDate: finalPubDate,
+        description: finalDescription,
       );
       print(
           'AA_DEBUG: Écriture SQLite réussie dans DatabaseRepository pour $episodeId');
-    } catch (e) {
-      print('AA_DEBUG: Erreur écriture SQLite dans DatabaseRepository: $e');
-    }
 
-    // 2. Écriture dans SharedPreferences (local_read_episodes)
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final List<String> readList =
-          prefs.getStringList('local_read_episodes') ?? [];
-      if (!readList.contains(episodeId)) {
-        readList.add(episodeId);
-        await prefs.setStringList('local_read_episodes', readList);
-        print(
-            'AA_DEBUG: Écriture SharedPreferences réussie dans DatabaseRepository pour $episodeId');
+      // Double validation immédiate dans SQLite : on vérifie que l'épisode a bien été marqué comme lu
+      final verifyWrite = await DatabaseHelper().isEpisodeRead(episodeId);
+      if (!verifyWrite) {
+        throw Exception(
+            "Validation post-écriture SQLite échouée : l'épisode n'a pas été marqué comme lu.");
       }
     } catch (e) {
       print(
-          'AA_DEBUG: Erreur écriture SharedPreferences dans DatabaseRepository: $e');
+          'AA_DEBUG: Erreur critique d\'écriture SQLite dans DatabaseRepository: $e. Toutes les synchronisations et mises à jour de cache sont annulées.');
+      rethrow; // Arrête immédiatement l'exécution
     }
 
-    // 3. Mettre à jour le cache local d'épisodes de manière atomique (opération extrêmement légère)
+    // 2. Mettre à jour le cache local d'épisodes de manière atomique (opération extrêmement légère)
     try {
       final prefs = await SharedPreferences.getInstance();
       final cachedJson = prefs.getString('cache_episodes_to_listen');
@@ -829,13 +1216,23 @@ class DatabaseRepository {
       print('AA_DEBUG: Erreur lors de la mise à jour atomique du cache : $e');
     }
 
-    // 4. Synchronisation distante asynchrone (Firestore & Data Connect) en arrière-plan
+    // 3. Synchronisation distante asynchrone (Firestore & Data Connect) en arrière-plan
     final user = FirebaseAuth.instance.currentUser;
     if (user != null && !episodeId.startsWith('mock_')) {
       _syncEpisodeReadToFirebase(user.uid, episodeId).catchError((e) {
         print(
             'AA_DEBUG: Échec de la synchronisation en arrière-plan pour $episodeId : $e');
       });
+    }
+
+    // 4. Notifier l'UI via le listRefreshNotifier centralisé
+    try {
+      app_audio.AudioService().listRefreshNotifier.value++;
+      print(
+          'AA_DEBUG: listRefreshNotifier notifié avec succès depuis DatabaseRepository');
+    } catch (e) {
+      print(
+          'AA_DEBUG: Erreur lors de la notification de listRefreshNotifier: $e');
     }
   }
 
@@ -934,7 +1331,8 @@ class DatabaseRepository {
     }
   }
 
-  Future<List<EpisodeModel>> getReadEpisodesHistory() async {
+  Future<List<EpisodeModel>> getReadEpisodesHistory(
+      {int limit = 20, int offset = 0}) async {
     try {
       final db = await DatabaseHelper().database;
       final List<Map<String, dynamic>> maps = await db.query(
@@ -942,9 +1340,11 @@ class DatabaseRepository {
         where: 'isRead = ?',
         whereArgs: [1],
         orderBy: 'readAt DESC',
+        limit: limit,
+        offset: offset,
       );
 
-      return maps.map((map) {
+      final List<EpisodeModel> history = maps.map((map) {
         return EpisodeModel(
           id: map['episodeId'] as String,
           title: map['title'] as String? ?? 'Sans titre',
@@ -957,9 +1357,182 @@ class DatabaseRepository {
           description: map['description'] as String? ?? '',
         );
       }).toList();
+
+      // Vérification et auto-réparation des entrées sans titre ou vignette
+      bool needsRepair = history.any((ep) =>
+          ep.title == 'Sans titre' ||
+          ep.title == 'Épisode sans titre' ||
+          ep.imageUrl.isEmpty ||
+          ep.podcastName.isEmpty);
+
+      if (needsRepair) {
+        print("AA_DEBUG: Besoin de réparer des épisodes dans l'historique...");
+        final prefs = await SharedPreferences.getInstance();
+        final cachedJson = prefs.getString('cache_episodes_to_listen');
+        Map<String, EpisodeModel> cacheMap = {};
+        if (cachedJson != null) {
+          try {
+            final List<dynamic> decoded = jsonDecode(cachedJson);
+            for (var item in decoded) {
+              final ep = EpisodeModel.fromMap(item as Map<String, dynamic>);
+              if (ep.id.isNotEmpty) cacheMap[ep.id] = ep;
+              if (ep.audioUrl.isNotEmpty) cacheMap[ep.audioUrl] = ep;
+            }
+          } catch (_) {}
+        }
+
+        bool allRepaired = true;
+        for (int i = 0; i < history.length; i++) {
+          final ep = history[i];
+          if (ep.title == 'Sans titre' ||
+              ep.title == 'Épisode sans titre' ||
+              ep.imageUrl.isEmpty ||
+              ep.podcastName.isEmpty) {
+            final match = cacheMap[ep.id] ?? cacheMap[ep.audioUrl];
+            if (match != null) {
+              history[i] = EpisodeModel(
+                id: ep.id,
+                title: match.title,
+                audioUrl: ep.audioUrl.isNotEmpty ? ep.audioUrl : match.audioUrl,
+                imageUrl: ep.imageUrl.isNotEmpty ? ep.imageUrl : match.imageUrl,
+                podcastName: ep.podcastName.isNotEmpty
+                    ? ep.podcastName
+                    : match.podcastName,
+                pubDate: ep.pubDate,
+                description: ep.description.isNotEmpty
+                    ? ep.description
+                    : match.description,
+              );
+              // Sauvegarde locale SQLite
+              await DatabaseHelper().markEpisodeAsRead(
+                ep.id,
+                title: history[i].title,
+                audioUrl: history[i].audioUrl,
+                imageUrl: history[i].imageUrl,
+                podcastName: history[i].podcastName,
+                pubDate: history[i].pubDate?.toIso8601String(),
+                description: history[i].description,
+              );
+            } else {
+              allRepaired = false;
+            }
+          }
+        }
+
+        // Si certains ne sont toujours pas réparés, lancer la tâche en arrière-plan
+        if (!allRepaired) {
+          _repairHistoryFromFeedsInBackground(history);
+        }
+      }
+
+      return history;
     } catch (e) {
       print("AA_DEBUG: Erreur getReadEpisodesHistory: $e");
       return [];
+    }
+  }
+
+  void _repairHistoryFromFeedsInBackground(
+      List<EpisodeModel> brokenHistory) async {
+    try {
+      final subscribed = await DatabaseHelper().getSubscribedPodcasts();
+      if (subscribed.isEmpty) return;
+
+      Map<String, EpisodeModel> feedEpisodes = {};
+      final rssService = RssService();
+
+      // Récupérer les épisodes des flux en parallèle sous timeout de 15 secondes
+      final fetchFutures = subscribed.map((podcast) async {
+        try {
+          final eps = await rssService.getEpisodesFromFeed(podcast.feedUrl);
+          for (var ep in eps) {
+            if (ep.id.isNotEmpty) feedEpisodes[ep.id] = ep;
+            if (ep.audioUrl.isNotEmpty) feedEpisodes[ep.audioUrl] = ep;
+          }
+        } catch (_) {}
+      }).toList();
+
+      await Future.wait(fetchFutures).timeout(const Duration(seconds: 15));
+
+      bool updatedAny = false;
+      for (var ep in brokenHistory) {
+        if (ep.title == 'Sans titre' ||
+            ep.title == 'Épisode sans titre' ||
+            ep.imageUrl.isEmpty ||
+            ep.podcastName.isEmpty) {
+          final match = feedEpisodes[ep.id] ?? feedEpisodes[ep.audioUrl];
+          if (match != null) {
+            final finalTitle =
+                (ep.title == 'Sans titre' || ep.title == 'Épisode sans titre')
+                    ? match.title
+                    : ep.title;
+            final finalImageUrl =
+                ep.imageUrl.isEmpty ? match.imageUrl : ep.imageUrl;
+            final finalPodcastName =
+                ep.podcastName.isEmpty ? match.podcastName : ep.podcastName;
+            final finalDescription =
+                ep.description.isEmpty ? match.description : ep.description;
+            final finalAudioUrl =
+                ep.audioUrl.isEmpty ? match.audioUrl : ep.audioUrl;
+
+            await DatabaseHelper().markEpisodeAsRead(
+              ep.id,
+              title: finalTitle,
+              audioUrl: finalAudioUrl,
+              imageUrl: finalImageUrl,
+              podcastName: finalPodcastName,
+              pubDate: ep.pubDate?.toIso8601String(),
+              description: finalDescription,
+            );
+            updatedAny = true;
+          }
+        }
+      }
+
+      if (updatedAny) {
+        print(
+            "AA_DEBUG: Des épisodes de l'historique ont été réparés depuis les flux RSS.");
+        // Déclencher le rafraîchissement des listes
+        app_audio.AudioService().listRefreshNotifier.value++;
+      }
+    } catch (e) {
+      print(
+          "AA_DEBUG: Erreur lors de la réparation de l'historique en arrière-plan: $e");
+    }
+  }
+
+  /// Méthode d'aide pour simuler les anciennes SharedPreferences (Tests Manuels Phase 1)
+  Future<void> debugSeedSharedPreferences() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Réinitialiser la clé de double validation pour permettre le test
+      await prefs.remove('migration_done_version');
+
+      // 1. Simuler un abonnement dans SharedPreferences (cache_my_podcasts)
+      final mockSub = [
+        {
+          "listOrder": 0,
+          "podcast": {
+            "id": "mock_podcast_id_123",
+            "title": "Mon Podcast de Test SharedPreferences",
+            "author": "Développeur PodStream",
+            "imageUrl":
+                "https://images.unsplash.com/photo-1590602847861-f357a9332bbc",
+            "feedUrl": "https://example.com/mock_podcast_feed.xml"
+          }
+        }
+      ];
+      await prefs.setString('cache_my_podcasts', jsonEncode(mockSub));
+
+      // 2. Simuler l'historique de lecture (local_read_episodes)
+      final mockHistory = ["mock_episode_id_aaa", "mock_episode_id_bbb"];
+      await prefs.setStringList('local_read_episodes', mockHistory);
+
+      print(
+          "AA_DEBUG: Données de test SharedPreferences simulées avec succès !");
+    } catch (e) {
+      print("AA_DEBUG: Erreur lors de la simulation SharedPreferences : $e");
     }
   }
 }

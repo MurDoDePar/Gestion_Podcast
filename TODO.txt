@@ -1,28 +1,16 @@
-- gestion de la liste a écouter et du lecteur. a vérifier et corriger si nécessaire.
-    - l'épisode en cours de lecture est le premier de la liste 'a écouter'
-    - quand un episode est lu,
-        - charger l'episode suivant en memoire cache 
-            pour eviter un temps d'attente trop logn entre 2 episodes.
-            verifier qu'il n'y a qu'un episode en cache
-        - il faut le marquer comme lu c'est a dire l'enregistrer en DB (sqlite table episodes_status)
-        - il faut rafraichir la liste 'a écouter'
-        - lancer en lecture l'episode suivant : 
-            l'episode suivant est le premier de la liste 'a écouter' mise à jour 
-            c'est a dire la liste 'a ecouter' sans les episode deja lu.
-            vide le cache des episodes a lire
-    - sur un chamgement d'ordre de 'mes podcasts' (glisser poser),
-        - il faut rafraichir la liste 'a écouter'
-        - vide la memoire cache des episodes
+- Test Manuel Phase 1 (Migration SharedPreferences) :
+    Simuler des données SharedPreferences (cache_my_podcasts et local_read_episodes).
+    Lancer l'application, vérifier les insertions SQLite.
+    Vérifier que les clés SharedPreferences ont été nettoyées si et seulement si les abonnements et l'historique apparaissent dans SQLite.
+- Test Manuel Phase 2 (Écritures SQLite Bloquantes) :
+    Injecter temporairement une exception SQLite simulée (ex: erreur de table bloquée).
+    Appeler markEpisodeAsRead().
+    Vérifier que le cache local cache_episodes_to_listen n'est pas altéré et que Firebase n'est pas contacté.
+- Test Phase 3 (Script de Purge) :
+    Exécuter le script avec l'option dry-run et vérifier la console.
+    Exécuter le script en conditions réelles et vérifier la disparition des collections obsolètes dans la console Firestore.
 
-- au chagement d'ordre de 'mes podcasts' il faut vider la memoire cache et la rafrichir
-
-
-- onglet affinité : 
-    ce sont les podcast que d'autre utilisateurs écoutent et ont dans leur liste 'mes podcasts' 
-        au moins un podcasts en commun avec l'utilisateur connecté.
-    la liste de 'mes podcastas' est copié dans la DB firebase, il faut la mettre a jour. table : user, liste podcasts
-    pour l'affichage de l'onglet 'affinité' recuperer dans la table de firebase les podcasts en commun 
-        et afficher que ceux qui ne sont pas dans 'mes podcasts'
+- supprimer les log
 
 - le lecteur d'episode de Android auto (sur l'ecran de la voiture doit etre -30s, Play/Pause, +30s)
 
@@ -62,3 +50,46 @@ Fait
     si il y a blanc a la fin du mot recherché, il faut l'enlever
 
 - par themes : 'Humour', 'Culture', 'Technologie', 'Histoire', 'Santé', 'Sciences', 'Sport', 'Actualités',  'Populaire'
+
+- au chagement d'ordre de 'mes podcasts' il faut vider la memoire cache et la rafrichir
+
+- je veux demander a antigravity de faire une analyse de code, ce que fait le code apres
+    - un clic sur le bouton marquer lu
+    - la fin de lecture d'un episode
+    - comparer les deux actions
+
+- gestion de la liste a écouter et du lecteur. a vérifier et corriger si nécessaire.
+    - l'épisode en cours de lecture est le premier de la liste 'a écouter'
+    - quand un episode est lu,
+        - charger l'episode suivant en memoire cache 
+            pour eviter un temps d'attente trop logn entre 2 episodes.
+            verifier qu'il n'y a qu'un episode en cache
+        - il faut le marquer comme lu c'est a dire l'enregistrer en DB (sqlite table episodes_status)
+        - il faut rafraichir la liste 'a écouter'
+        - lancer en lecture l'episode suivant : 
+            l'episode suivant est le premier de la liste 'a écouter' mise à jour 
+            c'est a dire la liste 'a ecouter' sans les episode deja lu.
+            vide le cache des episodes a lire
+    - sur un chamgement d'ordre de 'mes podcasts' (glisser poser),
+        - il faut rafraichir la liste 'a écouter'
+        - vide la memoire cache des episodes
+
+- je veux demander a antigravity de faire une analyse de code, sur l'onglet 'par theme'
+    - soit sauvegarder en DB sqlite
+    - soit rafraichie chaque semaine
+
+- je veux demander a antigravity de faire une analyse de code, sur l'onglet 'affinité'
+    verifier ce qui est necessaire pour 'affinité'
+    - a chaque modification 'mes podcasts' (ajout d'un podcast, retrait d'un podcast)
+        il faut mettre a jour la table 'mes podcasts' dans sqlite et firebase.
+    - rechercher dans firebase les podcasts des autres utilisateurs 
+        avec au moins un podcasts en commun avec 'mes podcasts', les affincher dans affinité
+        en eliminent ceux qui sont dans mes podcasts
+
+- onglet affinité : 
+    ce sont les podcast que d'autre utilisateurs écoutent et ont dans leur liste 'mes podcasts' 
+        au moins un podcasts en commun avec l'utilisateur connecté.
+    la liste de 'mes podcastas' est copié dans la DB firebase, 
+        il faut la mettre a jour. table : user, liste podcasts
+    pour l'affichage de l'onglet 'affinité' recuperer dans la table de firebase les podcasts en commun 
+        et afficher que ceux qui ne sont pas dans 'mes podcasts'

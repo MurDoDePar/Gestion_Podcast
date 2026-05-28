@@ -19,6 +19,8 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
+  String?
+      _updateRequiredMessage; // Stocke le message d'erreur si la version est obsolète
 
   final List<Widget> _screens = const [
     _AccueilView(),
@@ -44,6 +46,12 @@ class _MainScreenState extends State<MainScreen> {
               "AA_DEBUG: Initialisation lente de SQLite, utilisation du cache local.");
         },
       );
+    } on UpdateRequiredException catch (e) {
+      debugPrint(
+          "AA_DEBUG: Version d'application obsolète détectée : ${e.message}");
+      setState(() {
+        _updateRequiredMessage = e.message;
+      });
     } catch (e) {
       debugPrint("AA_DEBUG: Erreur lors de l'initialisation de SQLite : $e");
     }
@@ -51,6 +59,114 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Si une mise à jour est requise, afficher un écran de blocage premium et élégant
+    if (_updateRequiredMessage != null) {
+      return Scaffold(
+        backgroundColor: AppTheme.bgColor,
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Icone avec cercle dégradé pour un look très premium
+                  Container(
+                    width: 100,
+                    height: 100,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: AppTheme.primaryGradient,
+                    ),
+                    child: const Icon(
+                      Icons.system_update_alt_rounded,
+                      color: Colors.white,
+                      size: 48,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  const Text(
+                    'Mise à jour obligatoire',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textPrimary,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    _updateRequiredMessage!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      color: AppTheme.textSecondary,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  // Bouton avec gradient premium
+                  InkWell(
+                    onTap: () {
+                      // Optionnel : ajouter de l'analytics ou un lancement de store ici
+                    },
+                    borderRadius: BorderRadius.circular(16),
+                    child: Ink(
+                      decoration: BoxDecoration(
+                        gradient: AppTheme.primaryGradient,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                            blurRadius: 12,
+                            offset: const Offset(0, 6),
+                          )
+                        ],
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 16,
+                          horizontal: 40,
+                        ),
+                        child: const Text(
+                          'Mettre à jour maintenant',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: () {
+                      // Option de secours : relancer la vérification
+                      setState(() {
+                        _updateRequiredMessage = null;
+                        _initFuture = _initApp();
+                      });
+                    },
+                    child: const Text(
+                      'Réessayer la connexion',
+                      style: TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 14,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return FutureBuilder<void>(
       future: _initFuture,
       builder: (context, snapshot) {
@@ -184,12 +300,12 @@ class _AccueilView extends StatelessWidget {
               ),
             ),
             // Contenu
-            const Expanded(
+            Expanded(
               child: TabBarView(
                 children: [
-                  MyPodcastsTab(),
+                  const MyPodcastsTab(),
                   ThemesTab(),
-                  DiscoverTab(),
+                  const DiscoverTab(),
                   HistoryTab(),
                 ],
               ),

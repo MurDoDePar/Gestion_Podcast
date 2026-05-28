@@ -231,10 +231,13 @@ class AudioService {
       }
 
       // 2. Déléguer les écritures SQLite/SharedPreferences/Firestore/Data Connect au DatabaseRepository
-      await DatabaseRepository().markEpisodeAsRead(episodeId);
-
-      // Déclencher le rafraîchissement des listes
-      listRefreshNotifier.value++;
+      await DatabaseRepository().markEpisodeAsRead(
+        episodeId,
+        title: title,
+        audioUrl: audioUrl,
+        imageUrl: imageUrl,
+        podcastName: podcastName,
+      );
     } finally {
       Future.delayed(const Duration(seconds: 2), () {
         _processingReadEpisodes.remove(episodeId);

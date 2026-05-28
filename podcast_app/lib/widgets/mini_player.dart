@@ -3,6 +3,7 @@ import 'package:audio_service/audio_service.dart' as package_audio_service;
 import 'package:podcast_app/services/audio_handler_locator.dart';
 import '../theme/app_theme.dart';
 import '../services/mark_as_read_service.dart';
+import '../models/episode_model.dart';
 
 class MiniPlayer extends StatelessWidget {
   const MiniPlayer({super.key});
@@ -173,7 +174,19 @@ class MiniPlayer extends StatelessWidget {
                           final episodeId =
                               item.extras?['episodeId'] as String? ?? item.id;
                           try {
-                            await MarkAsReadService().markAsRead(episodeId);
+                            await MarkAsReadService().markAsRead(
+                              episodeId,
+                              episode: EpisodeModel(
+                                id: episodeId,
+                                title: item.title,
+                                audioUrl:
+                                    item.extras?['url'] as String? ?? item.id,
+                                imageUrl: item.artUri?.toString() ?? '',
+                                podcastName: item.artist ?? '',
+                                description: item.album ?? '',
+                                pubDate: DateTime.now(),
+                              ),
+                            );
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(

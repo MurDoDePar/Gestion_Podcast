@@ -38,8 +38,6 @@ class _MyPodcastsTabState extends State<MyPodcastsTab> {
   }
 
   void _onListRefresh() {
-    print(
-        'DEBUG MyPodcastsTab: _onListRefresh appelé. Déclenchement de la reconstruction...');
     if (mounted) {
       setState(() {
         _triggerEpisodesRefresh();
@@ -56,14 +54,9 @@ class _MyPodcastsTabState extends State<MyPodcastsTab> {
   }
 
   void _triggerEpisodesRefresh() {
-    print('DEBUG MyPodcastsTab: _triggerEpisodesRefresh appelé.');
     if (_myPodcastsList != null && _myPodcastsList!.isNotEmpty) {
-      print(
-          'DEBUG MyPodcastsTab: Chargement des épisodes pour ${_myPodcastsList!.length} podcasts.');
       _episodesFuture = _fetchAndAggregateEpisodes(_myPodcastsList!);
     } else {
-      print(
-          'DEBUG MyPodcastsTab: Aucun podcast dans la liste ou liste nulle. Retourne un future vide.');
       _episodesFuture = Future.value(<EpisodeModel>[]);
     }
   }
@@ -124,7 +117,6 @@ class _MyPodcastsTabState extends State<MyPodcastsTab> {
 
       try {
         final prefs = await SharedPreferences.getInstance();
-        localReadList.addAll(prefs.getStringList('local_read_episodes') ?? []);
         order = prefs.getString('podstream_order') ?? 'asc';
       } catch (e) {
         print("Error fetching settings in MyPodcastsTab: $e");
@@ -137,6 +129,9 @@ class _MyPodcastsTabState extends State<MyPodcastsTab> {
         print("Error fetching SQLite read episodes in MyPodcastsTab: $e");
       }
 
+      // Conversion en Set pour une recherche en O(1)
+      final Set<String> localReadSet = localReadList.toSet();
+
       // 3. Traiter les épisodes dans l'ordre exact des abonnements
       final List<EpisodeModel> orderedEpisodes = [];
 
@@ -148,7 +143,7 @@ class _MyPodcastsTabState extends State<MyPodcastsTab> {
         final List<EpisodeModel> unreadEpisodes = [];
         for (var episode in podcastEpisodes) {
           if (!readEpisodeIds.contains(episode.id) &&
-              !localReadList.contains(episode.id)) {
+              !localReadSet.contains(episode.id)) {
             unreadEpisodes.add(
               EpisodeModel(
                 id: episode.id,
@@ -369,8 +364,6 @@ class _MyPodcastsTabState extends State<MyPodcastsTab> {
                 child: ValueListenableBuilder<int>(
                   valueListenable: app_audio.AudioService().listRefreshNotifier,
                   builder: (context, refreshCount, _) {
-                    print(
-                        'DEBUG MyPodcastsTab: ValueListenableBuilder builder appelé avec refreshCount = $refreshCount');
                     return FutureBuilder<List<EpisodeModel>>(
                       key: ValueKey(refreshCount),
                       future: _episodesFuture,

@@ -58,7 +58,8 @@ class EpisodeListTile extends StatelessWidget {
                 TextButton(
                   onPressed: () async {
                     Navigator.pop(context);
-                    await MarkAsReadService().markAsRead(episode.id);
+                    await MarkAsReadService()
+                        .markAsRead(episode.id, episode: episode);
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(

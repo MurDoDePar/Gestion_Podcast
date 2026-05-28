@@ -3,6 +3,7 @@ import '../theme/app_theme.dart';
 import '../services/mark_as_read_service.dart';
 import 'package:audio_service/audio_service.dart' as package_audio_service;
 import 'package:podcast_app/services/audio_handler_locator.dart'; // Pour l'instance globale globalAudioHandler
+import '../models/episode_model.dart';
 
 class AudioPlayerWidget extends StatefulWidget {
   const AudioPlayerWidget({super.key});
@@ -237,7 +238,19 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                             final episodeId =
                                 item.extras?['episodeId'] as String? ?? item.id;
                             try {
-                              await MarkAsReadService().markAsRead(episodeId);
+                              await MarkAsReadService().markAsRead(
+                                episodeId,
+                                episode: EpisodeModel(
+                                  id: episodeId,
+                                  title: item.title,
+                                  audioUrl:
+                                      item.extras?['url'] as String? ?? item.id,
+                                  imageUrl: item.artUri?.toString() ?? '',
+                                  podcastName: item.artist ?? '',
+                                  description: item.album ?? '',
+                                  pubDate: DateTime.now(),
+                                ),
+                              );
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:xml/xml.dart' as xml;
 import '../models/episode_model.dart';
@@ -15,94 +16,8 @@ class RssService {
           .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        // Décodage UTF-8 pour supporter les accents correctement
-        final bodyString = utf8.decode(response.bodyBytes);
-        final document = xml.XmlDocument.parse(bodyString);
-
-        // Récupérer le nom du podcast depuis le canal principal (channel)
-        final channelElement = document.findAllElements('channel').firstOrNull;
-        final podcastName =
-            channelElement?.findElements('title').firstOrNull?.innerText ??
-                'Podcast inconnu';
-
-        // Récupérer l'image par défaut du podcast
-        String defaultImageUrl = '';
-        final itunesImage =
-            channelElement?.findElements('itunes:image').firstOrNull;
-        if (itunesImage != null) {
-          defaultImageUrl = itunesImage.getAttribute('href') ?? '';
-        }
-        if (defaultImageUrl.isEmpty) {
-          final imageEl = channelElement?.findElements('image').firstOrNull;
-          defaultImageUrl =
-              imageEl?.findElements('url').firstOrNull?.innerText ?? '';
-        }
-
-        final items = document.findAllElements('item');
-        final List<EpisodeModel> episodes = [];
-
-        for (var item in items) {
-          final title = item.findElements('title').firstOrNull?.innerText ??
-              'Épisode sans titre';
-          final description =
-              item.findElements('description').firstOrNull?.innerText ??
-                  item.findElements('itunes:summary').firstOrNull?.innerText ??
-                  'Aucune description disponible.';
-
-          final enclosure = item.findElements('enclosure').firstOrNull;
-          final audioUrl = enclosure?.getAttribute('url') ?? '';
-
-          // Un épisode doit obligatoirement avoir une URL audio pour être jouable
-          if (audioUrl.isEmpty) continue;
-
-          // Récupérer l'image de l'épisode, sinon utiliser celle du podcast
-          String imageUrl = defaultImageUrl;
-          final itemItunesImage = item.findElements('itunes:image').firstOrNull;
-          if (itemItunesImage != null) {
-            final href = itemItunesImage.getAttribute('href');
-            if (href != null && href.isNotEmpty) {
-              imageUrl = href;
-            }
-          }
-
-          // Parser la date de publication
-          DateTime? pubDate;
-          final pubDateStr =
-              item.findElements('pubDate').firstOrNull?.innerText;
-          if (pubDateStr != null && pubDateStr.isNotEmpty) {
-            try {
-              pubDate = HttpDate.parse(pubDateStr);
-            } catch (_) {
-              try {
-                pubDate = DateTime.parse(pubDateStr);
-              } catch (_) {
-                try {
-                  final cleaned = pubDateStr
-                      .replaceAll(RegExp(r'[+-]\d{4}\s*$'), 'GMT')
-                      .trim();
-                  pubDate = HttpDate.parse(cleaned);
-                } catch (_) {}
-              }
-            }
-          }
-
-          // L'ID doit être unique et stable (l'audioUrl est idéal)
-          final id = audioUrl;
-
-          episodes.add(
-            EpisodeModel(
-              id: id,
-              audioUrl: audioUrl,
-              title: title,
-              podcastName: podcastName,
-              imageUrl: imageUrl,
-              description: description,
-              pubDate: pubDate,
-            ),
-          );
-        }
-
-        return episodes;
+        // Déporter le décodage UTF-8 et le parsing XML dans un Isolate séparé
+        return await compute(_parseRss, response.bodyBytes);
       } else {
         print(
             'Erreur HTTP lors du téléchargement du flux RSS : ${response.statusCode}');
@@ -113,4 +28,92 @@ class RssService {
       return [];
     }
   }
+}
+
+/// Fonction globale exécutée dans un Isolate séparé pour éviter de bloquer l'UI
+List<EpisodeModel> _parseRss(Uint8List bodyBytes) {
+  // Décodage UTF-8 pour supporter les accents correctement
+  final bodyString = utf8.decode(bodyBytes);
+  final document = xml.XmlDocument.parse(bodyString);
+
+  // Récupérer le nom du podcast depuis le canal principal (channel)
+  final channelElement = document.findAllElements('channel').firstOrNull;
+  final podcastName =
+      channelElement?.findElements('title').firstOrNull?.innerText ??
+          'Podcast inconnu';
+
+  // Récupérer l'image par défaut du podcast
+  String defaultImageUrl = '';
+  final itunesImage = channelElement?.findElements('itunes:image').firstOrNull;
+  if (itunesImage != null) {
+    defaultImageUrl = itunesImage.getAttribute('href') ?? '';
+  }
+  if (defaultImageUrl.isEmpty) {
+    final imageEl = channelElement?.findElements('image').firstOrNull;
+    defaultImageUrl = imageEl?.findElements('url').firstOrNull?.innerText ?? '';
+  }
+
+  final items = document.findAllElements('item');
+  final List<EpisodeModel> episodes = [];
+
+  for (var item in items) {
+    final title = item.findElements('title').firstOrNull?.innerText ??
+        'Épisode sans titre';
+    final description =
+        item.findElements('description').firstOrNull?.innerText ??
+            item.findElements('itunes:summary').firstOrNull?.innerText ??
+            'Aucune description disponible.';
+
+    final enclosure = item.findElements('enclosure').firstOrNull;
+    final audioUrl = enclosure?.getAttribute('url') ?? '';
+
+    // Un épisode doit obligatoirement avoir une URL audio pour être jouable
+    if (audioUrl.isEmpty) continue;
+
+    // Récupérer l'image de l'épisode, sinon utiliser celle du podcast
+    String imageUrl = defaultImageUrl;
+    final itemItunesImage = item.findElements('itunes:image').firstOrNull;
+    if (itemItunesImage != null) {
+      final href = itemItunesImage.getAttribute('href');
+      if (href != null && href.isNotEmpty) {
+        imageUrl = href;
+      }
+    }
+
+    // Parser la date de publication
+    DateTime? pubDate;
+    final pubDateStr = item.findElements('pubDate').firstOrNull?.innerText;
+    if (pubDateStr != null && pubDateStr.isNotEmpty) {
+      try {
+        pubDate = HttpDate.parse(pubDateStr);
+      } catch (_) {
+        try {
+          pubDate = DateTime.parse(pubDateStr);
+        } catch (_) {
+          try {
+            final cleaned =
+                pubDateStr.replaceAll(RegExp(r'[+-]\d{4}\s*$'), 'GMT').trim();
+            pubDate = HttpDate.parse(cleaned);
+          } catch (_) {}
+        }
+      }
+    }
+
+    // L'ID doit être unique et stable (l'audioUrl est idéal)
+    final id = audioUrl;
+
+    episodes.add(
+      EpisodeModel(
+        id: id,
+        audioUrl: audioUrl,
+        title: title,
+        podcastName: podcastName,
+        imageUrl: imageUrl,
+        description: description,
+        pubDate: pubDate,
+      ),
+    );
+  }
+
+  return episodes;
 }

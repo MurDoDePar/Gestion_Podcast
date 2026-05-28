@@ -149,7 +149,15 @@ class PodStreamAudioHandler extends BaseAudioHandler
         _logAA("Auto-marquage et enchaînement pour : $currentMediaId");
 
         // 1. Marquer comme lu
-        await DatabaseRepository().markEpisodeAsRead(currentMediaId);
+        final currentMedia = mediaItem.value;
+        await DatabaseRepository().markEpisodeAsRead(
+          currentMediaId,
+          title: currentMedia?.title,
+          audioUrl: currentMedia?.extras?['url'] as String? ?? currentMedia?.id,
+          imageUrl: currentMedia?.artUri?.toString(),
+          podcastName: currentMedia?.artist,
+          description: currentMedia?.album,
+        );
 
         // 2. Attente de persistance
         await Future.delayed(const Duration(milliseconds: 500));
@@ -368,7 +376,16 @@ class PodStreamAudioHandler extends BaseAudioHandler
             mediaItem.value?.extras?['episodeId'] as String? ??
                 mediaItem.value?.id;
         if (currentMediaId != null) {
-          await DatabaseRepository().markEpisodeAsRead(currentMediaId);
+          final currentMedia = mediaItem.value;
+          await DatabaseRepository().markEpisodeAsRead(
+            currentMediaId,
+            title: currentMedia?.title,
+            audioUrl:
+                currentMedia?.extras?['url'] as String? ?? currentMedia?.id,
+            imageUrl: currentMedia?.artUri?.toString(),
+            podcastName: currentMedia?.artist,
+            description: currentMedia?.album,
+          );
           await _playNextOrStop();
         }
         break;
