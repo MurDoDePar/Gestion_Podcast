@@ -1,16 +1,5 @@
-- Test Manuel Phase 1 (Migration SharedPreferences) : > fait
-    Simuler des données SharedPreferences (cache_my_podcasts et local_read_episodes).
-    Lancer l'application, vérifier les insertions SQLite.
-    Vérifier que les clés SharedPreferences ont été nettoyées si et seulement si les abonnements et l'historique apparaissent dans SQLite.
-- Test Manuel Phase 2 (Écritures SQLite Bloquantes) : > fait
-    Injecter temporairement une exception SQLite simulée (ex: erreur de table bloquée).
-    Appeler markEpisodeAsRead().
-    Vérifier que le cache local cache_episodes_to_listen n'est pas altéré et que Firebase n'est pas contacté.
-- Test Phase 3 (Script de Purge) :
-    Exécuter le script avec l'option dry-run et vérifier la console.
-    Exécuter le script en conditions réelles et vérifier la disparition des collections obsolètes dans la console Firestore.
 
-- supprimer les logs
+- rafraichire la liste 'a ecouter' avec un tirer vers le bas.
 
 - multi langue : 
     allemand, anglais, bulgare, croate, danois, espagnol, 
@@ -99,3 +88,26 @@ Fait
         il faut la mettre a jour. table : user, liste podcasts
     pour l'affichage de l'onglet 'affinité' recuperer dans la table de firebase les podcasts en commun 
         et afficher que ceux qui ne sont pas dans 'mes podcasts'
+
+- Test Manuel Phase 1 (Migration SharedPreferences) : > fait
+    Simuler des données SharedPreferences (cache_my_podcasts et local_read_episodes).
+    Lancer l'application, vérifier les insertions SQLite.
+    Vérifier que les clés SharedPreferences ont été nettoyées si et seulement si les abonnements et l'historique apparaissent dans SQLite.
+- Test Manuel Phase 2 (Écritures SQLite Bloquantes) : > fait
+    Injecter temporairement une exception SQLite simulée (ex: erreur de table bloquée).
+    Appeler markEpisodeAsRead().
+    Vérifier que le cache local cache_episodes_to_listen n'est pas altéré et que Firebase n'est pas contacté.
+- Test Phase 3 (Script de Purge) : > fait
+    Exécuter le script avec l'option dry-run et vérifier la console.
+    Exécuter le script en conditions réelles et vérifier la disparition des collections obsolètes dans la console Firestore.
+
+- table 
+    - sqlite locale : a ecouter, mes podcasts, lu (historique) , par theme, affinité, parametres, cache_episodes_to_listen
+        - l'ordre des podcasts est sauvegarder dans mes podcasts
+    - firebase :  mes podcasts
+        - a chaque modification 'mes podcasts' il faut mettre a jour la table 'mes podcasts' dans sqlite et firebase.
+        - la table 'mes podcasts' est utilisé pour l'onglet 'affinité'
+            rappel l'onglet affinité sont les podcasts des autres utilisateurs qui ont au moins un podcas en commun.
+    - faire une verification et une suppression des tables inutilisés
+
+- supprimer les logs : > fait

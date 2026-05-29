@@ -11,6 +11,7 @@ import '../models/podcast_model.dart';
 import 'cache_manager.dart';
 import 'podcast_repository.dart';
 import 'database_helper.dart';
+import 'package:sqflite/sqflite.dart';
 import 'itunes_service.dart';
 import 'audio_service.dart' as app_audio;
 import 'rss_service.dart';
@@ -630,43 +631,202 @@ class DatabaseRepository {
     }
   }
 
-  Future<void> updatePodcastsOrder(List<PodcastModel> updatedList) async {
+  Future<void> updateMyPodcasts(List<PodcastModel> updatedList) async {
+    final helper = DatabaseHelper();
+    final db = await helper.database;
+
+    // 1. Transaction SQLite locale
     try {
-      print(
-          "AA_DEBUG: updatePodcastsOrder appelé pour réordonner ${updatedList.length} podcasts.");
+      await db.transaction((txn) async {
+        // Récupérer les abonnements locaux existants pour identifier les suppressions
+        final List<Map<String, dynamic>> existingList =
+            await txn.query('my_podcasts');
+        final existingFeedUrls =
+            existingList.map((row) => row['feedUrl'] as String).toSet();
+        final updatedFeedUrls = updatedList.map((p) => p.feedUrl).toSet();
 
-      // 1. Mettre à jour l'ordre dans SQLite
-      final List<Map<String, dynamic>> orderUpdates = [];
-      for (int i = 0; i < updatedList.length; i++) {
-        orderUpdates.add({
-          'feedUrl': updatedList[i].feedUrl,
-          'sortOrder': i,
-          'isSynced': 0, // Non synchronisé
-        });
-      }
-      await DatabaseHelper().updatePodcastsSortOrder(orderUpdates);
-      print("AA_DEBUG: Ordre mis à jour en local dans SQLite.");
+        // Identifier les podcasts désabonnés (présents en local mais absents de la nouvelle liste)
+        final toDelete = existingFeedUrls.difference(updatedFeedUrls);
+        for (var feedUrl in toDelete) {
+          await txn.delete(
+            'my_podcasts',
+            where: 'feedUrl = ?',
+            whereArgs: [feedUrl],
+          );
+          // Enregistrer le désabonnement en attente localement (SharedPreferences)
+          final podcastId = _getPodcastUuid(null, feedUrl);
+          await _addPendingDeletion(feedUrl, podcastId);
+        }
 
-      // Mettre à jour le cache local en mémoire
-      _cacheManager.write('my_subscribed_podcasts', updatedList);
-
-      // 2. Vider le cache mémoire et persistant et rafraîchir la file
-      _refreshEpisodesToListen().then((_) {
-        // 5. Assurer que l'UI est notifiée du changement via AudioService().listRefreshNotifier
-        try {
-          app_audio.AudioService().listRefreshNotifier.value++;
-          print(
-              "AA_DEBUG: UI notifiée de la reconstruction de la file d'attente.");
-        } catch (e) {
-          print(
-              "AA_DEBUG: Impossible de notifier listRefreshNotifier dans updatePodcastsOrder: $e");
+        // Insérer ou mettre à jour les podcasts restants avec leur nouvel index et isSynced à 0
+        for (int i = 0; i < updatedList.length; i++) {
+          final podcast = updatedList[i];
+          await txn.insert(
+            'my_podcasts',
+            {
+              'feedUrl': podcast.feedUrl,
+              'collectionId': podcast.collectionId,
+              'collectionName': podcast.collectionName,
+              'artistName': podcast.artistName,
+              'artworkUrl': podcast.artworkUrl,
+              'sortOrder': i,
+              'isSynced': 0, // 0 = En attente de synchro
+            },
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
         }
       });
-
-      // 4. Déclencher la synchronisation vers Firebase en tâche de fond
-      retryUnsyncedOrders();
+      print("AA_DEBUG: Mise à jour transactionnelle SQLite réussie.");
     } catch (e) {
-      print('Erreur lors de la mise à jour de l\'ordre des podcasts : $e');
+      print("AA_DEBUG: Erreur critique SQLite lors de updateMyPodcasts : $e");
+      rethrow; // Bloquer pour éviter de corrompre le cache
+    }
+
+    // Mettre à jour le cache mémoire local
+    _cacheManager.write('my_subscribed_podcasts', updatedList);
+    _refreshEpisodesToListen(); // Rafraîchir les épisodes à écouter
+
+    // Notifier immédiatement l'interface utilisateur
+    try {
+      app_audio.AudioService().listRefreshNotifier.value++;
+    } catch (_) {}
+
+    // 2. Déclenchement de la synchronisation asynchrone vers Firebase
+    _syncMyPodcastsToFirebase(updatedList).then((_) async {
+      print(
+          "AA_DEBUG: Synchronisation Firebase réussie pour la liste complète.");
+      // Mettre à jour isSynced à 1 pour tous les éléments dans SQLite
+      try {
+        await db.transaction((txn) async {
+          for (var p in updatedList) {
+            await txn.update(
+              'my_podcasts',
+              {'isSynced': 1},
+              where: 'feedUrl = ?',
+              whereArgs: [p.feedUrl],
+            );
+          }
+        });
+        print(
+            "AA_DEBUG: Flags de synchronisation locale passés à 1 (isSynced = 1).");
+      } catch (e) {
+        print("AA_DEBUG: Erreur lors de la mise à jour de isSynced à 1 : $e");
+      }
+    }).catchError((err) {
+      // En cas d'erreur réseau, l'état local reste à isSynced = 0.
+      // La tâche de fond retryUnsyncedOrders() tentera la synchro au prochain démarrage.
+      print(
+          "AA_DEBUG: Échec de la synchronisation asynchrone Firebase: $err. Données marquées hors-ligne.");
+    });
+  }
+
+  Future<void> updatePodcastsOrder(List<PodcastModel> updatedList) async {
+    await updateMyPodcasts(updatedList);
+  }
+
+  Future<void> _syncMyPodcastsToFirebase(List<PodcastModel> updatedList) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception("Utilisateur non connecté.");
+
+    // A. Traiter les suppressions différées accumulées hors-ligne
+    final prefs = await SharedPreferences.getInstance();
+    final pendingDeletions = prefs.getStringList('pending_deletions') ?? [];
+    if (pendingDeletions.isNotEmpty) {
+      for (var item in List.from(pendingDeletions)) {
+        final decoded = jsonDecode(item);
+        await _syncUnsubscribeFromFirebase(
+            decoded['feedUrl'], decoded['podcastId']);
+      }
+    }
+
+    // B. Synchroniser les ajouts et l'ordre sur Firestore par lot (Batch Write)
+    final WriteBatch batch = FirebaseFirestore.instance.batch();
+
+    // Récupérer les abonnements actuels dans Firestore pour effectuer les suppressions de miroir
+    final QuerySnapshot existingSubsSnapshot = await FirebaseFirestore.instance
+        .collection('subscriptions')
+        .where('userId', isEqualTo: user.uid)
+        .get();
+
+    final firestoreSubsMap = {
+      for (var doc in existingSubsSnapshot.docs)
+        (doc.data() as Map<String, dynamic>)['feedUrl'] as String: doc.reference
+    };
+
+    final updatedFeedUrls = updatedList.map((p) => p.feedUrl).toSet();
+
+    // 1. Supprimer dans Firestore les abonnements retirés
+    for (var entry in firestoreSubsMap.entries) {
+      if (!updatedFeedUrls.contains(entry.key)) {
+        batch.delete(entry.value);
+      }
+    }
+
+    // 2. Mettre à jour l'ordre de tri ou créer les abonnements manquants
+    for (int i = 0; i < updatedList.length; i++) {
+      final podcast = updatedList[i];
+      final docRef = firestoreSubsMap[podcast.feedUrl];
+
+      if (docRef != null) {
+        batch.update(docRef, {
+          'orderIndex': i,
+          'collectionName': podcast.collectionName,
+          'artistName': podcast.artistName,
+          'artworkUrl600': podcast.artworkUrl,
+        });
+      } else {
+        final newDocRef =
+            FirebaseFirestore.instance.collection('subscriptions').doc();
+        batch.set(newDocRef, {
+          'userId': user.uid,
+          'collectionId': podcast.collectionId,
+          'collectionName': podcast.collectionName,
+          'artistName': podcast.artistName,
+          'artworkUrl600': podcast.artworkUrl,
+          'feedUrl': podcast.feedUrl,
+          'orderIndex': i,
+          'subscribedAt': FieldValue.serverTimestamp(),
+        });
+      }
+    }
+
+    // Validation du lot Firestore sous timeout réseau
+    await batch.commit().timeout(const Duration(seconds: 8));
+
+    // C. Synchroniser également sur Data Connect
+    final userResult = await ExampleConnector.instance
+        .findUserByGoogleId(googleId: user.uid)
+        .execute();
+
+    if (userResult.data.users.isNotEmpty) {
+      final postgresUuid = userResult.data.users.first.id;
+
+      for (int i = 0; i < updatedList.length; i++) {
+        final model = updatedList[i];
+        final podcastUuid = _getPodcastUuid(model.collectionId, model.feedUrl);
+
+        await ExampleConnector.instance
+            .upsertPodcast(
+              title: model.collectionName,
+              feedUrl: model.feedUrl,
+              createdAt:
+                  Timestamp(DateTime.now().millisecondsSinceEpoch ~/ 1000, 0),
+            )
+            .id(podcastUuid)
+            .imageUrl(model.artworkUrl)
+            .author(model.artistName)
+            .execute();
+
+        await ExampleConnector.instance
+            .subscribeToPodcast(
+              userId: postgresUuid,
+              podcastId: podcastUuid,
+              subscribedAt:
+                  Timestamp(DateTime.now().millisecondsSinceEpoch ~/ 1000, 0),
+            )
+            .listOrder(i)
+            .execute();
+      }
     }
   }
 
@@ -1534,5 +1694,83 @@ class DatabaseRepository {
     } catch (e) {
       print("AA_DEBUG: Erreur lors de la simulation SharedPreferences : $e");
     }
+  }
+
+  /// Compare le contenu de my_podcasts locale avec la collection subscriptions de Firebase
+  Future<void> runSubscriptionsAudit() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      print("❌ Audit Impossible : Aucun utilisateur connecté.");
+      return;
+    }
+
+    print("--- 🩺 DÉBUT DE L'AUDIT DE COHÉRENCE DES ABONNEMENTS ---");
+
+    // 1. Récupérer l'état SQLite
+    final localList = await DatabaseHelper().getSubscribedPodcastsRaw();
+    final Map<String, int> localMap = {
+      for (var row in localList)
+        row['feedUrl'] as String: row['sortOrder'] as int
+    };
+
+    // 2. Récupérer l'état Firestore
+    final firestoreSnapshot = await FirebaseFirestore.instance
+        .collection('subscriptions')
+        .where('userId', isEqualTo: user.uid)
+        .get();
+
+    final Map<String, int> firestoreMap = {};
+    for (var doc in firestoreSnapshot.docs) {
+      final data = doc.data();
+      final feedUrl = data['feedUrl'] as String? ?? '';
+      final orderIndex = data['orderIndex'] as int? ?? -1;
+      if (feedUrl.isNotEmpty) {
+        firestoreMap[feedUrl] = orderIndex;
+      }
+    }
+
+    // 3. Analyse des écarts
+    final localUrls = localMap.keys.toSet();
+    final firestoreUrls = firestoreMap.keys.toSet();
+
+    final missingLocally = firestoreUrls.difference(localUrls);
+    final missingInFirestore = localUrls.difference(firestoreUrls);
+
+    print(
+        "📊 Statistiques : Local = ${localUrls.length} | Distant (Firestore) = ${firestoreUrls.length}");
+
+    if (missingLocally.isNotEmpty) {
+      print("⚠️ Manquant localement (présent dans Firestore) :");
+      for (var url in missingLocally) {
+        print("   - $url");
+      }
+    }
+
+    if (missingInFirestore.isNotEmpty) {
+      print("⚠️ Manquant sur Firestore (présent en local) :");
+      for (var url in missingInFirestore) {
+        print(
+            "   - $url (isSynced = ${localList.firstWhere((r) => r['feedUrl'] == url)['isSynced']})");
+      }
+    }
+
+    // 4. Vérification du tri
+    int orderMismatches = 0;
+    for (var url in localUrls.intersection(firestoreUrls)) {
+      if (localMap[url] != firestoreMap[url]) {
+        print(
+            "🔄 Désalignement du tri pour $url : Local = ${localMap[url]} | Firestore = ${firestoreMap[url]}");
+        orderMismatches++;
+      }
+    }
+
+    if (missingLocally.isEmpty &&
+        missingInFirestore.isEmpty &&
+        orderMismatches == 0) {
+      print("✅ Succès : SQLite et Firestore sont parfaitement synchronisés.");
+    } else {
+      print("❌ Audit terminé : Des incohérences ont été détectées.");
+    }
+    print("--- FIN DE L'AUDIT ---");
   }
 }
