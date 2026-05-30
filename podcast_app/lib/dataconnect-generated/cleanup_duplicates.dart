@@ -20,14 +20,10 @@ class CleanupDuplicatesVariablesBuilder {
 
 @immutable
 class CleanupDuplicatesData {
-  final int? cleanEpisodes;
   final int? cleanPodcasts;
   final int? cleanUsers;
   CleanupDuplicatesData.fromJson(dynamic json)
-      : cleanEpisodes = json['cleanEpisodes'] == null
-            ? null
-            : nativeFromJson<int>(json['cleanEpisodes']),
-        cleanPodcasts = json['cleanPodcasts'] == null
+      : cleanPodcasts = json['cleanPodcasts'] == null
             ? null
             : nativeFromJson<int>(json['cleanPodcasts']),
         cleanUsers = json['cleanUsers'] == null
@@ -43,20 +39,16 @@ class CleanupDuplicatesData {
     }
 
     final CleanupDuplicatesData otherTyped = other as CleanupDuplicatesData;
-    return cleanEpisodes == otherTyped.cleanEpisodes &&
-        cleanPodcasts == otherTyped.cleanPodcasts &&
+    return cleanPodcasts == otherTyped.cleanPodcasts &&
         cleanUsers == otherTyped.cleanUsers;
   }
 
   @override
-  int get hashCode => Object.hashAll(
-      [cleanEpisodes.hashCode, cleanPodcasts.hashCode, cleanUsers.hashCode]);
+  int get hashCode =>
+      Object.hashAll([cleanPodcasts.hashCode, cleanUsers.hashCode]);
 
   Map<String, dynamic> toJson() {
     Map<String, dynamic> json = {};
-    if (cleanEpisodes != null) {
-      json['cleanEpisodes'] = nativeToJson<int?>(cleanEpisodes);
-    }
     if (cleanPodcasts != null) {
       json['cleanPodcasts'] = nativeToJson<int?>(cleanPodcasts);
     }
@@ -67,7 +59,6 @@ class CleanupDuplicatesData {
   }
 
   CleanupDuplicatesData({
-    this.cleanEpisodes,
     this.cleanPodcasts,
     this.cleanUsers,
   });

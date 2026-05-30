@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 
 /**
- * Script de Maintenance Firebase - Purge Sécurisée des Collections Obsolètes (Phase n+2)
+ * Script de Maintenance Firebase - Purge Sécurisée et Diagnostic (Phase n+2)
  * 
  * Usage :
- *   1. Lancement en simulation (Émulateur local) :
- *      $env:FIRESTORE_EMULATOR_HOST="localhost:8080"
- *      node firebase_maintenance_purge.js --dry-run
+ *   1. Lancement en simulation (Dry Run) :
+ *      $env:GOOGLE_APPLICATION_CREDENTIALS="C:\Users\domin\.gemini\antigravity-ide\scratch\adc.json"
+ *      $env:GCLOUD_PROJECT="podstream-a980a"
+ *      node firebase_maintenance_purge.js
  * 
- *   2. Lancement réel sur la base de Production (nécessite l'auth active ou GOOGLE_APPLICATION_CREDENTIALS) :
+ *   2. Lancement réel destructif (Purge active) :
+ *      $env:GOOGLE_APPLICATION_CREDENTIALS="C:\Users\domin\.gemini\antigravity-ide\scratch\adc.json"
+ *      $env:GCLOUD_PROJECT="podstream-a980a"
  *      node firebase_maintenance_purge.js --execute
  */
 
@@ -17,15 +20,6 @@ const admin = require('firebase-admin');
 // 1. Détermination des arguments de la ligne de commande
 const args = process.argv.slice(2);
 const isDryRun = args.includes('--execute') ? false : true; // Par défaut, dry-run actif
-
-console.log('================================================================');
-console.log('       SCRIPT DE PURGE ET MAINTENANCE FIRESTORE - PODSTREAM     ');
-console.log('================================================================');
-console.log(`MODE D\'EXÉCUTION : ${isDryRun ? 'DRY-RUN (SIMULATION)' : 'ENVIRONNEMENT RÉEL (SUPPRESSION ACTIVE)'}`);
-if (isDryRun) {
-  console.log('💡 Note: Aucun document ne sera réellement supprimé. Utilisez --execute pour valider.');
-}
-console.log('================================================================\n');
 
 // 2. Initialisation de Firebase Admin
 if (process.env.FIRESTORE_EMULATOR_HOST) {
@@ -44,19 +38,36 @@ if (process.env.FIRESTORE_EMULATOR_HOST) {
 }
 
 const db = admin.firestore();
+const activeProjectId = admin.app().options.projectId || db.projectId;
 
-// 3. Whitelist de sécurité (Collections critiques protégées)
+console.log('================================================================');
+console.log('       SCRIPT DE PURGE ET MAINTENANCE FIRESTORE - PODSTREAM     ');
+console.log('================================================================');
+console.log(`PROJET CIBLE     : ${activeProjectId}`);
+console.log(`MODE D'EXÉCUTION : ${isDryRun ? 'DRY-RUN (SIMULATION)' : 'ENVIRONNEMENT RÉEL (SUPPRESSION ACTIVE)'}`);
+if (isDryRun) {
+  console.log('💡 Note: Aucun document ne sera réellement supprimé. Utilisez --execute pour valider.');
+}
+console.log('================================================================\n');
+
+// 3. Whitelist de sécurité (Collections critiques protégées de toute suppression)
 const PROTECTED_COLLECTIONS = [
-  'users',
-  'system',
-  'subscriptions',
-  'archive_subscriptions'
+  'users',            // Historique utilisateur principal
+  'system',           // Configuration et versions supportées
+  'subscriptions',    // Abonnements actifs (requis pour l'onglet Affinité)
+  'episodes',         // Index global des épisodes
+  'User',             // Conservé par sécurité
+  'Podcast'           // Conservé par sécurité pour l'affinité
 ];
 
-// Collections obsolètes à purger en Phase n+2
+// Collections obsolètes à purger en Phase n+2 (Firestore uniquement)
 const OBSOLETE_COLLECTIONS = [
   'raw_rss_cache',
-  'old_episode_status'
+  'old_episode_status',
+  'AppCache',
+  'SubscriptionType',
+  'ListenHistory',
+  'Episode'
 ];
 
 // 4. Fonction de purge par collection
@@ -96,13 +107,7 @@ async function purgeCollection(collectionName) {
         // En mode dry-run, on simule et on s'arrête pour éviter de boucler indéfiniment
         totalProcessed += snapshot.size;
         console.log(`   [DRY-RUN] Simule la suppression de ${snapshot.size} documents.`);
-        // Si la taille est inférieure à la pagination, on a tout scanné, sinon on break pour éviter la boucle infinie en Dry Run
-        if (snapshot.size < batchSize) {
-          break;
-        } else {
-          console.log(`   [DRY-RUN] Plus de documents sont disponibles. La simulation s'arrête ici pour ce lot.`);
-          break;
-        }
+        break; // Arrêt en dry-run pour éviter la boucle infinie
       }
     }
     

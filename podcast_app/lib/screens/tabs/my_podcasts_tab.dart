@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../dataconnect-generated/example.dart';
 import '../../models/podcast_model.dart';
 import '../../models/episode_model.dart';
 import '../../screens/podcast_details_screen.dart';
@@ -23,6 +21,7 @@ class _MyPodcastsTabState extends State<MyPodcastsTab> {
   Future<List<PodcastModel>>? _podcastsFuture;
   List<PodcastModel>? _myPodcastsList;
   Future<List<EpisodeModel>>? _episodesFuture;
+  bool _isRefreshing = false;
 
   @override
   void initState() {
@@ -75,6 +74,48 @@ class _MyPodcastsTabState extends State<MyPodcastsTab> {
     DatabaseRepository().updatePodcastsOrder(_myPodcastsList!);
   }
 
+  Future<void> _onRefreshEpisodes() async {
+    if (_isRefreshing) {
+      debugPrint(
+          "AA_DEBUG: Rafraîchissement déjà en cours, tentative ignorée.");
+      return;
+    }
+    _isRefreshing = true;
+
+    try {
+      debugPrint("AA_DEBUG: Début du rafraîchissement manuel des épisodes...");
+      // Forcer le rechargement depuis le réseau (et mise à jour SQLite)
+      await DatabaseRepository().getEpisodesToListen(forceRefresh: true);
+
+      if (mounted) {
+        setState(() {
+          _triggerEpisodesRefresh();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Épisodes rafraîchis avec succès."),
+            backgroundColor: AppTheme.primaryColor,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("AA_DEBUG: Erreur lors du rafraîchissement manuel: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Impossible de rafraîchir : ${e.toString()}"),
+            backgroundColor: AppTheme.dangerColor,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } finally {
+      _isRefreshing = false;
+      debugPrint("AA_DEBUG: Fin du rafraîchissement manuel.");
+    }
+  }
+
   /// Récupère, filtre et trie les épisodes en respectant l'ordre des abonnements
   Future<List<EpisodeModel>> _fetchAndAggregateEpisodes(
       List<PodcastModel> subscribedPodcasts) async {
@@ -88,32 +129,10 @@ class _MyPodcastsTabState extends State<MyPodcastsTab> {
 
       final List<List<EpisodeModel>> results = await Future.wait(futures);
 
-      // 2. Récupérer l'historique de lecture (Data Connect) et les préférences locales (SharedPreferences)
+      // 2. Récupérer l'historique de lecture et les préférences locales (SharedPreferences)
       final Set<String> readEpisodeIds = {};
       final List<String> localReadList = [];
       String order = 'asc';
-
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        try {
-          final userResult = await ExampleConnector.instance
-              .findUserByGoogleId(googleId: user.uid)
-              .execute();
-          if (userResult.data.users.isNotEmpty) {
-            final postgresUuid = userResult.data.users.first.id;
-            final historyResult = await ExampleConnector.instance
-                .getListenHistory(userId: postgresUuid)
-                .execute();
-            readEpisodeIds.addAll(
-              historyResult.data.listenHistories
-                  .where((h) => h.finishedListening == true)
-                  .map((h) => h.episode.id),
-            );
-          }
-        } catch (e) {
-          print("Error fetching listen history in MyPodcastsTab: $e");
-        }
-      }
 
       try {
         final prefs = await SharedPreferences.getInstance();
@@ -220,216 +239,222 @@ class _MyPodcastsTabState extends State<MyPodcastsTab> {
 
         final podcasts = _myPodcastsList ?? [];
 
-        return SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Section 1 : Titre "Mes Podcasts"
-              const Padding(
-                padding: EdgeInsets.only(
-                    left: 16.0, top: 16.0, right: 16.0, bottom: 8.0),
-                child: Text(
-                  'Mes Podcasts',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 22,
+        return RefreshIndicator(
+          onRefresh: _onRefreshEpisodes,
+          color: AppTheme.primaryColor,
+          backgroundColor: AppTheme.surfaceColor,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Section 1 : Titre "Mes Podcasts"
+                const Padding(
+                  padding: EdgeInsets.only(
+                      left: 16.0, top: 16.0, right: 16.0, bottom: 8.0),
+                  child: Text(
+                    'Mes Podcasts',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 22,
+                    ),
                   ),
                 ),
-              ),
 
-              // Section 1 : Carrousel horizontal réorganisable
-              if (podcasts.isEmpty)
-                Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.symmetric(
-                      horizontal: 16.0, vertical: 8.0),
-                  padding: const EdgeInsets.all(16.0),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surfaceColor,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Text(
-                    'Aucun podcast abonné. Recherchez et abonnez-vous à un podcast !',
-                    style: TextStyle(
-                      color: AppTheme.textSecondary,
-                      fontStyle: FontStyle.italic,
+                // Section 1 : Carrousel horizontal réorganisable
+                if (podcasts.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.symmetric(
+                        horizontal: 16.0, vertical: 8.0),
+                    padding: const EdgeInsets.all(16.0),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surfaceColor,
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                )
-              else
-                SizedBox(
-                  height: 220,
-                  child: ReorderableListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    itemCount: podcasts.length,
-                    onReorderItem: _onReorderItem,
-                    itemBuilder: (context, index) {
-                      final podcast = podcasts[index];
-                      return GestureDetector(
-                        key: ValueKey(podcast.feedUrl),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => PodcastDetailsScreen(
-                                podcast: podcast.toMap(),
+                    child: const Text(
+                      'Aucun podcast abonné. Recherchez et abonnez-vous à un podcast !',
+                      style: TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontStyle: FontStyle.italic,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  )
+                else
+                  SizedBox(
+                    height: 220,
+                    child: ReorderableListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      itemCount: podcasts.length,
+                      onReorderItem: _onReorderItem,
+                      itemBuilder: (context, index) {
+                        final podcast = podcasts[index];
+                        return GestureDetector(
+                          key: ValueKey(podcast.feedUrl),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => PodcastDetailsScreen(
+                                  podcast: podcast.toMap(),
+                                ),
                               ),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          width: 140,
-                          margin: const EdgeInsets.only(right: 16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Pochette
-                              Container(
-                                width: 140,
-                                height: 140,
-                                decoration: BoxDecoration(
-                                  color: AppTheme.surfaceColor,
-                                  borderRadius: BorderRadius.circular(16),
-                                  image: podcast.artworkUrl.isNotEmpty
-                                      ? DecorationImage(
-                                          image:
-                                              NetworkImage(podcast.artworkUrl),
-                                          fit: BoxFit.cover,
+                            );
+                          },
+                          child: Container(
+                            width: 140,
+                            margin: const EdgeInsets.only(right: 16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Pochette
+                                Container(
+                                  width: 140,
+                                  height: 140,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.surfaceColor,
+                                    borderRadius: BorderRadius.circular(16),
+                                    image: podcast.artworkUrl.isNotEmpty
+                                        ? DecorationImage(
+                                            image: NetworkImage(
+                                                podcast.artworkUrl),
+                                            fit: BoxFit.cover,
+                                          )
+                                        : null,
+                                  ),
+                                  child: podcast.artworkUrl.isEmpty
+                                      ? const Icon(
+                                          Icons.podcasts,
+                                          size: 40,
+                                          color: AppTheme.textSecondary,
                                         )
                                       : null,
                                 ),
-                                child: podcast.artworkUrl.isEmpty
-                                    ? const Icon(
-                                        Icons.podcasts,
-                                        size: 40,
-                                        color: AppTheme.textSecondary,
-                                      )
-                                    : null,
-                              ),
-                              const SizedBox(height: 8),
-                              // Titre
-                              Text(
-                                podcast.collectionName,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                  color: Colors.white,
+                                const SizedBox(height: 8),
+                                // Titre
+                                Text(
+                                  podcast.collectionName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: Colors.white,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 4),
-                              // Auteur
-                              Text(
-                                podcast.artistName,
-                                style: const TextStyle(
-                                  color: AppTheme.textSecondary,
-                                  fontSize: 12,
+                                const SizedBox(height: 4),
+                                // Auteur
+                                Text(
+                                  podcast.artistName,
+                                  style: const TextStyle(
+                                    color: AppTheme.textSecondary,
+                                    fontSize: 12,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
+                        );
+                      },
+                    ),
+                  ),
+
+                // Espacement entre les deux sections
+                const SizedBox(height: 24),
+
+                // Section 2 : Titre "A écouter"
+                const Padding(
+                  padding: EdgeInsets.only(
+                      left: 16.0, top: 8.0, right: 16.0, bottom: 8.0),
+                  child: Text(
+                    'A écouter',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 22,
+                    ),
+                  ),
+                ),
+
+                // Section 2 : Liste verticale dynamique issue de tous les abonnements triés/filtrés par priorité
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: ValueListenableBuilder<int>(
+                    valueListenable:
+                        app_audio.AudioService().listRefreshNotifier,
+                    builder: (context, refreshCount, _) {
+                      return FutureBuilder<List<EpisodeModel>>(
+                        key: ValueKey(refreshCount),
+                        future: _episodesFuture,
+                        builder: (context, episodeSnapshot) {
+                          if (episodeSnapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 24.0),
+                                child: CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      AppTheme.primaryColor),
+                                ),
+                              ),
+                            );
+                          }
+
+                          if (episodeSnapshot.hasError) {
+                            return Center(
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16.0),
+                                child: Text(
+                                  'Erreur lors du chargement des épisodes : ${episodeSnapshot.error}',
+                                  style: const TextStyle(
+                                      color: AppTheme.dangerColor),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            );
+                          }
+
+                          final episodes = episodeSnapshot.data ?? [];
+                          if (episodes.isEmpty) {
+                            return const Center(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 24.0),
+                                child: Text(
+                                  'Aucun épisode disponible.',
+                                  style: TextStyle(
+                                    color: AppTheme.textSecondary,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+
+                          return ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount:
+                                episodes.length > 20 ? 20 : episodes.length,
+                            itemBuilder: (context, index) {
+                              return EpisodeListTile(episode: episodes[index]);
+                            },
+                          );
+                        },
                       );
                     },
                   ),
                 ),
 
-              // Espacement entre les deux sections
-              const SizedBox(height: 24),
-
-              // Section 2 : Titre "A écouter"
-              const Padding(
-                padding: EdgeInsets.only(
-                    left: 16.0, top: 8.0, right: 16.0, bottom: 8.0),
-                child: Text(
-                  'A écouter',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 22,
-                  ),
-                ),
-              ),
-
-              // Section 2 : Liste verticale dynamique issue de tous les abonnements triés/filtrés par priorité
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: ValueListenableBuilder<int>(
-                  valueListenable: app_audio.AudioService().listRefreshNotifier,
-                  builder: (context, refreshCount, _) {
-                    return FutureBuilder<List<EpisodeModel>>(
-                      key: ValueKey(refreshCount),
-                      future: _episodesFuture,
-                      builder: (context, episodeSnapshot) {
-                        if (episodeSnapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Center(
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(vertical: 24.0),
-                              child: CircularProgressIndicator(
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                    AppTheme.primaryColor),
-                              ),
-                            ),
-                          );
-                        }
-
-                        if (episodeSnapshot.hasError) {
-                          return Center(
-                            child: Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 16.0),
-                              child: Text(
-                                'Erreur lors du chargement des épisodes : ${episodeSnapshot.error}',
-                                style: const TextStyle(
-                                    color: AppTheme.dangerColor),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          );
-                        }
-
-                        final episodes = episodeSnapshot.data ?? [];
-                        if (episodes.isEmpty) {
-                          return const Center(
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(vertical: 24.0),
-                              child: Text(
-                                'Aucun épisode disponible.',
-                                style: TextStyle(
-                                  color: AppTheme.textSecondary,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                            ),
-                          );
-                        }
-
-                        return ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount:
-                              episodes.length > 20 ? 20 : episodes.length,
-                          itemBuilder: (context, index) {
-                            return EpisodeListTile(episode: episodes[index]);
-                          },
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
-
-              // Marge inférieure pour éviter que le mini player ne masque les derniers éléments
-              const SizedBox(height: 80),
-            ],
+                // Marge inférieure pour éviter que le mini player ne masque les derniers éléments
+                const SizedBox(height: 80),
+              ],
+            ),
           ),
         );
       },

@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Timestamp;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -262,37 +261,7 @@ class DatabaseRepository {
     await checkRemoteVersionAndRequirements();
     await migrateFromPreferencesToSqlite();
     await ensureInitialized();
-    await _cleanObsoletePopularCache();
     await retryUnsyncedOrders();
-  }
-
-  Future<void> _cleanObsoletePopularCache() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final alreadyCleaned = prefs.getBool('popular_cache_cleaned_v2') ?? false;
-      if (!alreadyCleaned) {
-        final languages = ['fr', 'en', 'es', 'de', 'all'];
-        for (var lang in languages) {
-          final cacheKey = 'popular_$lang';
-          try {
-            await ExampleConnector.instance
-                .upsertAppCache(
-                  id: cacheKey,
-                  data: AnyValue('[]'),
-                  updatedAt: Timestamp(0, 0),
-                )
-                .execute();
-            debugPrint(
-                "AA_DEBUG: cleaned DataConnect cache for key: $cacheKey");
-          } catch (e) {
-            debugPrint("AA_DEBUG: error cleaning cache key $cacheKey: $e");
-          }
-        }
-        await prefs.setBool('popular_cache_cleaned_v2', true);
-      }
-    } catch (e) {
-      debugPrint("Erreur cleanObsoletePopularCache: $e");
-    }
   }
 
   Future<List<PodcastModel>> getMySubscribedPodcasts(
@@ -631,218 +600,80 @@ class DatabaseRepository {
     }
   }
 
-  Future<void> updateMyPodcasts(List<PodcastModel> updatedList) async {
+  Future<void> updatePodcastsOrder(List<PodcastModel> updatedList) async {
     final helper = DatabaseHelper();
     final db = await helper.database;
 
-    // 1. Transaction SQLite locale
+    // 1. Transaction SQLite locale pure
     try {
       await db.transaction((txn) async {
-        // Récupérer les abonnements locaux existants pour identifier les suppressions
-        final List<Map<String, dynamic>> existingList =
-            await txn.query('my_podcasts');
-        final existingFeedUrls =
-            existingList.map((row) => row['feedUrl'] as String).toSet();
-        final updatedFeedUrls = updatedList.map((p) => p.feedUrl).toSet();
-
-        // Identifier les podcasts désabonnés (présents en local mais absents de la nouvelle liste)
-        final toDelete = existingFeedUrls.difference(updatedFeedUrls);
-        for (var feedUrl in toDelete) {
-          await txn.delete(
-            'my_podcasts',
-            where: 'feedUrl = ?',
-            whereArgs: [feedUrl],
-          );
-          // Enregistrer le désabonnement en attente localement (SharedPreferences)
-          final podcastId = _getPodcastUuid(null, feedUrl);
-          await _addPendingDeletion(feedUrl, podcastId);
-        }
-
-        // Insérer ou mettre à jour les podcasts restants avec leur nouvel index et isSynced à 0
         for (int i = 0; i < updatedList.length; i++) {
           final podcast = updatedList[i];
-          await txn.insert(
+          await txn.update(
             'my_podcasts',
-            {
-              'feedUrl': podcast.feedUrl,
-              'collectionId': podcast.collectionId,
-              'collectionName': podcast.collectionName,
-              'artistName': podcast.artistName,
-              'artworkUrl': podcast.artworkUrl,
-              'sortOrder': i,
-              'isSynced': 0, // 0 = En attente de synchro
-            },
-            conflictAlgorithm: ConflictAlgorithm.replace,
+            {'sortOrder': i},
+            where: 'feedUrl = ?',
+            whereArgs: [podcast.feedUrl],
           );
         }
       });
-      print("AA_DEBUG: Mise à jour transactionnelle SQLite réussie.");
+      print(
+          "AA_DEBUG: Mise à jour transactionnelle SQLite de l'ordre réussie.");
     } catch (e) {
-      print("AA_DEBUG: Erreur critique SQLite lors de updateMyPodcasts : $e");
-      rethrow; // Bloquer pour éviter de corrompre le cache
+      print(
+          "AA_DEBUG: Erreur critique SQLite lors de updatePodcastsOrder : $e");
+      rethrow;
     }
 
-    // Mettre à jour le cache mémoire local
+    // 2. Mettre à jour le cache local en mémoire
     _cacheManager.write('my_subscribed_podcasts', updatedList);
     _refreshEpisodesToListen(); // Rafraîchir les épisodes à écouter
 
-    // Notifier immédiatement l'interface utilisateur
+    // 3. Notifier immédiatement l'interface utilisateur
     try {
       app_audio.AudioService().listRefreshNotifier.value++;
     } catch (_) {}
-
-    // 2. Déclenchement de la synchronisation asynchrone vers Firebase
-    _syncMyPodcastsToFirebase(updatedList).then((_) async {
-      print(
-          "AA_DEBUG: Synchronisation Firebase réussie pour la liste complète.");
-      // Mettre à jour isSynced à 1 pour tous les éléments dans SQLite
-      try {
-        await db.transaction((txn) async {
-          for (var p in updatedList) {
-            await txn.update(
-              'my_podcasts',
-              {'isSynced': 1},
-              where: 'feedUrl = ?',
-              whereArgs: [p.feedUrl],
-            );
-          }
-        });
-        print(
-            "AA_DEBUG: Flags de synchronisation locale passés à 1 (isSynced = 1).");
-      } catch (e) {
-        print("AA_DEBUG: Erreur lors de la mise à jour de isSynced à 1 : $e");
-      }
-    }).catchError((err) {
-      // En cas d'erreur réseau, l'état local reste à isSynced = 0.
-      // La tâche de fond retryUnsyncedOrders() tentera la synchro au prochain démarrage.
-      print(
-          "AA_DEBUG: Échec de la synchronisation asynchrone Firebase: $err. Données marquées hors-ligne.");
-    });
-  }
-
-  Future<void> updatePodcastsOrder(List<PodcastModel> updatedList) async {
-    await updateMyPodcasts(updatedList);
-  }
-
-  Future<void> _syncMyPodcastsToFirebase(List<PodcastModel> updatedList) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) throw Exception("Utilisateur non connecté.");
-
-    // A. Traiter les suppressions différées accumulées hors-ligne
-    final prefs = await SharedPreferences.getInstance();
-    final pendingDeletions = prefs.getStringList('pending_deletions') ?? [];
-    if (pendingDeletions.isNotEmpty) {
-      for (var item in List.from(pendingDeletions)) {
-        final decoded = jsonDecode(item);
-        await _syncUnsubscribeFromFirebase(
-            decoded['feedUrl'], decoded['podcastId']);
-      }
-    }
-
-    // B. Synchroniser les ajouts et l'ordre sur Firestore par lot (Batch Write)
-    final WriteBatch batch = FirebaseFirestore.instance.batch();
-
-    // Récupérer les abonnements actuels dans Firestore pour effectuer les suppressions de miroir
-    final QuerySnapshot existingSubsSnapshot = await FirebaseFirestore.instance
-        .collection('subscriptions')
-        .where('userId', isEqualTo: user.uid)
-        .get();
-
-    final firestoreSubsMap = {
-      for (var doc in existingSubsSnapshot.docs)
-        (doc.data() as Map<String, dynamic>)['feedUrl'] as String: doc.reference
-    };
-
-    final updatedFeedUrls = updatedList.map((p) => p.feedUrl).toSet();
-
-    // 1. Supprimer dans Firestore les abonnements retirés
-    for (var entry in firestoreSubsMap.entries) {
-      if (!updatedFeedUrls.contains(entry.key)) {
-        batch.delete(entry.value);
-      }
-    }
-
-    // 2. Mettre à jour l'ordre de tri ou créer les abonnements manquants
-    for (int i = 0; i < updatedList.length; i++) {
-      final podcast = updatedList[i];
-      final docRef = firestoreSubsMap[podcast.feedUrl];
-
-      if (docRef != null) {
-        batch.update(docRef, {
-          'orderIndex': i,
-          'collectionName': podcast.collectionName,
-          'artistName': podcast.artistName,
-          'artworkUrl600': podcast.artworkUrl,
-        });
-      } else {
-        final newDocRef =
-            FirebaseFirestore.instance.collection('subscriptions').doc();
-        batch.set(newDocRef, {
-          'userId': user.uid,
-          'collectionId': podcast.collectionId,
-          'collectionName': podcast.collectionName,
-          'artistName': podcast.artistName,
-          'artworkUrl600': podcast.artworkUrl,
-          'feedUrl': podcast.feedUrl,
-          'orderIndex': i,
-          'subscribedAt': FieldValue.serverTimestamp(),
-        });
-      }
-    }
-
-    // Validation du lot Firestore sous timeout réseau
-    await batch.commit().timeout(const Duration(seconds: 8));
-
-    // C. Synchroniser également sur Data Connect
-    final userResult = await ExampleConnector.instance
-        .findUserByGoogleId(googleId: user.uid)
-        .execute();
-
-    if (userResult.data.users.isNotEmpty) {
-      final postgresUuid = userResult.data.users.first.id;
-
-      for (int i = 0; i < updatedList.length; i++) {
-        final model = updatedList[i];
-        final podcastUuid = _getPodcastUuid(model.collectionId, model.feedUrl);
-
-        await ExampleConnector.instance
-            .upsertPodcast(
-              title: model.collectionName,
-              feedUrl: model.feedUrl,
-              createdAt:
-                  Timestamp(DateTime.now().millisecondsSinceEpoch ~/ 1000, 0),
-            )
-            .id(podcastUuid)
-            .imageUrl(model.artworkUrl)
-            .author(model.artistName)
-            .execute();
-
-        await ExampleConnector.instance
-            .subscribeToPodcast(
-              userId: postgresUuid,
-              podcastId: podcastUuid,
-              subscribedAt:
-                  Timestamp(DateTime.now().millisecondsSinceEpoch ~/ 1000, 0),
-            )
-            .listOrder(i)
-            .execute();
-      }
-    }
   }
 
   Future<void> subscribeToPodcast(PodcastModel podcast) async {
     try {
-      final currentSubs = await DatabaseHelper().getSubscribedPodcasts();
-      final sortOrder = currentSubs.length;
-      await DatabaseHelper().insertPodcast(podcast, sortOrder, isSynced: 0);
+      final helper = DatabaseHelper();
+      final db = await helper.database;
+      int sortOrder = 0;
 
-      // Mettre à jour le cache local en mémoire
+      // 1. Transaction SQLite locale
+      await db.transaction((txn) async {
+        final List<Map<String, dynamic>> maps = await txn.query(
+          'my_podcasts',
+          columns: ['COUNT(*) as cnt'],
+        );
+        final count = maps.isNotEmpty ? maps.first['cnt'] as int : 0;
+        sortOrder = count;
+
+        await txn.insert(
+          'my_podcasts',
+          {
+            'feedUrl': podcast.feedUrl,
+            'collectionId': podcast.collectionId,
+            'collectionName': podcast.collectionName,
+            'artistName': podcast.artistName,
+            'artworkUrl': podcast.artworkUrl,
+            'sortOrder': sortOrder,
+            'isSynced': 0, // 0 = En attente de synchro
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      });
+
+      // 2. Mettre à jour le cache local en mémoire
       final cached = _cacheManager.read('my_subscribed_podcasts');
       if (cached is List<PodcastModel>) {
+        cached.removeWhere((p) => p.feedUrl == podcast.feedUrl);
         cached.add(podcast);
         _cacheManager.write('my_subscribed_podcasts', cached);
       }
 
+      // 3. Lancer la synchro asynchrone ("Fire and forget") vers Firebase/Data Connect
       _syncSubscribeToFirebase(podcast, sortOrder).then((_) {
         print(
             "AA_DEBUG: Inscription Firebase réussie pour ${podcast.collectionName}");
@@ -857,9 +688,19 @@ class DatabaseRepository {
 
   Future<void> unsubscribeFromPodcast(String feedUrl, String podcastId) async {
     try {
-      await DatabaseHelper().deletePodcast(feedUrl);
+      final helper = DatabaseHelper();
+      final db = await helper.database;
 
-      // Mettre à jour le cache local en mémoire
+      // 1. Transaction SQLite locale
+      await db.transaction((txn) async {
+        await txn.delete(
+          'my_podcasts',
+          where: 'feedUrl = ?',
+          whereArgs: [feedUrl],
+        );
+      });
+
+      // 2. Mettre à jour le cache local en mémoire
       final cached = _cacheManager.read('my_subscribed_podcasts');
       if (cached is List<PodcastModel>) {
         cached.removeWhere((p) => p.feedUrl == feedUrl);
@@ -868,6 +709,7 @@ class DatabaseRepository {
 
       await _addPendingDeletion(feedUrl, podcastId);
 
+      // 3. Lancer la synchro asynchrone ("Fire and forget") vers Firebase/Data Connect
       _syncUnsubscribeFromFirebase(feedUrl, podcastId).then((_) {
         print("AA_DEBUG: Désinscription Firebase réussie pour $feedUrl");
       }).catchError((err) {
@@ -1075,65 +917,12 @@ class DatabaseRepository {
         }
       }
 
-      // C. Synchroniser l'ordre de tri de tous les abonnements actuels pour correspondre parfaitement
-      final localSubs = await DatabaseHelper().getSubscribedPodcasts();
-      if (localSubs.isNotEmpty) {
-        await _syncSortOrdersOnly(localSubs);
-      }
-
       print("AA_DEBUG: Fin de retryUnsyncedOrders avec succès.");
     } catch (e) {
       print("AA_DEBUG: Erreur lors de la synchronisation : $e");
     } finally {
       _isSyncing = false;
       print("AA_DEBUG: Verrou désactivé pour retryUnsyncedOrders.");
-    }
-  }
-
-  Future<void> _syncSortOrdersOnly(List<PodcastModel> localSubs) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    try {
-      // 1. Firestore
-      final WriteBatch batch = FirebaseFirestore.instance.batch();
-      for (int i = 0; i < localSubs.length; i++) {
-        final podcast = localSubs[i];
-        final QuerySnapshot query = await FirebaseFirestore.instance
-            .collection('subscriptions')
-            .where('userId', isEqualTo: user.uid)
-            .where('feedUrl', isEqualTo: podcast.feedUrl)
-            .get();
-
-        for (var doc in query.docs) {
-          batch.update(doc.reference, {'orderIndex': i});
-        }
-      }
-      await batch.commit();
-
-      // 2. Data Connect
-      final userResult = await ExampleConnector.instance
-          .findUserByGoogleId(googleId: user.uid)
-          .execute();
-      if (userResult.data.users.isNotEmpty) {
-        final postgresUuid = userResult.data.users.first.id;
-        for (int i = 0; i < localSubs.length; i++) {
-          final podcast = localSubs[i];
-          final podcastUuid =
-              _getPodcastUuid(podcast.collectionId, podcast.feedUrl);
-          await ExampleConnector.instance
-              .updateSubscriptionOrder(
-                userId: postgresUuid,
-                podcastId: podcastUuid,
-                listOrder: i,
-              )
-              .execute();
-        }
-      }
-    } catch (e) {
-      print(
-          "AA_DEBUG: Échec de la mise à jour de l'ordre de tri sur Firebase: $e");
-      rethrow;
     }
   }
 
@@ -1412,41 +1201,6 @@ class DatabaseRepository {
     } catch (e) {
       print('AA_DEBUG: Échec synchro Firestore (timeout/hors-ligne) : $e');
     }
-
-    // B. Sync to Data Connect (ExampleConnector)
-    try {
-      final userResult = await ExampleConnector.instance
-          .findUserByGoogleId(googleId: uid)
-          .execute();
-      if (userResult.data.users.isNotEmpty) {
-        final postgresUuid = userResult.data.users.first.id;
-        final String formattedEpisodeId = _formatUuidForSync(episodeId);
-
-        int durationSeconds = 600;
-        await ExampleConnector.instance
-            .updateListenHistory(
-              userId: postgresUuid,
-              episodeId: formattedEpisodeId,
-              progressSeconds: BigInt.from(durationSeconds),
-              finishedListening: true,
-              listenedAt:
-                  Timestamp(DateTime.now().millisecondsSinceEpoch ~/ 1000, 0),
-            )
-            .execute();
-        print(
-            'AA_DEBUG: Synchro Data Connect réussie pour l\'épisode: $episodeId');
-      }
-    } catch (e) {
-      print('AA_DEBUG: Échec synchro Data Connect: $e');
-    }
-  }
-
-  String _formatUuidForSync(String rawId) {
-    if (rawId.contains('-')) return rawId;
-    if (rawId.length == 32) {
-      return '${rawId.substring(0, 8)}-${rawId.substring(8, 12)}-${rawId.substring(12, 16)}-${rawId.substring(16, 20)}-${rawId.substring(20, 32)}';
-    }
-    return rawId;
   }
 
   Future<List<PodcastModel>> getPodcastsByThemeWithCache(String theme) async {

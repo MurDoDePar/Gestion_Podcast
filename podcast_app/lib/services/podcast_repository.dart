@@ -5,28 +5,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/episode_model.dart';
 import '../dataconnect-generated/example.dart';
 import 'database_helper.dart';
+import 'rss_service.dart';
 
 class PodcastRepository {
   /// Récupère les IDs des épisodes déjà lus (Source Firestore + Data Connect + Local)
   Future<Set<String>> _getReadEpisodeIds(String postgresUuid) async {
     final readIds = <String>{};
 
-    // 1. Source Data Connect (ExampleConnector)
-    try {
-      final historyResult = await ExampleConnector.instance
-          .getListenHistory(userId: postgresUuid)
-          .execute();
-
-      final dcIds = historyResult.data.listenHistories
-          .where((h) => h.finishedListening == true)
-          .map((h) => h.episode.id)
-          .toSet();
-      readIds.addAll(dcIds);
-    } catch (e) {
-      print("Erreur _getReadEpisodeIds Data Connect: $e");
-    }
-
-    // 2. Source Firestore
+    // 1. Source Firestore
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
@@ -53,7 +39,7 @@ class PodcastRepository {
       print("Erreur _getReadEpisodeIds Firestore: $e");
     }
 
-    // 3. Source Local (SQLite uniquement)
+    // 2. Source Local (SQLite uniquement)
     try {
       final sqliteReadList = await DatabaseHelper().getReadEpisodeIds();
       readIds.addAll(sqliteReadList);
@@ -99,15 +85,13 @@ class PodcastRepository {
       for (var sub in subs) {
         final podcastName = sub.podcast.title;
         final podcastImageUrl = sub.podcast.imageUrl;
+        final feedUrl = sub.podcast.feedUrl;
 
-        final episodesResult = await ExampleConnector.instance
-            .getEpisodesByPodcast(podcastId: sub.podcast.id)
-            .execute();
+        // Récupération des épisodes directement depuis le flux RSS (Offline-First)
+        final rssEpisodes = await RssService().getEpisodesFromFeed(feedUrl);
 
-        var epsList = episodesResult.data.episodes.toList();
-
-        // Sort episodes of the current podcast
-        epsList.sort((a, b) {
+        // Tri des épisodes du podcast courant
+        rssEpisodes.sort((a, b) {
           int cmp = 0;
           final matchA = RegExp(r'#(\d+)').firstMatch(a.title);
           final matchB = RegExp(r'#(\d+)').firstMatch(b.title);
@@ -117,30 +101,32 @@ class PodcastRepository {
             final numB = int.parse(matchB.group(1)!);
             cmp = numA.compareTo(numB);
           } else {
-            cmp = a.publishedAt
-                .toDateTime()
-                .compareTo(b.publishedAt.toDateTime());
+            final dateA = a.pubDate ?? DateTime.now();
+            final dateB = b.pubDate ?? DateTime.now();
+            cmp = dateA.compareTo(dateB);
             if (cmp == 0) cmp = a.title.compareTo(b.title);
           }
 
           if (order == 'asc') {
-            return cmp; // oldest first
+            return cmp; // le plus ancien d'abord
           } else {
-            return -cmp; // newest first
+            return -cmp; // le plus récent d'abord
           }
         });
 
-        for (var ep in epsList) {
+        for (var ep in rssEpisodes) {
           final encodedId = base64UrlEncode(utf8.encode(ep.id));
           if (!readIds.contains(ep.id) && !readIds.contains(encodedId)) {
             allEpisodes.add(EpisodeModel(
               id: ep.id,
               title: ep.title,
               audioUrl: ep.audioUrl,
-              imageUrl: ep.imageUrl ?? podcastImageUrl ?? '',
+              imageUrl: ep.imageUrl.isNotEmpty
+                  ? ep.imageUrl
+                  : (podcastImageUrl ?? ''),
               podcastName: podcastName,
-              pubDate: ep.publishedAt.toDateTime(),
-              description: ep.description ?? '',
+              pubDate: ep.pubDate,
+              description: ep.description,
             ));
           }
         }

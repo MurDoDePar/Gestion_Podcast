@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:xml/xml.dart' as xml;
+import 'package:html/parser.dart' as html_parser;
 import '../models/episode_model.dart';
 
 class RssService {
@@ -59,10 +60,11 @@ List<EpisodeModel> _parseRss(Uint8List bodyBytes) {
   for (var item in items) {
     final title = item.findElements('title').firstOrNull?.innerText ??
         'Épisode sans titre';
-    final description =
+    final rawDescription =
         item.findElements('description').firstOrNull?.innerText ??
             item.findElements('itunes:summary').firstOrNull?.innerText ??
             'Aucune description disponible.';
+    final description = _sanitizeHtml(rawDescription);
 
     final enclosure = item.findElements('enclosure').firstOrNull;
     final audioUrl = enclosure?.getAttribute('url') ?? '';
@@ -116,4 +118,15 @@ List<EpisodeModel> _parseRss(Uint8List bodyBytes) {
   }
 
   return episodes;
+}
+
+/// Fonction utilitaire de nettoyage HTML et de décodage des entités HTML5
+String _sanitizeHtml(String htmlString) {
+  if (htmlString.isEmpty) return '';
+  // Parser la chaîne comme un document HTML
+  final document = html_parser.parse(htmlString);
+  // Extraire le texte brut combiné (ceci convertit également les balises en retours chariots/texte
+  // et décode automatiquement les entités comme &nbsp;, &eacute;, &amp; etc.)
+  final String parsedString = document.body?.text ?? '';
+  return parsedString.trim();
 }

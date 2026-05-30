@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:xml/xml.dart' as xml;
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_data_connect/firebase_data_connect.dart';
 import '../theme/app_theme.dart';
 import '../services/audio_service.dart';
 import '../services/cache_manager.dart';
@@ -186,70 +185,8 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
   }
 
   Future<void> _fetchEpisodes() async {
-    // 1. Lire d'abord depuis la DB pour un affichage rapide
-    await _loadEpisodesFromDB();
-
-    // 2. Lancer la synchronisation en arrière-plan
+    // Lancer la synchronisation/récupération des épisodes depuis le flux RSS directement (Offline-First)
     _syncEpisodesFromRSS();
-  }
-
-  Future<void> _loadEpisodesFromDB() async {
-    try {
-      final result = await ExampleConnector.instance
-          .getEpisodesByPodcast(podcastId: podcastId)
-          .execute();
-      final dbEpisodes = result.data.episodes;
-
-      if (dbEpisodes.isNotEmpty && mounted) {
-        final prefs = await SharedPreferences.getInstance();
-        final userOrder = prefs.getString('podstream_order') ?? 'asc';
-
-        final epsList = dbEpisodes.toList();
-
-        // NE PAS MODIFIER CETTE LOGIQUE DE TRI SANS DEMANDE EXPRESSE DU DÉVELOPPEUR
-        epsList.sort((a, b) {
-          int cmp = 0;
-          // Extract episode number from title (e.g., "#14")
-          final matchA = RegExp(r'#(\d+)').firstMatch(a.title);
-          final matchB = RegExp(r'#(\d+)').firstMatch(b.title);
-          if (matchA != null && matchB != null) {
-            final numA = int.parse(matchA.group(1)!);
-            final numB = int.parse(matchB.group(1)!);
-            cmp = numA.compareTo(numB);
-          } else {
-            cmp = a.publishedAt
-                .toDateTime()
-                .compareTo(b.publishedAt.toDateTime());
-            if (cmp == 0) cmp = a.title.compareTo(b.title);
-          }
-
-          if (userOrder == 'asc') {
-            return cmp;
-          } else {
-            return -cmp;
-          }
-        });
-
-        setState(() {
-          _episodes = epsList
-              .map((e) => AudioEpisode(
-                    id: e.id,
-                    title: e.title,
-                    podcastName: widget.podcast['collectionName'] ??
-                        widget.podcast['title'] ??
-                        'Podcast',
-                    imageUrl: e.imageUrl ??
-                        widget.podcast['artworkUrl600'] ??
-                        widget.podcast['imageUrl'],
-                    audioUrl: e.audioUrl,
-                  ))
-              .toList();
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      print("Erreur chargement episodes DB: $e");
-    }
   }
 
   Future<void> _syncEpisodesFromRSS() async {
@@ -395,12 +332,11 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
         final eps = <AudioEpisode>[];
 
         for (var parsed in topItems) {
-          final item = parsed.element;
           final audioUrl = parsed.audioUrl!;
-          final stableId = _generateStableUuid(audioUrl);
+          final stableId = audioUrl;
 
           eps.add(AudioEpisode(
-            id: stableId, // ID stable
+            id: stableId, // ID stable (url)
             title: parsed.title,
             podcastName: widget.podcast['collectionName'] ??
                 widget.podcast['title'] ??
@@ -410,28 +346,7 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
             audioUrl: audioUrl,
           ));
 
-          // Upsert l'épisode en base
-          if (_isSubscribed) {
-            try {
-              await ExampleConnector.instance
-                  .upsertEpisode(
-                    podcastId: podcastId,
-                    title: parsed.title,
-                    audioUrl: audioUrl,
-                    duration: BigInt.zero,
-                    publishedAt: Timestamp(
-                        parsed.pubDate.millisecondsSinceEpoch ~/ 1000, 0),
-                  )
-                  .id(stableId)
-                  .description(
-                      item.findElements('description').firstOrNull?.innerText)
-                  .imageUrl(widget.podcast['artworkUrl600'] ??
-                      widget.podcast['imageUrl'])
-                  .execute();
-            } catch (upsertErr) {
-              print("Erreur upsert episode ${parsed.title}: $upsertErr");
-            }
-          }
+          // Plus d'upsert distant de l'épisode (obsolète dans l'architecture Offline-First)
         }
 
         // Mettre à jour l'UI avec les épisodes rafraîchis si la DB était vide ou différente
@@ -446,15 +361,6 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
       print("Erreur parsing episodes RSS: $e");
       if (mounted) setState(() => _isLoading = false);
     }
-  }
-
-  String _generateStableUuid(String input) {
-    // Very simple pseudo-hash to make a UUID-like string from audioUrl for stable upserts
-    String hash = input.hashCode.abs().toString().padLeft(12, '0');
-    if (hash.length > 12) hash = hash.substring(0, 12);
-    String hash2 = (input.length * 31).toString().padLeft(3, '0');
-    if (hash2.length > 3) hash2 = hash2.substring(0, 3);
-    return '11111111-2222-4000-8$hash2-$hash';
   }
 
   @override

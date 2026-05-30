@@ -16,33 +16,9 @@ type Podcast @table {
   categories: [String]
 }
 
-type Episode @table {
-  podcast: Podcast
-  title: String!
-  audioUrl: String! @unique
-  publishedAt: Timestamp!
-  duration: Int64!
-  description: String
-  imageUrl: String
-}
-
 type SubscriptionType @table(key: ["user", "podcast"]) {
   user: User!
   podcast: Podcast!
   subscribedAt: Timestamp!
   listOrder: Int
-}
-
-type ListenHistory @table(key: ["user", "episode"]) {
-  user: User!
-  episode: Episode!
-  listenedAt: Timestamp!
-  progressSeconds: Int64!
-  finishedListening: Boolean
-}
-
-type AppCache @table {
-  id: String! @unique
-  data: Any!
-  updatedAt: Timestamp!
 }

@@ -24,20 +24,6 @@ query GetMySubscriptions($userId: UUID!) @auth(level: USER) {
   }
 }
 
-query GetListenHistory($userId: UUID!) @auth(level: USER) {
-  listenHistories(where: { userId: { eq: $userId } }) {
-    user @redact {
-      googleId
-    }
-    episode {
-      id
-      audioUrl
-    }
-    progressSeconds
-    finishedListening
-  }
-}
-
 query GetRecommendations($feedUrl: String!) @auth(level: PUBLIC, insecureReason: "Recommendations are public anonymous data") {
   subscriptionTypes(where: { podcast: { feedUrl: { eq: $feedUrl } } }) {
     user {
@@ -54,70 +40,6 @@ query GetRecommendations($feedUrl: String!) @auth(level: PUBLIC, insecureReason:
     }
   }
 }
- 
-query GetEpisodesByPodcast($podcastId: UUID!) @auth(level: PUBLIC, insecureReason: "Episodes are public data") {
-  episodes(where: { podcastId: { eq: $podcastId } }, orderBy: { publishedAt: DESC }) {
-    id
-    title
-    audioUrl
-    duration
-    description
-    imageUrl
-    publishedAt
-  }
-}
-
-query GetLatestSubscribedEpisodes($userId: UUID!) @auth(level: USER) {
-  subscriptionTypes(where: { userId: { eq: $userId } }) {
-    user @redact {
-      googleId
-    }
-    listOrder
-    podcast {
-      id
-      title
-      imageUrl
-      episodes_on_podcast(orderBy: { publishedAt: DESC }, limit: 20) {
-        id
-        title
-        audioUrl
-        publishedAt
-        imageUrl
-        description
-      }
-    }
-  }
-}
-
-query GetOldestSubscribedEpisodes($userId: UUID!) @auth(level: USER) {
-  subscriptionTypes(where: { userId: { eq: $userId } }) {
-    user @redact {
-      googleId
-    }
-    listOrder
-    podcast {
-      id
-      title
-      imageUrl
-      oldest_episodes: episodes_on_podcast(orderBy: { publishedAt: ASC }, limit: 50) {
-        id
-        title
-        audioUrl
-        publishedAt
-        imageUrl
-        description
-      }
-    }
-  }
-}
-
-query GetAppCache($id: String!) @auth(level: PUBLIC, insecureReason: "The cache contains generic public podcasts data") {
-  appCache(id: $id) {
-    id
-    data
-    updatedAt
-  }
-}
 
 query GetPodcastByFeedUrl($feedUrl: String!) @auth(level: PUBLIC, insecureReason: "Podcasts are public data") {
   podcasts(where: { feedUrl: { eq: $feedUrl } }, limit: 1) {
@@ -127,4 +49,3 @@ query GetPodcastByFeedUrl($feedUrl: String!) @auth(level: PUBLIC, insecureReason
     imageUrl
   }
 }
-

@@ -1,32 +1,5 @@
 extend type Mutation {
   """
-  ✨ Insert a single `AppCache` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
-  """
-  appCache_insert(
-    """
-    Data object to insert into the table.
-    """
-    data: AppCache_Data!
-  ): AppCache_KeyOutput! @fdc_generated(from: "AppCache", purpose: INSERT_SINGLE)
-  """
-  ✨ Insert a single `Episode` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
-  """
-  episode_insert(
-    """
-    Data object to insert into the table.
-    """
-    data: Episode_Data!
-  ): Episode_KeyOutput! @fdc_generated(from: "Episode", purpose: INSERT_SINGLE)
-  """
-  ✨ Insert a single `ListenHistory` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
-  """
-  listenHistory_insert(
-    """
-    Data object to insert into the table.
-    """
-    data: ListenHistory_Data!
-  ): ListenHistory_KeyOutput! @fdc_generated(from: "ListenHistory", purpose: INSERT_SINGLE)
-  """
   ✨ Insert a single `Podcast` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
   """
   podcast_insert(
@@ -53,33 +26,6 @@ extend type Mutation {
     """
     data: User_Data!
   ): User_KeyOutput! @fdc_generated(from: "User", purpose: INSERT_SINGLE)
-  """
-  ✨ Insert `AppCache` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
-  """
-  appCache_insertMany(
-    """
-    List of data objects to insert into the table.
-    """
-    data: [AppCache_Data!]!
-  ): [AppCache_KeyOutput!]! @fdc_generated(from: "AppCache", purpose: INSERT_MULTIPLE)
-  """
-  ✨ Insert `Episode` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
-  """
-  episode_insertMany(
-    """
-    List of data objects to insert into the table.
-    """
-    data: [Episode_Data!]!
-  ): [Episode_KeyOutput!]! @fdc_generated(from: "Episode", purpose: INSERT_MULTIPLE)
-  """
-  ✨ Insert `ListenHistory` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
-  """
-  listenHistory_insertMany(
-    """
-    List of data objects to insert into the table.
-    """
-    data: [ListenHistory_Data!]!
-  ): [ListenHistory_KeyOutput!]! @fdc_generated(from: "ListenHistory", purpose: INSERT_MULTIPLE)
   """
   ✨ Insert `Podcast` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
   """
@@ -108,33 +54,6 @@ extend type Mutation {
     data: [User_Data!]!
   ): [User_KeyOutput!]! @fdc_generated(from: "User", purpose: INSERT_MULTIPLE)
   """
-  ✨ Insert or update a single `AppCache` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `AppCache`.
-  """
-  appCache_upsert(
-    """
-    Data object to insert or update if it already exists.
-    """
-    data: AppCache_Data!
-  ): AppCache_KeyOutput! @fdc_generated(from: "AppCache", purpose: UPSERT_SINGLE)
-  """
-  ✨ Insert or update a single `Episode` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Episode`.
-  """
-  episode_upsert(
-    """
-    Data object to insert or update if it already exists.
-    """
-    data: Episode_Data!
-  ): Episode_KeyOutput! @fdc_generated(from: "Episode", purpose: UPSERT_SINGLE)
-  """
-  ✨ Insert or update a single `ListenHistory` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `ListenHistory`.
-  """
-  listenHistory_upsert(
-    """
-    Data object to insert or update if it already exists.
-    """
-    data: ListenHistory_Data!
-  ): ListenHistory_KeyOutput! @fdc_generated(from: "ListenHistory", purpose: UPSERT_SINGLE)
-  """
   ✨ Insert or update a single `Podcast` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Podcast`.
   """
   podcast_upsert(
@@ -162,33 +81,6 @@ extend type Mutation {
     data: User_Data!
   ): User_KeyOutput! @fdc_generated(from: "User", purpose: UPSERT_SINGLE)
   """
-  ✨ Insert or update `AppCache` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `AppCache`.
-  """
-  appCache_upsertMany(
-    """
-    List of data objects to insert or update if it already exists.
-    """
-    data: [AppCache_Data!]!
-  ): [AppCache_KeyOutput!]! @fdc_generated(from: "AppCache", purpose: UPSERT_MULTIPLE)
-  """
-  ✨ Insert or update `Episode` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Episode`.
-  """
-  episode_upsertMany(
-    """
-    List of data objects to insert or update if it already exists.
-    """
-    data: [Episode_Data!]!
-  ): [Episode_KeyOutput!]! @fdc_generated(from: "Episode", purpose: UPSERT_MULTIPLE)
-  """
-  ✨ Insert or update `ListenHistory` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `ListenHistory`.
-  """
-  listenHistory_upsertMany(
-    """
-    List of data objects to insert or update if it already exists.
-    """
-    data: [ListenHistory_Data!]!
-  ): [ListenHistory_KeyOutput!]! @fdc_generated(from: "ListenHistory", purpose: UPSERT_MULTIPLE)
-  """
   ✨ Insert or update `Podcast` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Podcast`.
   """
   podcast_upsertMany(
@@ -215,78 +107,6 @@ extend type Mutation {
     """
     data: [User_Data!]!
   ): [User_KeyOutput!]! @fdc_generated(from: "User", purpose: UPSERT_MULTIPLE)
-  """
-  ✨ Update a single `AppCache` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `AppCache` or `null` if not found.
-  """
-  appCache_update(
-    """
-    The unique ID of the object.
-    """
-    id: String
-
-    """
-    ✨ `_expr` server value variant of `id` (The unique ID of the object.)
-    """
-    id_expr: String_Expr
-
-    """
-    The key used to identify the object.
-    """
-    key: AppCache_Key
-
-    """
-    Fetch the first row based on the filters and ordering.
-    """
-    first: AppCache_FirstRow
-
-    """
-    Data object containing fields to be updated.
-    """
-    data: AppCache_Data!
-  ): AppCache_KeyOutput @fdc_generated(from: "AppCache", purpose: UPDATE_SINGLE)
-  """
-  ✨ Update a single `Episode` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `Episode` or `null` if not found.
-  """
-  episode_update(
-    """
-    The unique ID of the object.
-    """
-    id: UUID
-
-    """
-    The key used to identify the object.
-    """
-    key: Episode_Key
-
-    """
-    Fetch the first row based on the filters and ordering.
-    """
-    first: Episode_FirstRow
-
-    """
-    Data object containing fields to be updated.
-    """
-    data: Episode_Data!
-  ): Episode_KeyOutput @fdc_generated(from: "Episode", purpose: UPDATE_SINGLE)
-  """
-  ✨ Update a single `ListenHistory` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `ListenHistory` or `null` if not found.
-  """
-  listenHistory_update(
-    """
-    The key used to identify the object.
-    """
-    key: ListenHistory_Key
-
-    """
-    Fetch the first row based on the filters and ordering.
-    """
-    first: ListenHistory_FirstRow
-
-    """
-    Data object containing fields to be updated.
-    """
-    data: ListenHistory_Data!
-  ): ListenHistory_KeyOutput @fdc_generated(from: "ListenHistory", purpose: UPDATE_SINGLE)
   """
   ✨ Update a single `Podcast` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `Podcast` or `null` if not found.
   """
@@ -355,63 +175,6 @@ extend type Mutation {
     data: User_Data!
   ): User_KeyOutput @fdc_generated(from: "User", purpose: UPDATE_SINGLE)
   """
-  ✨ Update `AppCache` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
-  """
-  appCache_updateMany(
-    """
-    Filter condition to specify which rows to update.
-    """
-    where: AppCache_Filter
-
-    """
-    Set to true to update all rows.
-    """
-    all: Boolean = false
-
-    """
-    Data object containing fields to update.
-    """
-    data: AppCache_Data!
-  ): Int! @fdc_generated(from: "AppCache", purpose: UPDATE_MULTIPLE)
-  """
-  ✨ Update `Episode` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
-  """
-  episode_updateMany(
-    """
-    Filter condition to specify which rows to update.
-    """
-    where: Episode_Filter
-
-    """
-    Set to true to update all rows.
-    """
-    all: Boolean = false
-
-    """
-    Data object containing fields to update.
-    """
-    data: Episode_Data!
-  ): Int! @fdc_generated(from: "Episode", purpose: UPDATE_MULTIPLE)
-  """
-  ✨ Update `ListenHistory` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
-  """
-  listenHistory_updateMany(
-    """
-    Filter condition to specify which rows to update.
-    """
-    where: ListenHistory_Filter
-
-    """
-    Set to true to update all rows.
-    """
-    all: Boolean = false
-
-    """
-    Data object containing fields to update.
-    """
-    data: ListenHistory_Data!
-  ): Int! @fdc_generated(from: "ListenHistory", purpose: UPDATE_MULTIPLE)
-  """
   ✨ Update `Podcast` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
   """
   podcast_updateMany(
@@ -469,63 +232,6 @@ extend type Mutation {
     data: User_Data!
   ): Int! @fdc_generated(from: "User", purpose: UPDATE_MULTIPLE)
   """
-  ✨ Delete a single `AppCache` based on `id`, `key` or `first` and return its key (or `null` if not found).
-  """
-  appCache_delete(
-    """
-    The unique ID of the object.
-    """
-    id: String
-
-    """
-    ✨ `_expr` server value variant of `id` (The unique ID of the object.)
-    """
-    id_expr: String_Expr
-
-    """
-    The key used to identify the object.
-    """
-    key: AppCache_Key
-
-    """
-    Fetch the first row based on the filters and ordering.
-    """
-    first: AppCache_FirstRow
-  ): AppCache_KeyOutput @fdc_generated(from: "AppCache", purpose: DELETE_SINGLE)
-  """
-  ✨ Delete a single `Episode` based on `id`, `key` or `first` and return its key (or `null` if not found).
-  """
-  episode_delete(
-    """
-    The unique ID of the object.
-    """
-    id: UUID
-
-    """
-    The key used to identify the object.
-    """
-    key: Episode_Key
-
-    """
-    Fetch the first row based on the filters and ordering.
-    """
-    first: Episode_FirstRow
-  ): Episode_KeyOutput @fdc_generated(from: "Episode", purpose: DELETE_SINGLE)
-  """
-  ✨ Delete a single `ListenHistory` based on `id`, `key` or `first` and return its key (or `null` if not found).
-  """
-  listenHistory_delete(
-    """
-    The key used to identify the object.
-    """
-    key: ListenHistory_Key
-
-    """
-    Fetch the first row based on the filters and ordering.
-    """
-    first: ListenHistory_FirstRow
-  ): ListenHistory_KeyOutput @fdc_generated(from: "ListenHistory", purpose: DELETE_SINGLE)
-  """
   ✨ Delete a single `Podcast` based on `id`, `key` or `first` and return its key (or `null` if not found).
   """
   podcast_delete(
@@ -577,48 +283,6 @@ extend type Mutation {
     """
     first: User_FirstRow
   ): User_KeyOutput @fdc_generated(from: "User", purpose: DELETE_SINGLE)
-  """
-  ✨ Delete `AppCache` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
-  """
-  appCache_deleteMany(
-    """
-    Filter condition to specify which rows to delete.
-    """
-    where: AppCache_Filter
-
-    """
-    Set to true to delete all rows.
-    """
-    all: Boolean = false
-  ): Int! @fdc_generated(from: "AppCache", purpose: DELETE_MULTIPLE)
-  """
-  ✨ Delete `Episode` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
-  """
-  episode_deleteMany(
-    """
-    Filter condition to specify which rows to delete.
-    """
-    where: Episode_Filter
-
-    """
-    Set to true to delete all rows.
-    """
-    all: Boolean = false
-  ): Int! @fdc_generated(from: "Episode", purpose: DELETE_MULTIPLE)
-  """
-  ✨ Delete `ListenHistory` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
-  """
-  listenHistory_deleteMany(
-    """
-    Filter condition to specify which rows to delete.
-    """
-    where: ListenHistory_Filter
-
-    """
-    Set to true to delete all rows.
-    """
-    all: Boolean = false
-  ): Int! @fdc_generated(from: "ListenHistory", purpose: DELETE_MULTIPLE)
   """
   ✨ Delete `Podcast` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
   """

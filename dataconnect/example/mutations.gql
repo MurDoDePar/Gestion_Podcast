@@ -32,19 +32,6 @@ mutation UpsertPodcast($id: UUID, $title: String!, $feedUrl: String!, $descripti
   })
 }
 
-mutation UpsertEpisode($id: UUID, $podcastId: UUID!, $title: String!, $audioUrl: String!, $duration: Int64!, $description: String, $imageUrl: String, $publishedAt: Timestamp!) @auth(expr: "auth != null", insecureReason: "Any authenticated user can add an episode") {
-  episode_upsert(data: {
-    id: $id,
-    podcastId: $podcastId,
-    title: $title,
-    audioUrl: $audioUrl,
-    duration: $duration,
-    description: $description,
-    imageUrl: $imageUrl,
-    publishedAt: $publishedAt
-  })
-}
-
 mutation SubscribeToPodcast($userId: UUID!, $podcastId: UUID!, $subscribedAt: Timestamp!, $listOrder: Int) @auth(expr: "auth != null") @transaction {
   query @redact {
     user(id: $userId) {
@@ -77,32 +64,9 @@ mutation UnsubscribeFromPodcast($userId: UUID!, $podcastId: UUID!) @auth(expr: "
   subscriptionType_delete(key: { userId: $userId, podcastId: $podcastId })
 }
 
-mutation UpdateListenHistory($userId: UUID!, $episodeId: UUID!, $progressSeconds: Int64!, $finishedListening: Boolean!, $listenedAt: Timestamp!) @auth(expr: "auth != null") @transaction {
-  query @redact {
-    user(id: $userId) {
-      googleId @check(expr: "this == auth.uid", message: "Unauthorized")
-    }
-  }
-  listenHistory_upsert(data: {
-    userId: $userId,
-    episodeId: $episodeId,
-    progressSeconds: $progressSeconds,
-    finishedListening: $finishedListening,
-    listenedAt: $listenedAt
-  })
-}
-
 # Utilitaire pour nettoyer les doublons avant de déployer le schéma avec @unique
 # Vous pouvez l'exécuter directement depuis l'extension VS Code (Run Local / Run Production)
 mutation CleanupDuplicates @auth(expr: "auth != null") {
-  cleanEpisodes: _execute(sql: """
-    DELETE FROM "episode"
-    WHERE "id" NOT IN (
-        SELECT MIN("id")
-        FROM "episode"
-        GROUP BY "audio_url"
-    )
-  """)
   cleanPodcasts: _execute(sql: """
     DELETE FROM "podcast"
     WHERE "id" NOT IN (
@@ -119,13 +83,5 @@ mutation CleanupDuplicates @auth(expr: "auth != null") {
         GROUP BY "email"
     )
   """)
-}
-
-mutation UpsertAppCache($id: String!, $data: Any!, $updatedAt: Timestamp!) @auth(level: PUBLIC, insecureReason: "Any user can trigger a cache refresh") {
-  appCache_upsert(data: {
-    id: $id,
-    data: $data,
-    updatedAt: $updatedAt
-  })
 }
 

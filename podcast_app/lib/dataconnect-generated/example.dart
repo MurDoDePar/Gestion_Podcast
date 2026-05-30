@@ -10,45 +10,21 @@ part 'upsert_user.dart';
 
 part 'upsert_podcast.dart';
 
-part 'upsert_episode.dart';
-
 part 'subscribe_to_podcast.dart';
 
 part 'update_subscription_order.dart';
 
 part 'unsubscribe_from_podcast.dart';
 
-part 'update_listen_history.dart';
-
 part 'cleanup_duplicates.dart';
-
-part 'upsert_app_cache.dart';
 
 part 'find_user_by_google_id.dart';
 
 part 'get_my_subscriptions.dart';
 
-part 'get_listen_history.dart';
-
 part 'get_recommendations.dart';
 
-part 'get_episodes_by_podcast.dart';
-
-part 'get_latest_subscribed_episodes.dart';
-
-part 'get_oldest_subscribed_episodes.dart';
-
-part 'get_app_cache.dart';
-
 part 'get_podcast_by_feed_url.dart';
-
-String? bigIntToJson(BigInt? value) {
-  return value?.toString();
-}
-
-BigInt bigIntFromJson(dynamic value) {
-  return BigInt.parse(value);
-}
 
 class ExampleConnector {
   InsertUserVariablesBuilder insertUser({
@@ -92,23 +68,6 @@ class ExampleConnector {
     );
   }
 
-  UpsertEpisodeVariablesBuilder upsertEpisode({
-    required String podcastId,
-    required String title,
-    required String audioUrl,
-    required BigInt duration,
-    required Timestamp publishedAt,
-  }) {
-    return UpsertEpisodeVariablesBuilder(
-      dataConnect,
-      podcastId: podcastId,
-      title: title,
-      audioUrl: audioUrl,
-      duration: duration,
-      publishedAt: publishedAt,
-    );
-  }
-
   SubscribeToPodcastVariablesBuilder subscribeToPodcast({
     required String userId,
     required String podcastId,
@@ -146,39 +105,9 @@ class ExampleConnector {
     );
   }
 
-  UpdateListenHistoryVariablesBuilder updateListenHistory({
-    required String userId,
-    required String episodeId,
-    required BigInt progressSeconds,
-    required bool finishedListening,
-    required Timestamp listenedAt,
-  }) {
-    return UpdateListenHistoryVariablesBuilder(
-      dataConnect,
-      userId: userId,
-      episodeId: episodeId,
-      progressSeconds: progressSeconds,
-      finishedListening: finishedListening,
-      listenedAt: listenedAt,
-    );
-  }
-
   CleanupDuplicatesVariablesBuilder cleanupDuplicates() {
     return CleanupDuplicatesVariablesBuilder(
       dataConnect,
-    );
-  }
-
-  UpsertAppCacheVariablesBuilder upsertAppCache({
-    required String id,
-    required dynamic data,
-    required Timestamp updatedAt,
-  }) {
-    return UpsertAppCacheVariablesBuilder(
-      dataConnect,
-      id: id,
-      data: data,
-      updatedAt: updatedAt,
     );
   }
 
@@ -200,57 +129,12 @@ class ExampleConnector {
     );
   }
 
-  GetListenHistoryVariablesBuilder getListenHistory({
-    required String userId,
-  }) {
-    return GetListenHistoryVariablesBuilder(
-      dataConnect,
-      userId: userId,
-    );
-  }
-
   GetRecommendationsVariablesBuilder getRecommendations({
     required String feedUrl,
   }) {
     return GetRecommendationsVariablesBuilder(
       dataConnect,
       feedUrl: feedUrl,
-    );
-  }
-
-  GetEpisodesByPodcastVariablesBuilder getEpisodesByPodcast({
-    required String podcastId,
-  }) {
-    return GetEpisodesByPodcastVariablesBuilder(
-      dataConnect,
-      podcastId: podcastId,
-    );
-  }
-
-  GetLatestSubscribedEpisodesVariablesBuilder getLatestSubscribedEpisodes({
-    required String userId,
-  }) {
-    return GetLatestSubscribedEpisodesVariablesBuilder(
-      dataConnect,
-      userId: userId,
-    );
-  }
-
-  GetOldestSubscribedEpisodesVariablesBuilder getOldestSubscribedEpisodes({
-    required String userId,
-  }) {
-    return GetOldestSubscribedEpisodesVariablesBuilder(
-      dataConnect,
-      userId: userId,
-    );
-  }
-
-  GetAppCacheVariablesBuilder getAppCache({
-    required String id,
-  }) {
-    return GetAppCacheVariablesBuilder(
-      dataConnect,
-      id: id,
     );
   }
 

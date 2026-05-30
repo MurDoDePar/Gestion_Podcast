@@ -1,5 +1,14 @@
+- ecoute hors ligne et telechargement.
+    - avec le wifi, telecharger les derniers episode des podcasts de 'mes podcasts' 
+        et les episodes 'a ecouter'
+    - quand le tel n'a pas de wifi, lire les episodes telechargés
+        -dans les parametre ajoute un menu 
+            d'autorisation de charchement hors wifi 
+            choix :
+                - uniquement en wifi 
+                - en 4g/5g et wifi
+                - tous le temps (defaut)
 
-- rafraichire la liste 'a ecouter' avec un tirer vers le bas.
 
 - multi langue : 
     allemand, anglais, bulgare, croate, danois, espagnol, 
@@ -111,3 +120,20 @@ Fait
     - faire une verification et une suppression des tables inutilisés
 
 - supprimer les logs : > fait
+
+- rafraichire la liste 'a ecouter' avec un tirer vers le bas. : > fait
+
+- regardons la mise a jour des données pour l'onglet historique.
+    - les données de mes podcasts sont stocké en local quand
+        - on clique sur le bouton s'abonner (ajoute a la liste mes podcasts)
+        - on clique sur le bouton se desabonner (retire de la liste mes podcasts)
+        - on change l'ordre des podcasts dans mes podcasts (glisser poser)
+    - il faut faire une copie de cette table dans firebase, 
+        elle sera utilisé pour l'onglet affinité
+        rappel l'onglet affinité sont les podcasts 
+        des autres utilisateurs qui ont au moins un podcas en commun.
+        - le stokage sera fait sur 
+            - clique sur le bouton s'abonner (ajoute a la liste mes podcasts)
+            - clique sur le bouton se desabonner (retire de la liste mes podcasts)
+        -le stokage ne sera pas fait sur 
+            - change l'ordre des podcasts dans mes podcasts (glisser poser)
