@@ -3,7 +3,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
 import 'database_repository.dart';
-import 'download_service.dart';
+import 'download_manager.dart';
 
 // Instance globale du service audio pour toute l'application
 AudioHandler? audioHandler;
@@ -244,7 +244,7 @@ class PodStreamAudioHandler extends BaseAudioHandler
     _prefetchedNext = false; // Réinitialiser le flag de préchargement
 
     // Essayer de lire le fichier local s'il existe, sinon fallback en streaming
-    final localPath = await DownloadService().getLocalFilePath(episodeId);
+    final localPath = await DownloadManager().getLocalFilePath(episodeId);
     if (localPath != null && localPath.isNotEmpty) {
       print('AA_DEBUG_PLAYER: Lecture locale depuis $localPath');
       await _player.setAudioSource(AudioSource.file(localPath));
@@ -284,12 +284,12 @@ class PodStreamAudioHandler extends BaseAudioHandler
         _logAA("_playNextOrStop: Prochain épisode légitime : ${next.title}");
 
         // 1. Supprimer le cache de tous les autres épisodes sauf le prochain
-        await DownloadService().clearCacheExcept(next.id);
+        await DownloadManager().clearCacheExcept(next.id);
 
         // 2. Démarrer/Vérifier le téléchargement du prochain épisode en arrière-plan
         // Ne pas await pour permettre le démarrage immédiat de la lecture (en local si déjà
         // téléchargé via prefetch, ou en streaming s'il reste une partie à charger).
-        DownloadService().download(next.id, next.audioUrl);
+        DownloadManager().download(next.id, next.audioUrl);
 
         final media = MediaItem(
           id: next.audioUrl,
@@ -327,7 +327,7 @@ class PodStreamAudioHandler extends BaseAudioHandler
 
         // Démarrer le téléchargement en tâche de fond pour qu'il soit disponible localement
         // Cela sert de mécanisme de préchargement sans coupure audio
-        DownloadService().downloadEpisode(next.id, next.audioUrl);
+        DownloadManager().downloadEpisode(next.id, next.audioUrl);
       } else {
         _logAA(
             "_prefetchNextEpisode: Aucun épisode suivant disponible pour le préchargement.");
@@ -357,7 +357,7 @@ class PodStreamAudioHandler extends BaseAudioHandler
     final audioUrl = mediaItem.extras?['url'] as String? ?? mediaItem.id;
     final episodeId = mediaItem.extras?['episodeId'] as String? ?? mediaItem.id;
 
-    final localPath = await DownloadService().getLocalFilePath(episodeId);
+    final localPath = await DownloadManager().getLocalFilePath(episodeId);
     if (localPath != null && localPath.isNotEmpty) {
       await _player.setAudioSource(AudioSource.file(localPath));
     } else {

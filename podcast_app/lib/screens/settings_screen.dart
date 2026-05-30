@@ -4,6 +4,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../theme/app_theme.dart';
+import '../services/database_repository.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -15,6 +16,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   String _language = 'fr';
   String _order = 'asc';
+  String _downloadPolicy = 'always';
   bool _isLoading = true;
   String _appVersion = '';
 
@@ -27,10 +29,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     final packageInfo = await PackageInfo.fromPlatform();
+    final downloadPolicy =
+        await DatabaseRepository().getDownloadNetworkPolicy();
 
     setState(() {
       _language = prefs.getString('podstream_lang') ?? 'fr';
       _order = prefs.getString('podstream_order') ?? 'asc';
+      _downloadPolicy = downloadPolicy;
       _appVersion = '${packageInfo.version} (${packageInfo.buildNumber})';
       _isLoading = false;
     });
@@ -39,6 +44,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _saveSettings(String key, String value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(key, value);
+  }
+
+  Future<void> _saveDownloadPolicy(String value) async {
+    await DatabaseRepository().setDownloadNetworkPolicy(value);
   }
 
   Future<void> _signOut() async {
@@ -179,6 +188,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           _order = val;
                         });
                         _saveSettings('podstream_order', val);
+                      }
+                    },
+                  ),
+                ),
+                const Divider(height: 1, color: Colors.white10),
+                ListTile(
+                  leading:
+                      const Icon(Icons.download, color: AppTheme.textPrimary),
+                  title: const Text('Autorisation de téléchargement'),
+                  trailing: DropdownButton<String>(
+                    value: _downloadPolicy,
+                    dropdownColor: AppTheme.surfaceColor,
+                    underline: const SizedBox(),
+                    items: const [
+                      DropdownMenuItem(
+                          value: 'wifiOnly',
+                          child: Text('Uniquement en Wi-Fi')),
+                      DropdownMenuItem(
+                          value: 'always', child: Text('Tout le temps')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() {
+                          _downloadPolicy = val;
+                        });
+                        _saveDownloadPolicy(val);
                       }
                     },
                   ),

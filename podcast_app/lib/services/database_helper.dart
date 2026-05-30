@@ -23,7 +23,7 @@ class DatabaseHelper {
     final pathString = join(dbPath, 'podstream.db');
     return await openDatabase(
       pathString,
-      version: 2,
+      version: 3,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -54,7 +54,8 @@ class DatabaseHelper {
         imageUrl TEXT,
         podcastName TEXT,
         pubDate TEXT,
-        description TEXT
+        description TEXT,
+        localPath TEXT
       )
     ''');
 
@@ -79,6 +80,24 @@ class DatabaseHelper {
     // Create index on themes_cache.theme for fast queries
     await db
         .execute('CREATE INDEX idx_themes_cache_theme ON themes_cache(theme)');
+
+    // 4. settings Table: stores local app settings
+    await db.execute('''
+      CREATE TABLE settings (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      )
+    ''');
+
+    // 5. download_queue Table: stores active/pending downloads for crash resumption
+    await db.execute('''
+      CREATE TABLE download_queue (
+        episodeId TEXT PRIMARY KEY,
+        audioUrl TEXT,
+        tempPath TEXT,
+        status TEXT
+      )
+    ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -101,6 +120,37 @@ class DatabaseHelper {
       } catch (e) {
         debugPrint(
             "AA_DEBUG: Erreur lors de la mise à jour des colonnes de episodes_status : $e");
+      }
+    }
+    if (oldVersion < 3) {
+      try {
+        await db
+            .execute('ALTER TABLE episodes_status ADD COLUMN localPath TEXT');
+      } catch (e) {
+        debugPrint("AA_DEBUG: Erreur d'ajout de la colonne localPath : $e");
+      }
+      try {
+        await db.execute('''
+          CREATE TABLE settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+          )
+        ''');
+      } catch (e) {
+        debugPrint("AA_DEBUG: Erreur de création de la table settings : $e");
+      }
+      try {
+        await db.execute('''
+          CREATE TABLE download_queue (
+            episodeId TEXT PRIMARY KEY,
+            audioUrl TEXT,
+            tempPath TEXT,
+            status TEXT
+          )
+        ''');
+      } catch (e) {
+        debugPrint(
+            "AA_DEBUG: Erreur de création de la table download_queue : $e");
       }
     }
   }

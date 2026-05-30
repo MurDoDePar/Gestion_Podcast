@@ -1527,4 +1527,152 @@ class DatabaseRepository {
     }
     print("--- FIN DE L'AUDIT ---");
   }
+
+  // --- SETTINGS OPERATIONS ---
+
+  /// Récupère la politique réseau de téléchargement depuis SQLite
+  Future<String> getDownloadNetworkPolicy() async {
+    try {
+      final helper = DatabaseHelper();
+      final db = await helper.database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'settings',
+        where: 'key = ?',
+        whereArgs: ['download_network_policy'],
+      );
+      if (maps.isEmpty) return 'always';
+      return maps.first['value'] as String? ?? 'always';
+    } catch (e) {
+      print("AA_DEBUG: Erreur getDownloadNetworkPolicy: $e");
+      return 'always';
+    }
+  }
+
+  /// Sauvegarde la politique réseau de téléchargement dans SQLite
+  Future<void> setDownloadNetworkPolicy(String policy) async {
+    try {
+      final helper = DatabaseHelper();
+      final db = await helper.database;
+      await db.insert(
+        'settings',
+        {
+          'key': 'download_network_policy',
+          'value': policy,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e) {
+      print("AA_DEBUG: Erreur setDownloadNetworkPolicy: $e");
+    }
+  }
+
+  // --- LOCAL PATH OPERATIONS ---
+
+  /// Met à jour le localPath d'un épisode dans SQLite
+  Future<void> updateEpisodeLocalPath(
+      String episodeId, String? localPath) async {
+    try {
+      final helper = DatabaseHelper();
+      final db = await helper.database;
+
+      // On met à jour s'il existe déjà dans episodes_status
+      final List<Map<String, dynamic>> existing = await db.query(
+        'episodes_status',
+        where: 'episodeId = ?',
+        whereArgs: [episodeId],
+      );
+
+      if (existing.isNotEmpty) {
+        await db.update(
+          'episodes_status',
+          {'localPath': localPath},
+          where: 'episodeId = ?',
+          whereArgs: [episodeId],
+        );
+      } else {
+        // Sinon on crée une entrée par défaut (non lu)
+        await db.insert(
+          'episodes_status',
+          {
+            'episodeId': episodeId,
+            'localPath': localPath,
+            'isRead': 0,
+            'readAt': null,
+          },
+        );
+      }
+      print("AA_DEBUG: localPath mis à jour pour $episodeId = $localPath");
+    } catch (e) {
+      print("AA_DEBUG: Erreur updateEpisodeLocalPath: $e");
+    }
+  }
+
+  /// Récupère le localPath d'un épisode depuis SQLite
+  Future<String?> getEpisodeLocalPath(String episodeId) async {
+    try {
+      final helper = DatabaseHelper();
+      final db = await helper.database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'episodes_status',
+        columns: ['localPath'],
+        where: 'episodeId = ?',
+        whereArgs: [episodeId],
+      );
+      if (maps.isEmpty) return null;
+      return maps.first['localPath'] as String?;
+    } catch (e) {
+      print("AA_DEBUG: Erreur getEpisodeLocalPath: $e");
+      return null;
+    }
+  }
+
+  // --- DOWNLOAD QUEUE OPERATIONS ---
+
+  /// Enregistre une tâche dans la file d'attente de téléchargement persistante
+  Future<void> enqueueDownloadTask(
+      String episodeId, String audioUrl, String tempPath) async {
+    try {
+      final helper = DatabaseHelper();
+      final db = await helper.database;
+      await db.insert(
+        'download_queue',
+        {
+          'episodeId': episodeId,
+          'audioUrl': audioUrl,
+          'tempPath': tempPath,
+          'status': 'queued',
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e) {
+      print("AA_DEBUG: Erreur enqueueDownloadTask: $e");
+    }
+  }
+
+  /// Supprime une tâche de la file d'attente de téléchargement persistante
+  Future<void> dequeueDownloadTask(String episodeId) async {
+    try {
+      final helper = DatabaseHelper();
+      final db = await helper.database;
+      await db.delete(
+        'download_queue',
+        where: 'episodeId = ?',
+        whereArgs: [episodeId],
+      );
+    } catch (e) {
+      print("AA_DEBUG: Erreur dequeueDownloadTask: $e");
+    }
+  }
+
+  /// Récupère la liste des tâches de téléchargement persistantes
+  Future<List<Map<String, dynamic>>> getDownloadQueueTasks() async {
+    try {
+      final helper = DatabaseHelper();
+      final db = await helper.database;
+      return await db.query('download_queue');
+    } catch (e) {
+      print("AA_DEBUG: Erreur getDownloadQueueTasks: $e");
+      return [];
+    }
+  }
 }

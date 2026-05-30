@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../services/download_service.dart';
+import '../services/download_manager.dart';
 
 class DownloadWidget extends StatelessWidget {
   final String episodeId;
@@ -15,9 +15,9 @@ class DownloadWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final downloadService = DownloadService();
-    final statusNotifier = downloadService.getStatusNotifier(episodeId);
-    final progressNotifier = downloadService.getProgressNotifier(episodeId);
+    final downloadManager = DownloadManager();
+    final statusNotifier = downloadManager.getStatusNotifier(episodeId);
+    final progressNotifier = downloadManager.getProgressNotifier(episodeId);
 
     return ValueListenableBuilder<DownloadStatus>(
       valueListenable: statusNotifier,
@@ -31,7 +31,7 @@ class DownloadWidget extends StatelessWidget {
                   message:
                       "Téléchargement en cours (${(progress * 100).toInt()}%). Appuyez pour annuler.",
                   child: InkWell(
-                    onTap: () => downloadService.cancelDownload(episodeId),
+                    onTap: () => downloadManager.cancelDownload(episodeId),
                     borderRadius: BorderRadius.circular(size),
                     child: SizedBox(
                       width: size + 12,
@@ -70,7 +70,7 @@ class DownloadWidget extends StatelessWidget {
                   color: Colors.green.shade400,
                 ),
                 onPressed: () =>
-                    _showDeleteConfirmation(context, downloadService),
+                    _showDeleteConfirmation(context, downloadManager),
               ),
             );
 
@@ -84,7 +84,7 @@ class DownloadWidget extends StatelessWidget {
                   color: Theme.of(context).colorScheme.error,
                 ),
                 onPressed: () =>
-                    downloadService.downloadEpisode(episodeId, audioUrl),
+                    downloadManager.downloadEpisode(episodeId, audioUrl),
               ),
             );
 
@@ -95,7 +95,7 @@ class DownloadWidget extends StatelessWidget {
                 iconSize: size,
                 icon: const Icon(Icons.download_for_offline_outlined),
                 onPressed: () =>
-                    downloadService.downloadEpisode(episodeId, audioUrl),
+                    downloadManager.downloadEpisode(episodeId, audioUrl),
               ),
             );
         }
@@ -104,7 +104,7 @@ class DownloadWidget extends StatelessWidget {
   }
 
   void _showDeleteConfirmation(
-      BuildContext context, DownloadService downloadService) {
+      BuildContext context, DownloadManager downloadManager) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -124,7 +124,7 @@ class DownloadWidget extends StatelessWidget {
               ),
               child: const Text("Supprimer"),
               onPressed: () {
-                downloadService.deleteDownloadedEpisode(episodeId);
+                downloadManager.deleteDownloadedEpisode(episodeId);
                 Navigator.of(context).pop();
 
                 ScaffoldMessenger.of(context).showSnackBar(
