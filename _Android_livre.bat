@@ -23,7 +23,7 @@ set OUTPUT_AAB=%APP_DIR%\build\app\outputs\bundle\release\app-release.aab
 :: ---------------------------------------------------------
 :: ETAPE 1 -- Verification ou compilation du AAB Release
 :: ---------------------------------------------------------
-echo [1/3] Verification du bundle Android (AAB Release)...
+echo [1/2] Verification du bundle Android (AAB Release)...
 
 if not exist "%OUTPUT_AAB%" (
     echo [INFO] Aucun fichier AAB trouve dans le dossier de build.
@@ -42,7 +42,7 @@ if not exist "%OUTPUT_AAB%" (
 :: ---------------------------------------------------------
 :: ETAPE 2 -- Resultat
 :: ---------------------------------------------------------
-echo [2/3] Verification du fichier de sortie...
+echo [2/2] Verification du fichier de sortie...
 
 if exist "%OUTPUT_AAB%" (
     echo.
@@ -54,14 +54,8 @@ if exist "%OUTPUT_AAB%" (
     echo    %OUTPUT_AAB%
     echo.
     
-    echo [3/3] Commit Git de la version...
-    cd /d "%ROOT%"
-    git add .
-    git commit -m "Release v!APP_VERSION! - !APP_RELEASE_NOTES!"
-    
-    echo.
     echo  Prochaines etapes :
-    echo    1. N'oubliez pas de faire 'git push' si vous voulez synchroniser votre depot.
+    echo    1. Lancez _GIT_livre.bat pour commiter et tagger votre version dans Git.
     echo    2. Ouvrez Google Play Console : https://play.google.com/console
     echo    3. Uploadez le fichier .aab
     echo.
