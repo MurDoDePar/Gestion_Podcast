@@ -10,19 +10,19 @@ echo Version detectee : %APP_VERSION%
 :: 2. SUPPRIME CETTE LIGNE : git rm -r --cached . 
 :: Au lieu de cela, on ajoute simplement les changements
 echo [+] Ajout des fichiers...
-git add .
+echo n| git add .
 
 :: 3. Commit
 echo [+] Commit...
-git commit -m "Livraison version %APP_VERSION% - %APP_RELEASE_NOTES%"
+echo n| git commit -m "Livraison version %APP_VERSION% - %APP_RELEASE_NOTES%"
 
 :: 4. Tag et Push
 echo [+] Tag de la version...
-git tag -a v%APP_VERSION% -m "Version %APP_VERSION% - %APP_RELEASE_NOTES%"
+echo n| git tag -a v%APP_VERSION% -m "Version %APP_VERSION% - %APP_RELEASE_NOTES%"
 
 echo [+] Push vers GitHub...
-git push -u origin main
-git push origin v%APP_VERSION%
+echo n| git push -u origin main
+echo n| git push origin v%APP_VERSION%
 
 echo.
 echo === Livraison Terminee avec succes ! ===
