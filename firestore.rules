@@ -12,6 +12,14 @@ service cloud.firestore {
       allow write: if false; // Admin uniquement
     }
     
+    // Collection des abonnements utilisateur
+    match /subscriptions/{subscriptionId} {
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow write: if request.auth != null && 
+        (resource == null || resource.data.userId == request.auth.uid) && 
+        (request.resource == null || request.resource.data.userId == request.auth.uid);
+    }
+    
     // Blocage par défaut
     match /{document=**} {
       allow read, write: if false;

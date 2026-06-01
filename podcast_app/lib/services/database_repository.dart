@@ -3,6 +3,8 @@ import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:firebase_data_connect/firebase_data_connect.dart';
+import '../dataconnect-generated/example.dart';
 import '../core/services/service_locator.dart';
 import '../core/services/auth_service.dart';
 import '../core/services/podcast_sync_service.dart';
@@ -185,15 +187,47 @@ class DatabaseRepository {
     } catch (e) {}
   }
 
+  Future<void> _ensureUserExistsInPostgres(String googleId) async {
+    try {
+      final userResult = await ExampleConnector.instance
+          .findUserByGoogleId(googleId: googleId)
+          .execute();
+      if (userResult.data.users.isEmpty) {
+        final profile = locator<AuthService>().currentUserProfile;
+        final displayName = profile?.displayName ?? 'Utilisateur';
+        final email = profile?.email;
+        final photoUrl = profile?.photoUrl;
+
+        await ExampleConnector.instance
+            .insertUser(
+              googleId: googleId,
+              displayName: displayName,
+              createdAt:
+                  Timestamp(DateTime.now().millisecondsSinceEpoch ~/ 1000, 0),
+            )
+            .email(email)
+            .photoUrl(photoUrl)
+            .execute();
+      }
+    } catch (e) {
+      // Échec silencieux de la vérification de l'utilisateur
+    }
+  }
+
   Future<void> ensureInitialized() async {
     final userId = locator<AuthService>().currentUserId;
     if (userId == null) return;
     try {
+      // S'assurer d'abord que l'utilisateur est inscrit dans Data Connect
+      await _ensureUserExistsInPostgres(userId);
+
       final isEmpty = await DatabaseHelper().isTableEmpty('my_podcasts');
       if (isEmpty) {
         await initializeFromFirebase();
       }
-    } catch (e) {}
+    } catch (e) {
+      // Échec silencieux de l'initialisation
+    }
   }
 
   Future<void> checkRemoteVersionAndRequirements() async {
@@ -305,8 +339,12 @@ class DatabaseRepository {
             }
           });
         } else {}
-      } catch (e) {}
-    } catch (e) {}
+      } catch (e) {
+        // Échec de la synchronisation de l'historique
+      }
+    } catch (e) {
+      // Échec de l'initialisation depuis Firebase
+    }
   }
 
   Future<void> _forceSyncFromFirebase() async {
@@ -381,6 +419,7 @@ class DatabaseRepository {
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
       });
+
       // 2. Mettre à jour le cache local en mémoire
       final cached = _cacheManager.read('my_subscribed_podcasts');
       if (cached is List<PodcastModel>) {
@@ -388,11 +427,14 @@ class DatabaseRepository {
         cached.add(podcast);
         _cacheManager.write('my_subscribed_podcasts', cached);
       }
+
       // 3. Lancer la synchro asynchrone ("Fire and forget") vers Firebase/Data Connect
       _syncSubscribeToFirebase(podcast, sortOrder)
           .then((_) {})
           .catchError((err) {});
-    } catch (e) {}
+    } catch (e) {
+      rethrow;
+    }
   }
 
   Future<void> unsubscribeFromPodcast(String feedUrl) async {
@@ -407,6 +449,7 @@ class DatabaseRepository {
           whereArgs: [feedUrl],
         );
       });
+
       // 2. Mettre à jour le cache local en mémoire
       final cached = _cacheManager.read('my_subscribed_podcasts');
       if (cached is List<PodcastModel>) {
@@ -420,11 +463,14 @@ class DatabaseRepository {
       final String podcastId =
           '${rawId.substring(0, 8)}-${rawId.substring(8, 12)}-${rawId.substring(12, 16)}-${rawId.substring(16, 20)}-${rawId.substring(20, 32)}';
       await _addPendingDeletion(feedUrl, podcastId);
+
       // 3. Lancer la synchro asynchrone ("Fire and forget") vers Firebase/Data Connect
       _syncUnsubscribeFromFirebase(feedUrl, podcastId)
           .then((_) {})
           .catchError((err) {});
-    } catch (e) {}
+    } catch (e) {
+      rethrow;
+    }
   }
 
   Future<void> _addPendingDeletion(String feedUrl, String podcastId) async {

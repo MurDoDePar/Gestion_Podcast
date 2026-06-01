@@ -1,5 +1,5 @@
 {
-  "version": "3.2.7",
-  "build_number": 327,
-  "release_notes": "mise à jour 3.2.7 (01/06/2026) - Migration des tables SQL"
+  "version": "3.2.8",
+  "build_number": 328,
+  "release_notes": "mise à jour 3.2.8 (01/06/2026) - correction de bug"
 }

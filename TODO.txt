@@ -1,9 +1,7 @@
 
-
 - si tu lance _compil.bat montre moi l'avancement, affiche la log dans le console. > a faire systematiquement
 
 - supprimer les logs
-
 
 - multi langue : 
     français (defaut), allemand, anglais, bulgare, croate, danois,

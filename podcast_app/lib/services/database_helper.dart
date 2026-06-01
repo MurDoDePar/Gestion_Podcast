@@ -325,10 +325,10 @@ class DatabaseHelper {
     return List.generate(maps.length, (i) {
       return PodcastModel(
         collectionId: maps[i]['collectionId'] as int?,
-        collectionName: maps[i]['collectionName'] as String,
-        artistName: maps[i]['artistName'] as String,
-        artworkUrl: maps[i]['artworkUrl'] as String,
-        feedUrl: maps[i]['feedUrl'] as String,
+        collectionName: maps[i]['collectionName']?.toString() ?? 'Sans titre',
+        artistName: maps[i]['artistName']?.toString() ?? 'Artiste inconnu',
+        artworkUrl: maps[i]['artworkUrl']?.toString() ?? '',
+        feedUrl: maps[i]['feedUrl']?.toString() ?? '',
       );
     });
   }
@@ -534,10 +534,10 @@ class DatabaseHelper {
     return List.generate(maps.length, (i) {
       return PodcastModel(
         collectionId: maps[i]['collectionId'] as int?,
-        collectionName: maps[i]['collectionName'] as String,
-        artistName: maps[i]['artistName'] as String,
-        artworkUrl: maps[i]['artworkUrl'] as String,
-        feedUrl: maps[i]['feedUrl'] as String,
+        collectionName: maps[i]['collectionName']?.toString() ?? 'Sans titre',
+        artistName: maps[i]['artistName']?.toString() ?? 'Artiste inconnu',
+        artworkUrl: maps[i]['artworkUrl']?.toString() ?? '',
+        feedUrl: maps[i]['feedUrl']?.toString() ?? '',
       );
     });
   }
