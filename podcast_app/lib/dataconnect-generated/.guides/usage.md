@@ -8,9 +8,9 @@ ExampleConnector.instance.SubscribeToPodcast(subscribeToPodcastVariables).execut
 ExampleConnector.instance.UpdateSubscriptionOrder(updateSubscriptionOrderVariables).execute();
 ExampleConnector.instance.UnsubscribeFromPodcast(unsubscribeFromPodcastVariables).execute();
 ExampleConnector.instance.CleanupDuplicates().execute();
+ExampleConnector.instance.SyncPodcastHistory(syncPodcastHistoryVariables).execute();
 ExampleConnector.instance.FindUserByGoogleId(findUserByGoogleIdVariables).execute();
 ExampleConnector.instance.GetMySubscriptions(getMySubscriptionsVariables).execute();
-ExampleConnector.instance.GetRecommendations(getRecommendationsVariables).execute();
 
 ```
 

@@ -1,5 +1,14 @@
 extend type Mutation {
   """
+  ✨ Insert a single `EpisodeStatus` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  episodeStatus_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: EpisodeStatus_Data!
+  ): EpisodeStatus_KeyOutput! @fdc_generated(from: "EpisodeStatus", purpose: INSERT_SINGLE)
+  """
   ✨ Insert a single `Podcast` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
   """
   podcast_insert(
@@ -26,6 +35,15 @@ extend type Mutation {
     """
     data: User_Data!
   ): User_KeyOutput! @fdc_generated(from: "User", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert `EpisodeStatus` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  episodeStatus_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [EpisodeStatus_Data!]!
+  ): [EpisodeStatus_KeyOutput!]! @fdc_generated(from: "EpisodeStatus", purpose: INSERT_MULTIPLE)
   """
   ✨ Insert `Podcast` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
   """
@@ -54,6 +72,15 @@ extend type Mutation {
     data: [User_Data!]!
   ): [User_KeyOutput!]! @fdc_generated(from: "User", purpose: INSERT_MULTIPLE)
   """
+  ✨ Insert or update a single `EpisodeStatus` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `EpisodeStatus`.
+  """
+  episodeStatus_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: EpisodeStatus_Data!
+  ): EpisodeStatus_KeyOutput! @fdc_generated(from: "EpisodeStatus", purpose: UPSERT_SINGLE)
+  """
   ✨ Insert or update a single `Podcast` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Podcast`.
   """
   podcast_upsert(
@@ -81,6 +108,15 @@ extend type Mutation {
     data: User_Data!
   ): User_KeyOutput! @fdc_generated(from: "User", purpose: UPSERT_SINGLE)
   """
+  ✨ Insert or update `EpisodeStatus` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `EpisodeStatus`.
+  """
+  episodeStatus_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [EpisodeStatus_Data!]!
+  ): [EpisodeStatus_KeyOutput!]! @fdc_generated(from: "EpisodeStatus", purpose: UPSERT_MULTIPLE)
+  """
   ✨ Insert or update `Podcast` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Podcast`.
   """
   podcast_upsertMany(
@@ -107,6 +143,25 @@ extend type Mutation {
     """
     data: [User_Data!]!
   ): [User_KeyOutput!]! @fdc_generated(from: "User", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Update a single `EpisodeStatus` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `EpisodeStatus` or `null` if not found.
+  """
+  episodeStatus_update(
+    """
+    The key used to identify the object.
+    """
+    key: EpisodeStatus_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: EpisodeStatus_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: EpisodeStatus_Data!
+  ): EpisodeStatus_KeyOutput @fdc_generated(from: "EpisodeStatus", purpose: UPDATE_SINGLE)
   """
   ✨ Update a single `Podcast` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `Podcast` or `null` if not found.
   """
@@ -175,6 +230,25 @@ extend type Mutation {
     data: User_Data!
   ): User_KeyOutput @fdc_generated(from: "User", purpose: UPDATE_SINGLE)
   """
+  ✨ Update `EpisodeStatus` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  episodeStatus_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: EpisodeStatus_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: EpisodeStatus_Data!
+  ): Int! @fdc_generated(from: "EpisodeStatus", purpose: UPDATE_MULTIPLE)
+  """
   ✨ Update `Podcast` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
   """
   podcast_updateMany(
@@ -232,6 +306,20 @@ extend type Mutation {
     data: User_Data!
   ): Int! @fdc_generated(from: "User", purpose: UPDATE_MULTIPLE)
   """
+  ✨ Delete a single `EpisodeStatus` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  episodeStatus_delete(
+    """
+    The key used to identify the object.
+    """
+    key: EpisodeStatus_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: EpisodeStatus_FirstRow
+  ): EpisodeStatus_KeyOutput @fdc_generated(from: "EpisodeStatus", purpose: DELETE_SINGLE)
+  """
   ✨ Delete a single `Podcast` based on `id`, `key` or `first` and return its key (or `null` if not found).
   """
   podcast_delete(
@@ -283,6 +371,20 @@ extend type Mutation {
     """
     first: User_FirstRow
   ): User_KeyOutput @fdc_generated(from: "User", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete `EpisodeStatus` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  episodeStatus_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: EpisodeStatus_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "EpisodeStatus", purpose: DELETE_MULTIPLE)
   """
   ✨ Delete `Podcast` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
   """

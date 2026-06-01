@@ -75,3 +75,33 @@ query GetAffinityRecommendations($userId: UUID!) @auth(level: USER) {
     }
   }
 }
+
+# Requête de récupération du Delta de synchronisation avec heure de référence serveur
+query GetPodcastHistoryDelta($userId: UUID!, $since: Timestamp!) @auth(expr: "auth != null") {
+  # 1. Vérification d'autorisation
+  user(id: $userId) {
+    googleId @check(expr: "this == auth.uid", message: "Unauthorized")
+  }
+  
+  # 2. Récupération des données modifiées depuis la dernière synchro
+  delta: _select(
+    sql: """
+      SELECT 
+        episode_id AS "episodeId", 
+        is_read AS "isRead", 
+        read_at AS "readAt", 
+        status, 
+        deleted_at AS "deletedAt", 
+        updated_at AS "updatedAt"
+      FROM episode_status
+      WHERE user_id = $1 AND updated_at > $2;
+    """,
+    params: [$userId, $since]
+  )
+  
+  # 3. Récupération du temps serveur actuel de référence
+  serverTime: _selectFirst(
+    sql: "SELECT NOW() as \"time\""
+  )
+}
+

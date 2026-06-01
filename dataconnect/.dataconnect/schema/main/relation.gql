@@ -1,3 +1,104 @@
+extend type EpisodeStatus {
+  """
+  Implicit metadata field that cannot be written. It provides extra information about query results.
+  """
+  _metadata: _Metadata @fdc_generated(from: "EpisodeStatus", purpose: METADATA_FIELD)
+  """
+  ✨ Count the number of rows in the `EpisodeStatus` table.
+  """
+  _count: Int! @fdc_generated(from: "EpisodeStatus.", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `EpisodeStatus` table where the `deletedAt` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  deletedAt_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "EpisodeStatus.deletedAt", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `EpisodeStatus` table where the `episodeId` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  episodeId_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "EpisodeStatus.episodeId", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `EpisodeStatus` table where the `isRead` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  isRead_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "EpisodeStatus.isRead", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `EpisodeStatus` table where the `readAt` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  readAt_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "EpisodeStatus.readAt", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `EpisodeStatus` table where the `status` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  status_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "EpisodeStatus.status", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `EpisodeStatus` table where the `updatedAt` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  updatedAt_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "EpisodeStatus.updatedAt", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `EpisodeStatus` table where the `userId` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  userId_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "EpisodeStatus.userId", purpose: QUERY_COUNT)
+  """
+  ✨ Minimum of the `deletedAt` field in the `EpisodeStatus` table.
+  """
+  deletedAt_min: Timestamp @fdc_generated(from: "EpisodeStatus.deletedAt", purpose: QUERY_MIN)
+  """
+  ✨ Minimum of the `readAt` field in the `EpisodeStatus` table.
+  """
+  readAt_min: Timestamp @fdc_generated(from: "EpisodeStatus.readAt", purpose: QUERY_MIN)
+  """
+  ✨ Minimum of the `updatedAt` field in the `EpisodeStatus` table.
+  """
+  updatedAt_min: Timestamp @fdc_generated(from: "EpisodeStatus.updatedAt", purpose: QUERY_MIN)
+  """
+  ✨ Maximum of the `deletedAt` field in the `EpisodeStatus` table.
+  """
+  deletedAt_max: Timestamp @fdc_generated(from: "EpisodeStatus.deletedAt", purpose: QUERY_MAX)
+  """
+  ✨ Maximum of the `readAt` field in the `EpisodeStatus` table.
+  """
+  readAt_max: Timestamp @fdc_generated(from: "EpisodeStatus.readAt", purpose: QUERY_MAX)
+  """
+  ✨ Maximum of the `updatedAt` field in the `EpisodeStatus` table.
+  """
+  updatedAt_max: Timestamp @fdc_generated(from: "EpisodeStatus.updatedAt", purpose: QUERY_MAX)
+  """
+  A generated field that is used for caching results in SDKs.
+  """
+  _id: ID! @fdc_generated(from: "EpisodeStatus.userId,episodeId", purpose: ENTITY_ID)
+}
 extend type Podcast {
   """
   ✨ List `SubscriptionType` objects in a one-to-many relationship (where `SubscriptionType`.`podcast` is this object).
@@ -236,6 +337,40 @@ extend type SubscriptionType {
   _id: ID! @fdc_generated(from: "SubscriptionType.userId,podcastId", purpose: ENTITY_ID)
 }
 extend type User {
+  """
+  ✨ List `EpisodeStatus` objects in a one-to-many relationship (where `EpisodeStatus`.`user` is this object).
+  """
+  episodeStatuses_on_user(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: EpisodeStatus_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [EpisodeStatus_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: EpisodeStatus_Having
+  ): [EpisodeStatus!]! @fdc_generated(from: "EpisodeStatus.user", purpose: QUERY_MULTIPLE_ONE_TO_MANY)
   """
   ✨ List `SubscriptionType` objects in a one-to-many relationship (where `SubscriptionType`.`user` is this object).
   """

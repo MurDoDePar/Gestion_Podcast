@@ -199,7 +199,7 @@ class DatabaseHelper {
         }
         await db.execute('DROP TABLE my_podcasts_old');
       } catch (e) {
-        print("Erreur de migration SQLite v4 : $e");
+        // print("Erreur de migration SQLite v4 : $e");
         rethrow;
       }
     }
@@ -292,7 +292,7 @@ class DatabaseHelper {
         // 6. Supprimer la table temporaire
         await db.execute('DROP TABLE episodes_status_old');
       } catch (e) {
-        print("Erreur de migration SQLite v5 : $e");
+        // print("Erreur de migration SQLite v5 : $e");
         rethrow;
       }
     }
@@ -301,7 +301,7 @@ class DatabaseHelper {
         await db.execute(
             'ALTER TABLE episodes_status ADD COLUMN status INTEGER DEFAULT 0');
       } catch (e) {
-        print("Erreur de migration SQLite v6 : $e");
+        // print("Erreur de migration SQLite v6 : $e");
         rethrow;
       }
     }

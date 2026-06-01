@@ -141,7 +141,7 @@ class AudioService {
           .toList();
       podstreamAudioHandler!.updateLibrary(libraryItems);
     } catch (e) {
-      print("Erreur de chargement audio: $e");
+      // print("Erreur de chargement audio: $e");
       isPlayingNotifier.value = false;
     }
   }
@@ -221,7 +221,7 @@ class AudioService {
               await globalAudioHandler!
                   .seek(seekPos > Duration.zero ? seekPos : Duration.zero);
             } catch (seekError) {
-              print('Seek failed, stopping player: $seekError');
+              // print('Seek failed, stopping player: $seekError');
               try {
                 await globalAudioHandler!.stop();
               } catch (_) {}

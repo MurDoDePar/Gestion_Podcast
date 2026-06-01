@@ -85,3 +85,53 @@ mutation CleanupDuplicates @auth(expr: "auth != null") {
   """)
 }
 
+# Mutation de synchronisation globale utilisant le SQL Natif PostgreSQL
+mutation SyncPodcastHistory($userId: UUID!, $history: Any!) @auth(expr: "auth != null") @transaction {
+  # 1. Vérification d'autorisation (seul le propriétaire peut synchroniser ses données)
+  query @redact {
+    user(id: $userId) {
+      googleId @check(expr: "this == auth.uid", message: "Unauthorized: Access denied")
+    }
+  }
+  
+  # 2. Upsert conditionnel atomique
+  sync: _execute(
+    sql: """
+      INSERT INTO "episode_status" (
+        user_id, 
+        episode_id, 
+        is_read, 
+        read_at, 
+        status, 
+        updated_at, 
+        deleted_at
+      )
+      SELECT 
+        $1, 
+        r."episodeId", 
+        r."isRead", 
+        r."readAt", 
+        r."status", 
+        NOW(), 
+        r."deletedAt"
+      FROM jsonb_to_recordset($2::jsonb) AS r(
+        "episodeId" VARCHAR,
+        "isRead" BOOLEAN,
+        "readAt" TIMESTAMP,
+        "status" VARCHAR,
+        "deletedAt" TIMESTAMP
+      )
+      ON CONFLICT (user_id, episode_id)
+      DO UPDATE SET
+        is_read = EXCLUDED.is_read,
+        read_at = EXCLUDED.read_at,
+        status = EXCLUDED.status,
+        updated_at = NOW(),
+        deleted_at = EXCLUDED.deleted_at
+      WHERE EXCLUDED.read_at > episode_status.read_at;
+    """,
+    params: [$userId, $history]
+  )
+}
+
+

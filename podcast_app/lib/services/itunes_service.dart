@@ -81,11 +81,11 @@ class ItunesService {
         final resolved = await Future.wait(futures);
         return resolved.whereType<PodcastModel>().toList();
       } else {
-        print('Erreur iTunes Service : Code statut ${response.statusCode}');
+        // print('Erreur iTunes Service : Code statut ${response.statusCode}');
         return [];
       }
     } catch (e) {
-      print('Exception iTunes Service : $e');
+      // print('Exception iTunes Service : $e');
       return [];
     }
   }
@@ -104,12 +104,12 @@ class ItunesService {
             .map((item) => PodcastModel.fromJson(item as Map<String, dynamic>))
             .toList();
       } else {
-        print(
-            'Erreur iTunes Service getTopPodcasts : Code statut ${response.statusCode}');
+        // print(
+        // 'Erreur iTunes Service getTopPodcasts : Code statut ${response.statusCode}');
         return [];
       }
     } catch (e) {
-      print('Exception iTunes Service getTopPodcasts : $e');
+      // print('Exception iTunes Service getTopPodcasts : $e');
       return [];
     }
   }
@@ -132,12 +132,12 @@ class ItunesService {
             .map((item) => PodcastModel.fromJson(item as Map<String, dynamic>))
             .toList();
       } else {
-        print(
-            'Erreur iTunes Service getPodcastsByTheme : Code statut ${response.statusCode}');
+        // print(
+        // 'Erreur iTunes Service getPodcastsByTheme : Code statut ${response.statusCode}');
         return [];
       }
     } catch (e) {
-      print('Exception iTunes Service getPodcastsByTheme : $e');
+      // print('Exception iTunes Service getPodcastsByTheme : $e');
       return [];
     }
   }

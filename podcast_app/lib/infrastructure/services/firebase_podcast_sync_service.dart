@@ -205,7 +205,7 @@ class FirebasePodcastSyncService implements PodcastSyncService {
         }
       }
     } catch (e) {
-      print("Erreur fetchReadEpisodeIds Firestore: $e");
+      // print("Erreur fetchReadEpisodeIds Firestore: $e");
     }
     return readIds;
   }
@@ -335,7 +335,7 @@ class FirebasePodcastSyncService implements PodcastSyncService {
           .map((entry) => recommendedPodcasts[entry.key]!)
           .toList();
     } catch (e) {
-      print("Erreur fetchAffinityPodcasts: $e");
+      // print("Erreur fetchAffinityPodcasts: $e");
       return [];
     }
   }

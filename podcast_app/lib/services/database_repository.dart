@@ -46,7 +46,7 @@ class DatabaseRepository {
       _cacheManager.write(cacheKey, episodes);
       return episodes;
     } catch (e) {
-      print('Erreur lors de la récupération des épisodes : $e');
+      // print('Erreur lors de la récupération des épisodes : $e');
       rethrow;
     }
   }
@@ -529,7 +529,7 @@ class DatabaseRepository {
           .where((url) => url.isNotEmpty)
           .toSet();
     } catch (e) {
-      print('Erreur lors de la récupération des IDs des podcasts abonnés : $e');
+      // print('Erreur lors de la récupération des IDs des podcasts abonnés : $e');
       return <String>{};
     }
   }
@@ -969,10 +969,10 @@ class DatabaseRepository {
   Future<void> runSubscriptionsAudit() async {
     final userId = locator<AuthService>().currentUserId;
     if (userId == null) {
-      print("❌ Audit Impossible : Aucun utilisateur connecté.");
+      // print("❌ Audit Impossible : Aucun utilisateur connecté.");
       return;
     }
-    print("--- 🩺 DÉBUT DE L'AUDIT DE COHÉRENCE DES ABONNEMENTS ---");
+    // print("--- 🩺 DÉBUT DE L'AUDIT DE COHÉRENCE DES ABONNEMENTS ---");
     // 1. Récupérer l'état SQLite
     final localList = await DatabaseHelper().getSubscribedPodcastsRaw();
     final Map<String, int> localMap = {
@@ -987,38 +987,38 @@ class DatabaseRepository {
     final firestoreUrls = firestoreMap.keys.toSet();
     final missingLocally = firestoreUrls.difference(localUrls);
     final missingInFirestore = localUrls.difference(firestoreUrls);
-    print(
-        "📊 Statistiques : Local = ${localUrls.length} | Distant (Firestore) = ${firestoreUrls.length}");
+    // print(
+    // "📊 Statistiques : Local = ${localUrls.length} | Distant (Firestore) = ${firestoreUrls.length}");
     if (missingLocally.isNotEmpty) {
-      print("⚠️ Manquant localement (présent dans Firestore) :");
-      for (var url in missingLocally) {
-        print("   - $url");
-      }
+      // print("⚠️ Manquant localement (présent dans Firestore) :");
+      // for (var url in missingLocally) {
+      //   // print("   - $url");
+      // }
     }
     if (missingInFirestore.isNotEmpty) {
-      print("⚠️ Manquant sur Firestore (présent en local) :");
-      for (var url in missingInFirestore) {
-        print(
-            "   - $url (isSynced = ${localList.firstWhere((r) => r['feedUrl'] == url)['isSynced']})");
-      }
+      // print("⚠️ Manquant sur Firestore (présent en local) :");
+      // for (var url in missingInFirestore) {
+      //   // print(
+      //   // "   - $url (isSynced = ${localList.firstWhere((r) => r['feedUrl'] == url)['isSynced']})");
+      // }
     }
     // 4. Vérification du tri
     int orderMismatches = 0;
     for (var url in localUrls.intersection(firestoreUrls)) {
       if (localMap[url] != firestoreMap[url]) {
-        print(
-            "🔄 Désalignement du tri pour $url : Local = ${localMap[url]} | Firestore = ${firestoreMap[url]}");
+        // print(
+        // "🔄 Désalignement du tri pour $url : Local = ${localMap[url]} | Firestore = ${firestoreMap[url]}");
         orderMismatches++;
       }
     }
     if (missingLocally.isEmpty &&
         missingInFirestore.isEmpty &&
         orderMismatches == 0) {
-      print("✅ Succès : SQLite et Firestore sont parfaitement synchronisés.");
+      // print("✅ Succès : SQLite et Firestore sont parfaitement synchronisés.");
     } else {
-      print("❌ Audit terminé : Des incohérences ont été détectées.");
+      // print("❌ Audit terminé : Des incohérences ont été détectées.");
     }
-    print("--- FIN DE L'AUDIT ---");
+    // print("--- FIN DE L'AUDIT ---");
   }
 
   // --- SETTINGS OPERATIONS ---

@@ -133,14 +133,14 @@ class _MyPodcastsTabState extends State<MyPodcastsTab> {
         final prefs = await SharedPreferences.getInstance();
         order = prefs.getString('podstream_order') ?? 'asc';
       } catch (e) {
-        print("Error fetching settings in MyPodcastsTab: $e");
+        // print("Error fetching settings in MyPodcastsTab: $e");
       }
 
       try {
         final sqliteReadList = await DatabaseHelper().getReadEpisodeIds();
         localReadList.addAll(sqliteReadList);
       } catch (e) {
-        print("Error fetching SQLite read episodes in MyPodcastsTab: $e");
+        // print("Error fetching SQLite read episodes in MyPodcastsTab: $e");
       }
 
       // Conversion en Set pour une recherche en O(1)
@@ -191,7 +191,7 @@ class _MyPodcastsTabState extends State<MyPodcastsTab> {
 
       return orderedEpisodes;
     } catch (e) {
-      print('Erreur lors de l\'agrégation ordonnée des épisodes : $e');
+      // print('Erreur lors de l\'agrégation ordonnée des épisodes : $e');
       return [];
     }
   }

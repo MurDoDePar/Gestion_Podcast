@@ -1,18 +1,13 @@
 
 
-
-Synchronisation Cloud Avancée : Avec tes UUIDs alignés, 
-    tu peux maintenant implémenter une logique de "Cloud Sync" 
-    beaucoup plus intelligente, en comparant les readAt entre le local 
-    et le distant pour fusionner ton historique sur plusieurs appareils.
-
-
-
 - si tu lance _compil.bat montre moi l'avancement, affiche la log dans le console. > a faire systematiquement
 
+- supprimer les logs
+
+
 - multi langue : 
-    allemand, anglais, bulgare, croate, danois, espagnol, 
-    estonien, finnois, français (defaut), grec, hongrois, irlandais, 
+    français (defaut), allemand, anglais, bulgare, croate, danois,
+    espagnol, estonien, finnois, grec, hongrois, irlandais, 
     italien, letton, lituanien, maltais, néerlandais, polonais, 
     portugais, roumain, slovaque, slovène, suédois, tchèque, autres.
 
@@ -42,8 +37,6 @@ A tester :
 "C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" -keystore "C:\Users\domin\Google Drive\Code\Gestion_Podcast\podstream-release.jks" -list -v
 
 Fait
-
-- supprimer les logs
 
 - le lecteur d'episode : changer l'ordre des boutons comme suit : -30s, +30s, Play/Pause, Lu
 
@@ -185,3 +178,68 @@ Gestion du "Smart Offline" : Maintenant que tu as episodes_metadata bien sépar�
     tu pourrais ajouter une colonne isAvailable dans cette table 
     pour gérer proprement les épisodes dont le fichier a été supprimé 
     du stockage local mais qui sont toujours dans l'historique. > fait (Version 6, colonne 'status' dans episodes_status)
+
+Synchronisation Cloud Avancée : Avec tes UUIDs alignés, 
+    tu peux maintenant implémenter une logique de "Cloud Sync" 
+    beaucoup plus intelligente, en comparant les readAt entre le local 
+    et le distant pour fusionner ton historique sur plusieurs appareils.
+
+-----------------
+Monitoring de Jobs Longs et Feedback Périodique
+Contexte : Certains de mes scripts (notamment _compil.bat et les migrations lourdes de base de données) 
+dépassent souvent 60 secondes. Actuellement, ces jobs sont "silencieux" jusqu'à la fin, 
+ce qui donne l'impression que l'application ou le terminal a planté.
+
+Tâche : Agis comme un expert en automatisation système. Aide-moi à implémenter un mécanisme de "Heartbeat" 
+et de progression pour mes processus longs :
+
+Wrapper de script : Peux-tu me proposer un script (Batch ou PowerShell) 
+qui enveloppe _compil.bat et qui affiche un message d'avancement 
+(ex: "Travail en cours... [X secondes écoulées]") si le job dépasse 60 secondes ?
+
+Logging Asynchrone : Comment puis-je rediriger la sortie standard de mes scripts longs 
+vers un fichier de log temporaire tout en affichant une barre de progression 
+ou un indicateur d'activité dans le terminal pour l'utilisateur ?
+
+Gestion des Timeouts & Erreurs : Si le job de plus d'une minute échoue, 
+comment faire pour que le script de monitoring détecte l'erreur immédiatement 
+et m'affiche les dernières lignes du log pour diagnostiquer le problème 
+sans que j'aie à ouvrir le fichier manuellement ?
+
+Intégration Flutter : Pour mes tâches de fond (comme auditStorage() ou la synchro bidirectionnelle), 
+quel est le pattern Flutter recommandé pour signaler une progression (ex: Stream ou ChangeNotifier) 
+à l'UI afin que l'utilisateur sache que le job est toujours vivant ?
+
+Objectif : Ne plus jamais laisser l'utilisateur (ou le développeur) dans l'incertitude. 
+Je veux un feedback visuel constant pour tout processus dépassant 60 secondes.
+--------------------
+
+Diagnostic et Test de l'onglet "Affinités"
+Contexte : Après une refonte complète de mon architecture (v5/v6 + Synchro Bidirectionnelle), 
+mon onglet "Affinités" reste inerte. Mon backend utilise Firebase Data Connect (PostgreSQL) 
+et je travaille avec des UUIDs déterministes (MD5 de feedUrl).
+
+Tâche : Agis comme un expert QA/Data. Analyse 
+si le pipeline de données fonctionne et sécurise le code avec un test :
+
+Audit de l'intersection : Avec mes UUIDs déterministes, 
+la requête GetAffinityRecommendations devrait fonctionner. 
+Peux-tu me donner une requête de "sanity check" à exécuter 
+dans le Playground pour vérifier si l'intersection entre mon userId 
+et ceux d'autres utilisateurs partageant des podcasts retourne bien des données ?
+
+Débogage de la jointure SQL : Si la requête retourne des résultats 
+mais que l'UI reste vide, comment m'assurer que le mapping entre 
+les types UUID (PostgreSQL) et mes objets EpisodeModel (Dart) 
+ne perd pas de données ? Y a-t-il un risque de conversion de type ?
+
+Validation de la logique métier (Test Unitaire) : Peux-tu m'écrire un test unitaire en Dart 
+(utilisant test ou mocktail) qui simule deux listes d'abonnements 
+et vérifie que mon algorithme de calcul de score d'affinité retourne bien les podcasts communs ?
+
+Je veux que le test couvre : le cas nominal (un podcast en commun), 
+le cas d'exclusion (podcast déjà abonné à ne pas proposer) et le cas de liste vide.
+
+Checklist de validation : Quelles sont les 3 preuves matérielles 
+(logs, états SQL) que je dois voir pour confirmer que l'affinité est "en bonne santé" ?
+--------------------

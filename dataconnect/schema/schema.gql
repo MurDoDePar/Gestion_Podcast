@@ -22,3 +22,15 @@ type SubscriptionType @table(key: ["user", "podcast"]) {
   subscribedAt: Timestamp!
   listOrder: Int
 }
+
+type EpisodeStatus @table(key: ["user", "episodeId"]) {
+  user: User!
+  episodeId: String!
+  isRead: Boolean!
+  readAt: Timestamp!
+  status: String!
+  updatedAt: Timestamp! @default(expr: "request.time")
+  deletedAt: Timestamp
+}
+
+

@@ -36,7 +36,7 @@ class PodcastRepository {
         }
       }
     } catch (e) {
-      print("Erreur _getReadEpisodeIds Firestore: $e");
+      // print("Erreur _getReadEpisodeIds Firestore: $e");
     }
 
     // 2. Source Local (SQLite uniquement)
@@ -44,7 +44,7 @@ class PodcastRepository {
       final sqliteReadList = await DatabaseHelper().getReadEpisodeIds();
       readIds.addAll(sqliteReadList);
     } catch (e) {
-      print("Erreur _getReadEpisodeIds SQLite: $e");
+      // print("Erreur _getReadEpisodeIds SQLite: $e");
     }
 
     return readIds;
@@ -134,7 +134,7 @@ class PodcastRepository {
 
       return allEpisodes;
     } catch (e) {
-      print("Erreur PodcastRepository.fetchAllRecentEpisodes: $e");
+      // print("Erreur PodcastRepository.fetchAllRecentEpisodes: $e");
       rethrow;
     }
   }

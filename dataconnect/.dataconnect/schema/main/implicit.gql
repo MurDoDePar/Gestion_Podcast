@@ -1,3 +1,9 @@
+extend type EpisodeStatus {
+  """
+  ✨ Implicit foreign key field based on `EpisodeStatus`.`user`. It must match the value of `User`.`id`. See `@ref` for how to customize it.
+  """
+  userId: UUID! @fdc_generated(from: "EpisodeStatus.user", purpose: IMPLICIT_REF_FIELD)
+}
 extend type Podcast {
   """
   ✨ Implicit primary key field. It's a UUID column default to a generated new value. See `@table` for how to customize it.

@@ -123,7 +123,7 @@ class _SearchScreenState extends State<SearchScreen> {
         }
       }
     } catch (e) {
-      print('Erreur recherche: $e');
+      // print('Erreur recherche: $e');
     } finally {
       if (mounted) {
         setState(() {

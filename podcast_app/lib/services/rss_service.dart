@@ -20,12 +20,12 @@ class RssService {
         // Déporter le décodage UTF-8 et le parsing XML dans un Isolate séparé
         return await compute(_parseRss, response.bodyBytes);
       } else {
-        print(
-            'Erreur HTTP lors du téléchargement du flux RSS : ${response.statusCode}');
+        // print(
+        // 'Erreur HTTP lors du téléchargement du flux RSS : ${response.statusCode}');
         return [];
       }
     } catch (e) {
-      print('Exception lors du parsing du flux RSS de $feedUrl : $e');
+      // print('Exception lors du parsing du flux RSS de $feedUrl : $e');
       return [];
     }
   }

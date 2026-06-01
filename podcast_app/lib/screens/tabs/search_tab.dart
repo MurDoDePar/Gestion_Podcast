@@ -43,7 +43,7 @@ class _SearchTabState extends State<SearchTab> {
         _searchResults = results;
       });
     } catch (e) {
-      print('Erreur recherche : $e');
+      // print('Erreur recherche : $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

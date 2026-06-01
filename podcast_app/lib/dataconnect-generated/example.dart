@@ -18,6 +18,8 @@ part 'unsubscribe_from_podcast.dart';
 
 part 'cleanup_duplicates.dart';
 
+part 'sync_podcast_history.dart';
+
 part 'find_user_by_google_id.dart';
 
 part 'get_my_subscriptions.dart';
@@ -27,6 +29,8 @@ part 'get_recommendations.dart';
 part 'get_podcast_by_feed_url.dart';
 
 part 'get_affinity_recommendations.dart';
+
+part 'get_podcast_history_delta.dart';
 
 class ExampleConnector {
   InsertUserVariablesBuilder insertUser({
@@ -113,6 +117,17 @@ class ExampleConnector {
     );
   }
 
+  SyncPodcastHistoryVariablesBuilder syncPodcastHistory({
+    required String userId,
+    required dynamic history,
+  }) {
+    return SyncPodcastHistoryVariablesBuilder(
+      dataConnect,
+      userId: userId,
+      history: history,
+    );
+  }
+
   FindUserByGoogleIdVariablesBuilder findUserByGoogleId({
     required String googleId,
   }) {
@@ -155,6 +170,17 @@ class ExampleConnector {
     return GetAffinityRecommendationsVariablesBuilder(
       dataConnect,
       userId: userId,
+    );
+  }
+
+  GetPodcastHistoryDeltaVariablesBuilder getPodcastHistoryDelta({
+    required String userId,
+    required Timestamp since,
+  }) {
+    return GetPodcastHistoryDeltaVariablesBuilder(
+      dataConnect,
+      userId: userId,
+      since: since,
     );
   }
 
