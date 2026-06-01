@@ -36,16 +36,7 @@ if not exist "%OUTPUT_AAB%" (
     echo [INFO] Un bundle AAB recemment compile a ete trouve :
     echo    %OUTPUT_AAB%
     echo.
-    set /p CHOICE="Voulez-vous utiliser ce bundle existant (U) ou lancer une recompilation propre (R) ? [U/R] : "
-    if /I "!CHOICE!"=="R" (
-        echo Lancement d'une compilation propre complete via _compil.bat...
-        echo.
-        cd /d "%ROOT%"
-        call _compil.bat
-        cd /d "%APP_DIR%"
-    ) else (
-        echo [INFO] Utilisation du bundle AAB existant.
-    )
+    echo [INFO] Utilisation automatique du bundle AAB existant.
 )
 
 :: ---------------------------------------------------------
