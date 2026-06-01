@@ -195,9 +195,7 @@ class MiniPlayer extends StatelessWidget {
                                 ),
                               );
                             }
-                          } catch (e) {
-                            print('AA_DEBUG_UI_CRASH_CATCH: $e');
-                          }
+                          } catch (e) {}
                         },
                       ),
                     ],

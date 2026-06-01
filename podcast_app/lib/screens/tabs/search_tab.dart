@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/podcast_model.dart';
 import '../../services/itunes_service.dart';
 import '../../theme/app_theme.dart';
@@ -34,7 +35,10 @@ class _SearchTabState extends State<SearchTab> {
     });
 
     try {
-      final results = await _itunesService.searchPodcasts(trimmedQuery);
+      final prefs = await SharedPreferences.getInstance();
+      final lang = prefs.getString('podstream_lang') ?? 'fr';
+      final results =
+          await _itunesService.searchPodcasts(trimmedQuery, lang: lang);
       setState(() {
         _searchResults = results;
       });

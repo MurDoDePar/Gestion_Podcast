@@ -1,24 +1,22 @@
-- ecoute hors ligne et telechargement.
-    - avec le wifi, telecharger les derniers episode des podcasts de 'mes podcasts' 
-        et les episodes 'a ecouter'
-    - quand le tel n'a pas de wifi, lire les episodes telechargés
-        -dans les parametre ajoute un menu 
-            d'autorisation de charchement hors wifi 
-            choix :
-                - uniquement en wifi 
-                - en 4g/5g et wifi
-                - tous le temps (defaut)
 
+
+
+Synchronisation Cloud Avancée : Avec tes UUIDs alignés, 
+    tu peux maintenant implémenter une logique de "Cloud Sync" 
+    beaucoup plus intelligente, en comparant les readAt entre le local 
+    et le distant pour fusionner ton historique sur plusieurs appareils.
+
+
+
+- si tu lance _compil.bat montre moi l'avancement, affiche la log dans le console. > a faire systematiquement
 
 - multi langue : 
     allemand, anglais, bulgare, croate, danois, espagnol, 
-    estonien, finnois, français, grec, hongrois, irlandais, 
+    estonien, finnois, français (defaut), grec, hongrois, irlandais, 
     italien, letton, lituanien, maltais, néerlandais, polonais, 
-    portugais, roumain, slovaque, slovène, suédois et tchèque.
+    portugais, roumain, slovaque, slovène, suédois, tchèque, autres.
 
-- le lecteur d'episode de Android auto (sur l'ecran de la voiture doit etre -30s, Play/Pause, +30s)
-
-- si tu lance _compil.bat montre moi l'avancement, affiche la log dans le console.
+- le lecteur d'episode de Android auto (sur l'écran de la voiture doit être -30s, Play/Pause, +30s)
 -------------------------------------------------------------------------------------------------------------------
 A tester :
 
@@ -44,6 +42,8 @@ A tester :
 "C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" -keystore "C:\Users\domin\Google Drive\Code\Gestion_Podcast\podstream-release.jks" -list -v
 
 Fait
+
+- supprimer les logs
 
 - le lecteur d'episode : changer l'ordre des boutons comme suit : -30s, +30s, Play/Pause, Lu
 
@@ -119,8 +119,6 @@ Fait
             rappel l'onglet affinité sont les podcasts des autres utilisateurs qui ont au moins un podcas en commun.
     - faire une verification et une suppression des tables inutilisés
 
-- supprimer les logs : > fait
-
 - rafraichire la liste 'a ecouter' avec un tirer vers le bas. : > fait
 
 - regardons la mise a jour des données pour l'onglet historique.
@@ -137,3 +135,53 @@ Fait
             - clique sur le bouton se desabonner (retire de la liste mes podcasts)
         -le stokage ne sera pas fait sur 
             - change l'ordre des podcasts dans mes podcasts (glisser poser)
+
+- ecoute hors ligne et telechargement.
+    - avec le wifi, telecharger les derniers episode des podcasts de 'mes podcasts' 
+        et les episodes 'a ecouter'
+    - quand le tel n'a pas de wifi, lire les episodes telechargés
+        -dans les parametre ajoute un menu 
+            d'autorisation de charchement hors wifi 
+            choix :
+                - uniquement en wifi 
+                - en 4g/5g et wifi (defaut)
+
+- Migration SQLite Locale (Version 5) : Normalisation de la table episodes_status > fait
+    But : Réduire la taille de la base locale en évitant la duplication des métadonnées 
+    (titre, image, description) des épisodes.
+    
+    1. Base SQLite (database_helper.dart) :
+        - Créer une nouvelle table 'episodes_metadata' (ou 'episodes_cache') :
+            * episodeId TEXT PRIMARY KEY
+            * title TEXT
+            * audioUrl TEXT
+            * imageUrl TEXT
+            * podcastName TEXT
+            * pubDate TEXT
+            * description TEXT
+        - Modifier la table 'episodes_status' pour ne garder que le statut et les infos locales :
+            * episodeId TEXT PRIMARY KEY
+            * isRead INTEGER DEFAULT 0
+            * readAt INTEGER
+            * localPath TEXT
+            
+    2. Logique de migration (_onUpgrade vers version 5) :
+        - Créer la table 'episodes_metadata'.
+        - Extraire et copier les métadonnées existantes de 'episodes_status' vers 'episodes_metadata' 
+            (GROUP BY episodeId).
+        - Renommer 'episodes_status' en 'episodes_status_old'.
+        - Créer la nouvelle table 'episodes_status' allégée.
+        - Copier 'episodeId', 'isRead', 'readAt' et 'localPath' depuis la table 'old'.
+        - Supprimer la table temporaire 'episodes_status_old'.
+        
+    3. Adaptation du code Dart :
+        - 'DatabaseHelper.markEpisodeAsRead()' : Faire deux écritures (une dans 'episodes_metadata' 
+            pour les infos de l'épisode, une dans 'episodes_status' pour l'état lu/non lu).
+        - 'DatabaseRepository.getReadEpisodesHistory()' : Adapter la requête de lecture 
+            avec un 'LEFT JOIN' entre 'episodes_status' et 'episodes_metadata' 
+            afin de reconstituer les objets EpisodeModel.
+
+Gestion du "Smart Offline" : Maintenant que tu as episodes_metadata bien séparé, 
+    tu pourrais ajouter une colonne isAvailable dans cette table 
+    pour gérer proprement les épisodes dont le fichier a été supprimé 
+    du stockage local mais qui sont toujours dans l'historique. > fait (Version 6, colonne 'status' dans episodes_status)

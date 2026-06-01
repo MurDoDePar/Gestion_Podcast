@@ -16,13 +16,13 @@ Technologies Principales
 - Backend & Base de données : Firebase Data Connect (PostgreSQL)
 - Authentification : Firebase Auth (Google Sign-In)
 - Audio : just_audio, audio_session, audio_service
-- Recherche : iTunes Search API / Parsing de flux RSS (xml)
+- Recherche : iTunes Search API / Validation stricte par parsing parallèle de flux RSS (xml) avec prise en charge du format CDATA
 
 Fonctionnalités Clés
 --------------------
 - Connexion sécurisée via un compte Google.
 - Découverte de podcasts (Par thème, Populaire, Affinités croisées) via l'API iTunes et recommandations intelligentes.
-- Recherche dynamique et instantanée avec effet "debounce".
+- Recherche dynamique et instantanée avec effet "debounce", appliquant un filtrage strict par langue (requête par pays sur iTunes API + validation RSS en parallèle avec gestion robuste du CDATA).
 - Consultation du détail d'un podcast et description des épisodes consultable en pop-up.
 - Abonnement aux favoris avec intégrité des données basée sur les flux RSS (anti-doublons).
 - Page d'accueil personnalisée ("Mes podcasts" et "À écouter").
@@ -61,8 +61,9 @@ L'application Flutter est structurée en plusieurs dossiers clés dans /podcast_
    - DatabaseRepository (database_repository.dart) & PodcastRepository (podcast_repository.dart) : Couche d'accès aux données. 
       Gèrent les requêtes locales (SQLite) et synchronisent en temps réel les données de l'utilisateur (favoris, ordonnancement drag-and-drop, progression) 
       avec le serveur PostgreSQL via Firebase Data Connect.
-   - ITunesService (itunes_service.dart) : Gère l'intégration avec l'API iTunes Search pour rechercher et découvrir des podcasts 
-      par thème ou par popularité.
+   - ITunesService (itunes_service.dart) : Gère l'intégration avec l'API iTunes Search pour rechercher et découvrir des podcasts. 
+      Supporte l'injection de dépendances (http.Client) pour les tests et effectue un filtrage de langue strict (via pays et validation RSS en parallèle avec gestion du CDATA).
+   - DownloadManager (download_manager.dart) : Gère le téléchargement des épisodes en tâche de fond, assurant la reprise automatique après interruption.
    - RssService (rss_service.dart) : Parse les flux RSS XML des podcasts pour récupérer dynamiquement la liste à jour des épisodes.
    - MarkAsReadService (mark_as_read_service.dart) : Service dédié au marquage des épisodes comme lus/écoutés, 
       synchronisé avec la base de données.
@@ -106,9 +107,17 @@ L'application Flutter est structurée en plusieurs dossiers clés dans /podcast_
      * `sortOrder` (INTEGER) : Ordre d'affichage (Drag & Drop).
      * `isSynced` (INTEGER) : Statut de synchronisation avec Firebase (0 = non synchronisé, 1 = synchronisé).
 
-   - Table `episodes_status` (Historique des épisodes lus) :
+   - Table `episodes_status` (Historique des épisodes lus et métadonnées de lecture) :
      * `episodeId` (TEXT PRIMARY KEY) : Identifiant unique de l'épisode.
      * `isRead` (INTEGER) : Statut lu (0 = non lu, 1 = lu).
+     * `readAt` (INTEGER) : Horodatage de lecture (millisecondes).
+     * `title` (TEXT) : Titre de l'épisode.
+     * `audioUrl` (TEXT) : URL du fichier audio.
+     * `imageUrl` (TEXT) : URL de l'image de couverture.
+     * `podcastName` (TEXT) : Nom du podcast associé.
+     * `pubDate` (TEXT) : Date de publication de l'épisode.
+     * `description` (TEXT) : Description de l'épisode.
+     * `localPath` (TEXT) : Chemin du fichier audio stocké localement (pour l'écoute hors ligne).
 
    - Table `themes_cache` (Cache hebdomadaire des thèmes) :
      * `id` (INTEGER PRIMARY KEY AUTOINCREMENT) : Clé primaire.
@@ -119,6 +128,16 @@ L'application Flutter est structurée en plusieurs dossiers clés dans /podcast_
      * `artworkUrl` (TEXT) : URL de l'image de couverture.
      * `feedUrl` (TEXT) : URL du flux.
      * `cachedAt` (INTEGER) : Timestamp d'enregistrement du cache (millisecondes).
+
+   - Table `settings` (Stockage des paramètres de l'application) :
+     * `key` (TEXT PRIMARY KEY) : Clé unique du paramètre.
+     * `value` (TEXT) : Valeur du paramètre.
+
+   - Table `download_queue` (File d'attente de téléchargement persistante) :
+     * `episodeId` (TEXT PRIMARY KEY) : Identifiant de l'épisode en cours ou en attente de téléchargement.
+     * `audioUrl` (TEXT) : URL de téléchargement du fichier audio.
+     * `tempPath` (TEXT) : Chemin temporaire du téléchargement.
+     * `status` (TEXT) : Statut de la tâche (ex: 'queued', 'downloading', 'completed').
 
 Instructions de Compilation et Vérification
 -------------------------------------------

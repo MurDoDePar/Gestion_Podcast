@@ -40,20 +40,13 @@ class _MainScreenState extends State<MainScreen> {
     // Initialisation de la base SQLite et retry sous timeout de 10 secondes
     try {
       await DatabaseRepository().init().timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          debugPrint(
-              "AA_DEBUG: Initialisation lente de SQLite, utilisation du cache local.");
-        },
-      );
+            const Duration(seconds: 10),
+            onTimeout: () {},
+          );
     } on UpdateRequiredException catch (e) {
-      debugPrint(
-          "AA_DEBUG: Version d'application obsolète détectée : ${e.message}");
       setState(() {
         _updateRequiredMessage = e.message;
       });
-    } catch (e) {
-      debugPrint("AA_DEBUG: Erreur lors de l'initialisation de SQLite : $e");
     }
   }
 

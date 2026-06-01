@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
+
 class PodcastModel {
   final String collectionName;
   final String artistName;
@@ -12,6 +15,14 @@ class PodcastModel {
     required this.feedUrl,
     this.collectionId,
   });
+
+  String get id {
+    if (feedUrl.isEmpty) return '00000000-0000-4000-8000-000000000000';
+    final bytes = utf8.encode(feedUrl);
+    final digest = md5.convert(bytes).toString();
+    // Formatage en UUID standard
+    return '${digest.substring(0, 8)}-${digest.substring(8, 12)}-${digest.substring(12, 16)}-${digest.substring(16, 20)}-${digest.substring(20)}';
+  }
 
   factory PodcastModel.fromJson(Map<String, dynamic> json) {
     return PodcastModel(
@@ -29,6 +40,7 @@ class PodcastModel {
 
   Map<String, dynamic> toMap() {
     return {
+      'id': id,
       'collectionId': collectionId,
       'collectionName': collectionName,
       'artistName': artistName,

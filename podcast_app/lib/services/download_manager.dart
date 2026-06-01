@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'database_repository.dart';
 import 'database_helper.dart';
 
@@ -43,6 +44,8 @@ class DownloadManager {
       }
       // Effectuer aussi un nettoyage des vieux épisodes téléchargés (> 7 jours et lus)
       await cleanupOldDownloads();
+      // Exécuter l'audit anti-zombie au démarrage (v6)
+      await auditStorage();
     } catch (e) {
       debugPrint("DownloadManager: Erreur d'initialisation de la queue : $e");
     }
@@ -136,18 +139,21 @@ class DownloadManager {
 
       for (var row in toClean) {
         final episodeId = row['episodeId'] as String;
-        final localPath = row['localPath'] as String;
+        final dbPath = row['localPath'] as String;
         try {
-          final file = File(localPath);
-          if (await file.exists()) {
-            await file.delete();
+          final resolvedPath = await _resolveToAbsolutePath(dbPath);
+          if (resolvedPath != null) {
+            final file = File(resolvedPath);
+            if (await file.exists()) {
+              await file.delete();
+            }
           }
           await DatabaseRepository().updateEpisodeLocalPath(episodeId, null);
           debugPrint(
               "DownloadManager: Suppression de l'ancien téléchargement de l'épisode $episodeId");
         } catch (e) {
           debugPrint(
-              "DownloadManager: Impossible de supprimer le fichier $localPath: $e");
+              "DownloadManager: Impossible de supprimer le fichier $dbPath: $e");
         }
       }
     } catch (e) {
@@ -193,18 +199,43 @@ class DownloadManager {
     return 'ep_${hashSuffix}_$shortName.mp3';
   }
 
+  /// Résout un chemin stocké en base (qu'il soit absolu ou relatif) en chemin absolu valide
+  Future<String?> _resolveToAbsolutePath(String? dbPath) async {
+    if (dbPath == null || dbPath.isEmpty) return null;
+    final directory = await getApplicationDocumentsDirectory();
+    if (p.isAbsolute(dbPath)) {
+      // Si c'est un chemin absolu (ex: de la v5), on vérifie s'il existe directement
+      final file = File(dbPath);
+      if (await file.exists()) {
+        return dbPath;
+      }
+      // Sinon, on extrait le nom du fichier et on tente de le résoudre dans le répertoire privé
+      final fileName = p.basename(dbPath);
+      final resolvedFile = File('${directory.path}/downloads/$fileName');
+      if (await resolvedFile.exists()) {
+        return resolvedFile.path;
+      }
+      return null;
+    } else {
+      // Si c'est un chemin relatif (ex: 'downloads/ep_xxx.mp3'), on le résout par rapport au répertoire privé
+      final file = File('${directory.path}/$dbPath');
+      if (await file.exists()) {
+        return file.path;
+      }
+      return null;
+    }
+  }
+
   /// Vérifie si le fichier existe localement et retourne son chemin absolu
   Future<String?> getLocalFilePath(String episodeId) async {
     try {
       final dbPath = await DatabaseRepository().getEpisodeLocalPath(episodeId);
-      if (dbPath != null && dbPath.isNotEmpty) {
-        final file = File(dbPath);
-        if (await file.exists()) {
-          return dbPath;
-        }
+      final resolvedPath = await _resolveToAbsolutePath(dbPath);
+      if (resolvedPath != null) {
+        return resolvedPath;
       }
 
-      // Fallback : Vérifier par le nom de fichier par défaut
+      // Fallback ultime : Vérifier par le nom de fichier par défaut
       final directory = await getApplicationDocumentsDirectory();
       final fileName = _getSafeFileName(episodeId);
       final file = File('${directory.path}/downloads/$fileName');
@@ -215,6 +246,90 @@ class DownloadManager {
       debugPrint("DownloadManager error [getLocalFilePath] for $episodeId: $e");
     }
     return null;
+  }
+
+  /// Compare la liste des fichiers sur le disque avec SQLite et supprime les fichiers orphelins.
+  /// S'exécute une seule fois au premier démarrage de la version 6.
+  Future<void> auditStorage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final hasAudited = prefs.getBool('storage_audit_done_v6') ?? false;
+      if (hasAudited) {
+        return;
+      }
+
+      debugPrint("DownloadManager: Démarrage de l'audit de stockage (v6)...");
+
+      final helper = DatabaseHelper();
+      final db = await helper.database;
+
+      // 1. Récupérer tous les localPath valides dans episodes_status
+      final List<Map<String, dynamic>> statusResults = await db.query(
+        'episodes_status',
+        columns: ['localPath'],
+        where: 'localPath IS NOT NULL',
+      );
+      final Set<String> dbPaths = statusResults
+          .map((row) => row['localPath'] as String?)
+          .where((path) => path != null && path.isNotEmpty)
+          .cast<String>()
+          .toSet();
+
+      // 2. Récupérer tous les tempPath de la queue de téléchargement
+      final List<Map<String, dynamic>> queueResults = await db.query(
+        'download_queue',
+        columns: ['tempPath'],
+      );
+      final Set<String> queuePaths = queueResults
+          .map((row) => row['tempPath'] as String?)
+          .where((path) => path != null && path.isNotEmpty)
+          .cast<String>()
+          .toSet();
+
+      // 3. Extraire les basenames de tous les fichiers autorisés
+      final Set<String> allowedFilenames = {
+        ...dbPaths.map((path) => p.basename(path)),
+        ...queuePaths.map((path) => p.basename(path)),
+      };
+
+      // 4. Parcourir le dossier de téléchargement et supprimer les orphelins (zombies)
+      final directory = await getApplicationDocumentsDirectory();
+      final downloadDir = Directory('${directory.path}/downloads');
+      if (await downloadDir.exists()) {
+        int deletedCount = 0;
+        final List<FileSystemEntity> files = await downloadDir.list().toList();
+        for (var file in files) {
+          if (file is File) {
+            final filename = p.basename(file.path);
+
+            // Ne toucher qu'aux fichiers audio mp3 ou aux fichiers temporaires .tmp orphelins
+            if (filename.endsWith('.mp3') || filename.endsWith('.tmp')) {
+              if (!allowedFilenames.contains(filename)) {
+                try {
+                  await file.delete();
+                  deletedCount++;
+                  debugPrint(
+                      "DownloadManager: auditStorage - Fichier zombie supprimé : $filename");
+                } catch (e) {
+                  debugPrint(
+                      "DownloadManager: Impossible de supprimer le fichier zombie $filename : $e");
+                }
+              }
+            }
+          }
+        }
+        debugPrint(
+            "DownloadManager: auditStorage complété. Fichiers supprimés : $deletedCount");
+      } else {
+        debugPrint(
+            "DownloadManager: Le dossier de téléchargements n'existe pas. Aucun audit requis.");
+      }
+
+      // 5. Enregistrer le flag de fin d'audit
+      await prefs.setBool('storage_audit_done_v6', true);
+    } catch (e) {
+      debugPrint("DownloadManager: Erreur lors de l'audit de stockage : $e");
+    }
   }
 
   /// Télécharge un épisode de manière asynchrone
@@ -302,10 +417,12 @@ class DownloadManager {
         debugPrint(
             "DownloadManager: Téléchargement annulé par l'utilisateur pour $episodeId");
         statusNotifier.value = DownloadStatus.idle;
+        await DatabaseRepository().updateEpisodeDownloadStatus(episodeId, 0);
       } else {
         debugPrint(
             "DownloadManager: Erreur de téléchargement pour $episodeId: $e");
         statusNotifier.value = DownloadStatus.failed;
+        await DatabaseRepository().updateEpisodeDownloadStatus(episodeId, 2);
       }
 
       await _cleanupTempFile(episodeId);
@@ -321,6 +438,7 @@ class DownloadManager {
       cancelToken.cancel();
       _cancelTokens.remove(episodeId);
     }
+    DatabaseRepository().updateEpisodeDownloadStatus(episodeId, 0);
     DatabaseRepository().dequeueDownloadTask(episodeId);
   }
 

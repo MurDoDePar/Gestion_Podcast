@@ -26,6 +26,8 @@ part 'get_recommendations.dart';
 
 part 'get_podcast_by_feed_url.dart';
 
+part 'get_affinity_recommendations.dart';
+
 class ExampleConnector {
   InsertUserVariablesBuilder insertUser({
     required String googleId,
@@ -144,6 +146,15 @@ class ExampleConnector {
     return GetPodcastByFeedUrlVariablesBuilder(
       dataConnect,
       feedUrl: feedUrl,
+    );
+  }
+
+  GetAffinityRecommendationsVariablesBuilder getAffinityRecommendations({
+    required String userId,
+  }) {
+    return GetAffinityRecommendationsVariablesBuilder(
+      dataConnect,
+      userId: userId,
     );
   }
 

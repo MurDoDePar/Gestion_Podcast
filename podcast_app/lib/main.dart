@@ -7,9 +7,11 @@ import 'screens/auth_wrapper.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:podcast_app/services/podstream_audio_handler.dart';
 import 'package:podcast_app/services/audio_handler_locator.dart';
+import 'package:podcast_app/core/services/service_locator.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  setupLocator();
   debugPrint('--- DEBUT INITIALISATION ---');
 
   debugPrint(
@@ -24,8 +26,7 @@ void main() async {
         androidStopForegroundOnPause: true,
       ),
     );
-    print(
-        'AA_DEBUG_INIT_UI: globalAudioHandler est désormais initialisé dans le main principal !');
+
     debugPrint('--- AudioService OK ---');
   } catch (e) {
     debugPrint('Erreur critique AudioService: $e');

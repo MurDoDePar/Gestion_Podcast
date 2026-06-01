@@ -233,8 +233,6 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                           icon: const Icon(Icons.check_circle_outline,
                               color: AppTheme.primaryColor, size: 28),
                           onPressed: () async {
-                            print(
-                                'AA_DEBUG_CLICK_LU: Clic physique détecté sur la coche violette !');
                             final episodeId =
                                 item.extras?['episodeId'] as String? ?? item.id;
                             try {
@@ -259,9 +257,7 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                                   ),
                                 );
                               }
-                            } catch (e) {
-                              print('AA_DEBUG_UI_CRASH_CATCH: $e');
-                            }
+                            } catch (e) {}
                           },
                         ),
                       ],

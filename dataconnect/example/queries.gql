@@ -49,3 +49,29 @@ query GetPodcastByFeedUrl($feedUrl: String!) @auth(level: PUBLIC, insecureReason
     imageUrl
   }
 }
+
+query GetAffinityRecommendations($userId: UUID!) @auth(level: USER) {
+  mySubscriptions: subscriptionTypes(where: { userId: { eq: $userId } }) {
+    podcast {
+      id
+      feedUrl
+      title
+      subscriptionTypes_on_podcast(where: { userId: { ne: $userId } }) {
+        user {
+          id
+          displayName
+          subscriptionTypes_on_user {
+            podcast {
+              id
+              title
+              feedUrl
+              imageUrl
+              author
+              categories
+            }
+          }
+        }
+      }
+    }
+  }
+}

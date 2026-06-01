@@ -76,14 +76,11 @@ class _MyPodcastsTabState extends State<MyPodcastsTab> {
 
   Future<void> _onRefreshEpisodes() async {
     if (_isRefreshing) {
-      debugPrint(
-          "AA_DEBUG: Rafraîchissement déjà en cours, tentative ignorée.");
       return;
     }
     _isRefreshing = true;
 
     try {
-      debugPrint("AA_DEBUG: Début du rafraîchissement manuel des épisodes...");
       // Forcer le rechargement depuis le réseau (et mise à jour SQLite)
       await DatabaseRepository().getEpisodesToListen(forceRefresh: true);
 
@@ -100,7 +97,6 @@ class _MyPodcastsTabState extends State<MyPodcastsTab> {
         );
       }
     } catch (e) {
-      debugPrint("AA_DEBUG: Erreur lors du rafraîchissement manuel: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -112,7 +108,6 @@ class _MyPodcastsTabState extends State<MyPodcastsTab> {
       }
     } finally {
       _isRefreshing = false;
-      debugPrint("AA_DEBUG: Fin du rafraîchissement manuel.");
     }
   }
 

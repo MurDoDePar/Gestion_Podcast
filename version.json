@@ -1,5 +1,5 @@
 {
-  "version": "3.2.0",
-  "build_number": 320,
-  "release_notes": "mise a jour 3.2.0 (30/05/2026) gestion d'autorisation de telechargement hors wifi"
+  "version": "3.2.7",
+  "build_number": 327,
+  "release_notes": "mise à jour 3.2.7 (01/06/2026) - Migration des tables SQL"
 }

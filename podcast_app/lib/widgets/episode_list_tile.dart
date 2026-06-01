@@ -87,9 +87,7 @@ class EpisodeListTile extends StatelessWidget {
         },
       ),
       onTap: () async {
-        print('AA_DEBUG_UI: Clic détecté sur l\'épisode ${episode.title}');
         if (globalAudioHandler == null) {
-          print('AA_DEBUG_ERROR: globalAudioHandler is null!');
           return;
         }
         await globalAudioHandler!.playMediaItem(

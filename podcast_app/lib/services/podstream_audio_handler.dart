@@ -1,7 +1,6 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
-import 'package:flutter/foundation.dart';
 import 'database_repository.dart';
 import 'download_manager.dart';
 
@@ -36,14 +35,7 @@ class PodStreamAudioHandler extends BaseAudioHandler
   ];
 
   void _logAA(String message) {
-    try {
-      final now = DateTime.now();
-      final timestamp =
-          "${now.toIso8601String()}.${now.microsecond.toString().padLeft(3, '0')}";
-      debugPrint("AA_DEBUG: $timestamp: $message");
-    } catch (e) {
-      debugPrint("AA_DEBUG_ERROR: Could not log: $e");
-    }
+    // logs désactivés
   }
 
   Stream<Duration> get positionStream => _player.positionStream;
@@ -86,20 +78,13 @@ class PodStreamAudioHandler extends BaseAudioHandler
     final session = await AudioSession.instance;
     await session.configure(const AudioSessionConfiguration.music());
 
-    final focusAccorde = await session.setActive(true);
-    print(
-        'AA_DEBUG_SESSION: Demande d Audio Focus native. Accordé = $focusAccorde');
+    await session.setActive(true);
 
-    session.interruptionEventStream.listen((event) {
-      print(
-          'AA_DEBUG_SESSION_INTERRUPTION: Interruption détectée, type: ${event.type}');
-    });
+    session.interruptionEventStream.listen((event) {});
 
     // Broadcast playback state changes to the system (lock screen, Android Auto)
-    _player.playbackEventStream.listen(_broadcastState,
-        onError: (Object e, StackTrace st) {
-      print('AA_DEBUG_PLAYER_ERROR: Erreur de lecture matérielle: $e');
-    });
+    _player.playbackEventStream
+        .listen(_broadcastState, onError: (Object e, StackTrace st) {});
 
     // Écouter les changements de durée (récupérée dans les métadonnées du flux audio)
     _player.durationStream.listen((duration) {
@@ -183,31 +168,17 @@ class PodStreamAudioHandler extends BaseAudioHandler
 
     playbackState.add(playbackState.value.copyWith(
       controls: [
-        // 1. -30s (Custom)
-        const MediaControl(
-          androidIcon: 'drawable/ic_rewind_30',
-          label: '-30s',
-          action: MediaAction.custom,
-        ),
-        // 2. Play/Pause (On garde le système standard pour la stabilité Android Auto)
+        MediaControl.rewind,
         playing ? MediaControl.pause : MediaControl.play,
-        // 3. +30s (Custom)
-        const MediaControl(
-          androidIcon: 'drawable/ic_fast_forward_30',
-          label: '+30s',
-          action: MediaAction.custom,
-        ),
+        MediaControl.fastForward,
       ],
-      // CRUCIAL : Déclare les actions système ici pour éviter le mode simplifié
       systemActions: const {
         MediaAction.seek,
         MediaAction.play,
         MediaAction.pause,
-        //MediaAction.skipToNext,
-        //MediaAction.skipToPrevious,
-        //MediaAction.custom,
+        MediaAction.rewind, // OBLIGATOIRE pour que le bouton fonctionne
+        MediaAction.fastForward, // OBLIGATOIRE pour que le bouton fonctionne
       },
-      // Indique les index (0, 1, 2) pour la barre compacte
       androidCompactActionIndices: const [0, 1, 2],
       processingState: aaProcessingState,
       playing: playing,
@@ -237,8 +208,6 @@ class PodStreamAudioHandler extends BaseAudioHandler
   Future<void> playMediaItem(MediaItem mediaItem) async {
     final audioUrl = mediaItem.extras?['url'] as String? ?? mediaItem.id;
     final episodeId = mediaItem.extras?['episodeId'] as String? ?? mediaItem.id;
-    print(
-        'AA_DEBUG_HANDLER: playMediaItem reçu pour ${mediaItem.title} - URL: $audioUrl');
 
     this.mediaItem.add(mediaItem);
     _prefetchedNext = false; // Réinitialiser le flag de préchargement
@@ -246,15 +215,13 @@ class PodStreamAudioHandler extends BaseAudioHandler
     // Essayer de lire le fichier local s'il existe, sinon fallback en streaming
     final localPath = await DownloadManager().getLocalFilePath(episodeId);
     if (localPath != null && localPath.isNotEmpty) {
-      print('AA_DEBUG_PLAYER: Lecture locale depuis $localPath');
       await _player.setAudioSource(AudioSource.file(localPath));
     } else {
-      print('AA_DEBUG_PLAYER: Fallback en streaming sur $audioUrl');
       await _player.setAudioSource(AudioSource.uri(Uri.parse(audioUrl)));
     }
 
     await _player.setVolume(1.0);
-    print('AA_DEBUG_PLAYER: Lancement de _player.play()');
+
     _player.play();
   }
 
@@ -388,22 +355,6 @@ class PodStreamAudioHandler extends BaseAudioHandler
           );
           await _playNextOrStop();
         }
-        break;
-
-      case '-30s':
-        await rewind();
-        break;
-
-      case '+30s':
-        await fastForward();
-        break;
-
-      case 'Play':
-        await play();
-        break;
-
-      case 'Pause':
-        await pause();
         break;
 
       default:

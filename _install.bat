@@ -14,8 +14,8 @@ echo.
 echo 2. devices
 "%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" devices
 
-echo 3. Desinstallation de l'ancienne version...
-"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" uninstall com.podstream
+echo 3. Desinstallation de l'ancienne version ignoree pour faire une mise a jour...
+rem "%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" uninstall com.podstream
 
 echo.
 echo 4. Copie de l'APK dans le dossier securise du Pixel...

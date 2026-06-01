@@ -94,9 +94,7 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
             _realPodcastId = existingPodcastResult.data.podcasts.first.id;
           }
         }
-      } catch (e) {
-        print("AA_DEBUG: Erreur vérif abonnement SQLite / DataConnect: $e");
-      }
+      } catch (e) {}
     }
   }
 
@@ -139,8 +137,7 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
         setState(() {
           _isSubscribed = false;
         });
-        await DatabaseRepository()
-            .unsubscribeFromPodcast(feedUrl, actualPodcastId);
+        await DatabaseRepository().unsubscribeFromPodcast(feedUrl);
 
         CacheManager().remove('my_subscribed_podcasts');
         app_audio.AudioService().listRefreshNotifier.value++;
@@ -492,10 +489,7 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
                     title: Text(episode.title,
                         maxLines: 2, overflow: TextOverflow.ellipsis),
                     onTap: () async {
-                      print(
-                          'AA_DEBUG_UI: Clic détecté sur l\'épisode ${episode.title}');
                       if (globalAudioHandler == null) {
-                        print('AA_DEBUG_ERROR: globalAudioHandler is null!');
                         return;
                       }
                       await globalAudioHandler!.playMediaItem(
