@@ -37,7 +37,7 @@ class DatabaseHelper {
     }
     // 1. my_podcasts Table: stores user subscriptions locally with order and sync flag
     await db.execute('''
-      CREATE TABLE my_podcasts (
+      CREATE TABLE IF NOT EXISTS my_podcasts (
         id TEXT PRIMARY KEY,
         feedUrl TEXT UNIQUE,
         collectionId INTEGER,
@@ -50,10 +50,10 @@ class DatabaseHelper {
     ''');
     // Create index on my_podcasts.sortOrder for fast sorting
     await db.execute(
-        'CREATE INDEX idx_podcasts_sortOrder ON my_podcasts(sortOrder)');
+        'CREATE INDEX IF NOT EXISTS idx_podcasts_sortOrder ON my_podcasts(sortOrder)');
     // 2. episodes_metadata Table: stores immutable details of episodes
     await db.execute('''
-      CREATE TABLE episodes_metadata (
+      CREATE TABLE IF NOT EXISTS episodes_metadata (
         episodeId TEXT PRIMARY KEY,
         title TEXT,
         audioUrl TEXT,
@@ -65,11 +65,11 @@ class DatabaseHelper {
     ''');
     // Create index on episodes_metadata.episodeId for fast joining
     await db.execute(
-        'CREATE INDEX idx_episodes_metadata_episodeId ON episodes_metadata(episodeId)');
+        'CREATE INDEX IF NOT EXISTS idx_episodes_metadata_episodeId ON episodes_metadata(episodeId)');
 
     // 3. episodes_status Table: stores read/unread status of episodes and local path
     await db.execute('''
-      CREATE TABLE episodes_status (
+      CREATE TABLE IF NOT EXISTS episodes_status (
         episodeId TEXT PRIMARY KEY,
         isRead INTEGER DEFAULT 0,
         readAt INTEGER,
@@ -79,10 +79,10 @@ class DatabaseHelper {
     ''');
     // Create index on episodes_status.readAt for fast history ordering
     await db.execute(
-        'CREATE INDEX idx_episodes_status_readAt ON episodes_status(readAt)');
+        'CREATE INDEX IF NOT EXISTS idx_episodes_status_readAt ON episodes_status(readAt)');
     // 4. themes_cache Table: caches weekly podcast results for themes
     await db.execute('''
-      CREATE TABLE themes_cache (
+      CREATE TABLE IF NOT EXISTS themes_cache (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         theme TEXT,
         collectionId INTEGER,
@@ -94,18 +94,18 @@ class DatabaseHelper {
       )
     ''');
     // Create index on themes_cache.theme for fast queries
-    await db
-        .execute('CREATE INDEX idx_themes_cache_theme ON themes_cache(theme)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_themes_cache_theme ON themes_cache(theme)');
     // 5. settings Table: stores local app settings
     await db.execute('''
-      CREATE TABLE settings (
+      CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
         value TEXT
       )
     ''');
     // 6. download_queue Table: stores active/pending downloads for crash resumption
     await db.execute('''
-      CREATE TABLE download_queue (
+      CREATE TABLE IF NOT EXISTS download_queue (
         episodeId TEXT PRIMARY KEY,
         audioUrl TEXT,
         tempPath TEXT,
@@ -114,33 +114,59 @@ class DatabaseHelper {
     ''');
   }
 
+  // --- HELPER METHODS FOR IDEMPOTENT MIGRATIONS ---
+  Future<bool> _tableExists(Database db, String tableName) async {
+    final result = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name = ?",
+      [tableName],
+    );
+    return result.isNotEmpty;
+  }
+
+  Future<bool> _columnExists(
+      Database db, String tableName, String columnName) async {
+    try {
+      final result = await db.rawQuery('PRAGMA table_info($tableName)');
+      for (final row in result) {
+        if (row['name'] == columnName) {
+          return true;
+        }
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  Future<void> _safeAddColumn(Database db, String tableName, String columnName,
+      String columnType) async {
+    if (!await _columnExists(db, tableName, columnName)) {
+      await db
+          .execute('ALTER TABLE $tableName ADD COLUMN $columnName $columnType');
+    }
+  }
+
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       try {
-        await db
-            .execute('ALTER TABLE episodes_status ADD COLUMN readAt INTEGER');
-        await db.execute('ALTER TABLE episodes_status ADD COLUMN title TEXT');
-        await db
-            .execute('ALTER TABLE episodes_status ADD COLUMN audioUrl TEXT');
-        await db
-            .execute('ALTER TABLE episodes_status ADD COLUMN imageUrl TEXT');
-        await db
-            .execute('ALTER TABLE episodes_status ADD COLUMN podcastName TEXT');
-        await db.execute('ALTER TABLE episodes_status ADD COLUMN pubDate TEXT');
-        await db
-            .execute('ALTER TABLE episodes_status ADD COLUMN description TEXT');
+        await _safeAddColumn(db, 'episodes_status', 'readAt', 'INTEGER');
+        await _safeAddColumn(db, 'episodes_status', 'title', 'TEXT');
+        await _safeAddColumn(db, 'episodes_status', 'audioUrl', 'TEXT');
+        await _safeAddColumn(db, 'episodes_status', 'imageUrl', 'TEXT');
+        await _safeAddColumn(db, 'episodes_status', 'podcastName', 'TEXT');
+        await _safeAddColumn(db, 'episodes_status', 'pubDate', 'TEXT');
+        await _safeAddColumn(db, 'episodes_status', 'description', 'TEXT');
         await db.execute(
-            'CREATE INDEX idx_episodes_status_readAt ON episodes_status(readAt)');
-      } catch (e) {}
+            'CREATE INDEX IF NOT EXISTS idx_episodes_status_readAt ON episodes_status(readAt)');
+      } catch (e) {
+        // Log migration error but allow others to proceed or rethrow depending on criticality
+      }
     }
     if (oldVersion < 3) {
       try {
-        await db
-            .execute('ALTER TABLE episodes_status ADD COLUMN localPath TEXT');
+        await _safeAddColumn(db, 'episodes_status', 'localPath', 'TEXT');
       } catch (e) {}
       try {
         await db.execute('''
-          CREATE TABLE settings (
+          CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
             value TEXT
           )
@@ -148,7 +174,7 @@ class DatabaseHelper {
       } catch (e) {}
       try {
         await db.execute('''
-          CREATE TABLE download_queue (
+          CREATE TABLE IF NOT EXISTS download_queue (
             episodeId TEXT PRIMARY KEY,
             audioUrl TEXT,
             tempPath TEXT,
@@ -159,9 +185,12 @@ class DatabaseHelper {
     }
     if (oldVersion < 4) {
       try {
-        await db.execute('ALTER TABLE my_podcasts RENAME TO my_podcasts_old');
+        if (await _tableExists(db, 'my_podcasts') &&
+            !await _tableExists(db, 'my_podcasts_old')) {
+          await db.execute('ALTER TABLE my_podcasts RENAME TO my_podcasts_old');
+        }
         await db.execute('''
-          CREATE TABLE my_podcasts (
+          CREATE TABLE IF NOT EXISTS my_podcasts (
             id TEXT PRIMARY KEY,
             feedUrl TEXT UNIQUE,
             collectionId INTEGER,
@@ -173,33 +202,37 @@ class DatabaseHelper {
           )
         ''');
         await db.execute(
-            'CREATE INDEX idx_podcasts_sortOrder ON my_podcasts(sortOrder)');
+            'CREATE INDEX IF NOT EXISTS idx_podcasts_sortOrder ON my_podcasts(sortOrder)');
 
-        final List<Map<String, dynamic>> oldRows =
-            await db.query('my_podcasts_old');
-        for (var row in oldRows) {
-          final feedUrl = row['feedUrl'] as String? ?? '';
-          if (feedUrl.isNotEmpty) {
-            final bytes = utf8.encode(feedUrl);
-            final digest = md5.convert(bytes).toString();
-            final uuid =
-                '${digest.substring(0, 8)}-${digest.substring(8, 12)}-${digest.substring(12, 16)}-${digest.substring(16, 20)}-${digest.substring(20)}';
+        if (await _tableExists(db, 'my_podcasts_old')) {
+          final List<Map<String, dynamic>> oldRows =
+              await db.query('my_podcasts_old');
+          for (var row in oldRows) {
+            final feedUrl = row['feedUrl'] as String? ?? '';
+            if (feedUrl.isNotEmpty) {
+              final bytes = utf8.encode(feedUrl);
+              final digest = md5.convert(bytes).toString();
+              final uuid =
+                  '${digest.substring(0, 8)}-${digest.substring(8, 12)}-${digest.substring(12, 16)}-${digest.substring(16, 20)}-${digest.substring(20)}';
 
-            await db.insert('my_podcasts', {
-              'id': uuid,
-              'feedUrl': feedUrl,
-              'collectionId': row['collectionId'],
-              'collectionName': row['collectionName'],
-              'artistName': row['artistName'],
-              'artworkUrl': row['artworkUrl'],
-              'sortOrder': row['sortOrder'],
-              'isSynced': row['isSynced'] ?? 1,
-            });
+              await db.insert(
+                  'my_podcasts',
+                  {
+                    'id': uuid,
+                    'feedUrl': feedUrl,
+                    'collectionId': row['collectionId'],
+                    'collectionName': row['collectionName'],
+                    'artistName': row['artistName'],
+                    'artworkUrl': row['artworkUrl'],
+                    'sortOrder': row['sortOrder'],
+                    'isSynced': row['isSynced'] ?? 1,
+                  },
+                  conflictAlgorithm: ConflictAlgorithm.ignore);
+            }
           }
+          await db.execute('DROP TABLE IF EXISTS my_podcasts_old');
         }
-        await db.execute('DROP TABLE my_podcasts_old');
       } catch (e) {
-        // print("Erreur de migration SQLite v4 : $e");
         rethrow;
       }
     }
@@ -207,7 +240,7 @@ class DatabaseHelper {
       try {
         // 1. Créer la table episodes_metadata
         await db.execute('''
-          CREATE TABLE episodes_metadata (
+          CREATE TABLE IF NOT EXISTS episodes_metadata (
             episodeId TEXT PRIMARY KEY,
             title TEXT,
             audioUrl TEXT,
@@ -219,48 +252,60 @@ class DatabaseHelper {
         ''');
         // Créer l'index sur episodes_metadata.episodeId
         await db.execute(
-            'CREATE INDEX idx_episodes_metadata_episodeId ON episodes_metadata(episodeId)');
+            'CREATE INDEX IF NOT EXISTS idx_episodes_metadata_episodeId ON episodes_metadata(episodeId)');
 
         // 2. Extraire et copier les métadonnées existantes de episodes_status vers episodes_metadata
-        final List<Map<String, dynamic>> oldRows = await db.query(
-          'episodes_status',
-          columns: [
-            'episodeId',
+        if (await _tableExists(db, 'episodes_status')) {
+          // Verify columns exist before querying to prevent crashes if version < 2 didn't run cleanly
+          final columnsToQuery = ['episodeId'];
+          for (var col in [
             'title',
             'audioUrl',
             'imageUrl',
             'podcastName',
             'pubDate',
             'description'
-          ],
-        );
-        final Set<String> insertedIds = {};
-        for (var row in oldRows) {
-          final episodeId = row['episodeId'] as String? ?? '';
-          if (episodeId.isNotEmpty && !insertedIds.contains(episodeId)) {
-            await db.insert(
-                'episodes_metadata',
-                {
-                  'episodeId': episodeId,
-                  'title': row['title'],
-                  'audioUrl': row['audioUrl'],
-                  'imageUrl': row['imageUrl'],
-                  'podcastName': row['podcastName'],
-                  'pubDate': row['pubDate'],
-                  'description': row['description'],
-                },
-                conflictAlgorithm: ConflictAlgorithm.ignore);
-            insertedIds.add(episodeId);
+          ]) {
+            if (await _columnExists(db, 'episodes_status', col)) {
+              columnsToQuery.add(col);
+            }
+          }
+
+          final List<Map<String, dynamic>> oldRows = await db.query(
+            'episodes_status',
+            columns: columnsToQuery,
+          );
+          final Set<String> insertedIds = {};
+          for (var row in oldRows) {
+            final episodeId = row['episodeId'] as String? ?? '';
+            if (episodeId.isNotEmpty && !insertedIds.contains(episodeId)) {
+              await db.insert(
+                  'episodes_metadata',
+                  {
+                    'episodeId': episodeId,
+                    'title': row['title'],
+                    'audioUrl': row['audioUrl'],
+                    'imageUrl': row['imageUrl'],
+                    'podcastName': row['podcastName'],
+                    'pubDate': row['pubDate'],
+                    'description': row['description'],
+                  },
+                  conflictAlgorithm: ConflictAlgorithm.ignore);
+              insertedIds.add(episodeId);
+            }
           }
         }
 
         // 3. Renommer episodes_status en episodes_status_old
-        await db.execute(
-            'ALTER TABLE episodes_status RENAME TO episodes_status_old');
+        if (await _tableExists(db, 'episodes_status') &&
+            !await _tableExists(db, 'episodes_status_old')) {
+          await db.execute(
+              'ALTER TABLE episodes_status RENAME TO episodes_status_old');
+        }
 
         // 4. Créer la nouvelle table episodes_status allégée
         await db.execute('''
-          CREATE TABLE episodes_status (
+          CREATE TABLE IF NOT EXISTS episodes_status (
             episodeId TEXT PRIMARY KEY,
             isRead INTEGER DEFAULT 0,
             readAt INTEGER,
@@ -269,39 +314,38 @@ class DatabaseHelper {
         ''');
         // Recréer l'index sur readAt
         await db.execute(
-            'CREATE INDEX idx_episodes_status_readAt ON episodes_status(readAt)');
+            'CREATE INDEX IF NOT EXISTS idx_episodes_status_readAt ON episodes_status(readAt)');
 
         // 5. Copier les données de comportement depuis la table temporaire
-        final List<Map<String, dynamic>> oldStatusRows =
-            await db.query('episodes_status_old');
-        for (var row in oldStatusRows) {
-          final episodeId = row['episodeId'] as String? ?? '';
-          if (episodeId.isNotEmpty) {
-            await db.insert(
-                'episodes_status',
-                {
-                  'episodeId': episodeId,
-                  'isRead': row['isRead'] ?? 0,
-                  'readAt': row['readAt'],
-                  'localPath': row['localPath'],
-                },
-                conflictAlgorithm: ConflictAlgorithm.ignore);
+        if (await _tableExists(db, 'episodes_status_old')) {
+          final List<Map<String, dynamic>> oldStatusRows =
+              await db.query('episodes_status_old');
+          for (var row in oldStatusRows) {
+            final episodeId = row['episodeId'] as String? ?? '';
+            if (episodeId.isNotEmpty) {
+              await db.insert(
+                  'episodes_status',
+                  {
+                    'episodeId': episodeId,
+                    'isRead': row['isRead'] ?? 0,
+                    'readAt': row['readAt'],
+                    'localPath': row['localPath'],
+                  },
+                  conflictAlgorithm: ConflictAlgorithm.ignore);
+            }
           }
+          // 6. Supprimer la table temporaire
+          await db.execute('DROP TABLE IF EXISTS episodes_status_old');
         }
-
-        // 6. Supprimer la table temporaire
-        await db.execute('DROP TABLE episodes_status_old');
       } catch (e) {
-        // print("Erreur de migration SQLite v5 : $e");
         rethrow;
       }
     }
     if (oldVersion < 6) {
       try {
-        await db.execute(
-            'ALTER TABLE episodes_status ADD COLUMN status INTEGER DEFAULT 0');
+        await _safeAddColumn(
+            db, 'episodes_status', 'status', 'INTEGER DEFAULT 0');
       } catch (e) {
-        // print("Erreur de migration SQLite v6 : $e");
         rethrow;
       }
     }

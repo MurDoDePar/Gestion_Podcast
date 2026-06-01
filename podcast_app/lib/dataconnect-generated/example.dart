@@ -4,6 +4,18 @@ import 'package:firebase_data_connect/firebase_data_connect.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
 
+part 'find_user_by_google_id.dart';
+
+part 'get_my_subscriptions.dart';
+
+part 'get_recommendations.dart';
+
+part 'get_podcast_by_feed_url.dart';
+
+part 'get_affinity_recommendations.dart';
+
+part 'get_podcast_history_delta.dart';
+
 part 'insert_user.dart';
 
 part 'upsert_user.dart';
@@ -20,19 +32,63 @@ part 'cleanup_duplicates.dart';
 
 part 'sync_podcast_history.dart';
 
-part 'find_user_by_google_id.dart';
-
-part 'get_my_subscriptions.dart';
-
-part 'get_recommendations.dart';
-
-part 'get_podcast_by_feed_url.dart';
-
-part 'get_affinity_recommendations.dart';
-
-part 'get_podcast_history_delta.dart';
-
 class ExampleConnector {
+  FindUserByGoogleIdVariablesBuilder findUserByGoogleId({
+    required String googleId,
+  }) {
+    return FindUserByGoogleIdVariablesBuilder(
+      dataConnect,
+      googleId: googleId,
+    );
+  }
+
+  GetMySubscriptionsVariablesBuilder getMySubscriptions({
+    required String userId,
+  }) {
+    return GetMySubscriptionsVariablesBuilder(
+      dataConnect,
+      userId: userId,
+    );
+  }
+
+  GetRecommendationsVariablesBuilder getRecommendations({
+    required String feedUrl,
+  }) {
+    return GetRecommendationsVariablesBuilder(
+      dataConnect,
+      feedUrl: feedUrl,
+    );
+  }
+
+  GetPodcastByFeedUrlVariablesBuilder getPodcastByFeedUrl({
+    required String feedUrl,
+  }) {
+    return GetPodcastByFeedUrlVariablesBuilder(
+      dataConnect,
+      feedUrl: feedUrl,
+    );
+  }
+
+  GetAffinityRecommendationsVariablesBuilder getAffinityRecommendations({
+    required String userId,
+  }) {
+    return GetAffinityRecommendationsVariablesBuilder(
+      dataConnect,
+      userId: userId,
+    );
+  }
+
+  GetPodcastHistoryDeltaVariablesBuilder getPodcastHistoryDelta({
+    required String userId,
+    required Timestamp since,
+  }) {
+    return GetPodcastHistoryDeltaVariablesBuilder(
+      dataConnect,
+      userId: userId,
+      since: since,
+    );
+  }
+
   InsertUserVariablesBuilder insertUser({
     required String googleId,
     required String displayName,
@@ -125,62 +181,6 @@ class ExampleConnector {
       dataConnect,
       userId: userId,
       history: history,
-    );
-  }
-
-  FindUserByGoogleIdVariablesBuilder findUserByGoogleId({
-    required String googleId,
-  }) {
-    return FindUserByGoogleIdVariablesBuilder(
-      dataConnect,
-      googleId: googleId,
-    );
-  }
-
-  GetMySubscriptionsVariablesBuilder getMySubscriptions({
-    required String userId,
-  }) {
-    return GetMySubscriptionsVariablesBuilder(
-      dataConnect,
-      userId: userId,
-    );
-  }
-
-  GetRecommendationsVariablesBuilder getRecommendations({
-    required String feedUrl,
-  }) {
-    return GetRecommendationsVariablesBuilder(
-      dataConnect,
-      feedUrl: feedUrl,
-    );
-  }
-
-  GetPodcastByFeedUrlVariablesBuilder getPodcastByFeedUrl({
-    required String feedUrl,
-  }) {
-    return GetPodcastByFeedUrlVariablesBuilder(
-      dataConnect,
-      feedUrl: feedUrl,
-    );
-  }
-
-  GetAffinityRecommendationsVariablesBuilder getAffinityRecommendations({
-    required String userId,
-  }) {
-    return GetAffinityRecommendationsVariablesBuilder(
-      dataConnect,
-      userId: userId,
-    );
-  }
-
-  GetPodcastHistoryDeltaVariablesBuilder getPodcastHistoryDelta({
-    required String userId,
-    required Timestamp since,
-  }) {
-    return GetPodcastHistoryDeltaVariablesBuilder(
-      dataConnect,
-      userId: userId,
-      since: since,
     );
   }
 

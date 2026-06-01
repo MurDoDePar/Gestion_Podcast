@@ -6,8 +6,8 @@ echo.
 
 cd podcast_app
 
-echo 1. Desinstallation de l'ancienne version...
-"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" uninstall com.podstream
+echo 1. Desinstallation silencieuse de l'ancienne version...
+"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" uninstall com.podstream >nul 2>&1
 
 echo.
 echo 2. Copie de l'APK dans le dossier securise du Pixel...
