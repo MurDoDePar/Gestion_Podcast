@@ -1,7 +1,8 @@
+- sauvegarde de la liste 'mes podcasts'
+    - sqlite local
+    - firebase  
 
 - si tu lance _compil.bat montre moi l'avancement, affiche la log dans le console. > a faire systematiquement
-
-- supprimer les logs
 
 - multi langue : 
     français (defaut), allemand, anglais, bulgare, croate, danois,
@@ -33,6 +34,12 @@ A tester :
 
 "C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" -keystore "podcast_app\build\app\outputs\bundle\release\app-release.aab" -list -v
 "C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" -keystore "C:\Users\domin\Google Drive\Code\Gestion_Podcast\podstream-release.jks" -list -v
+
+Pour faire une simulation (voir ce qui va être supprimé et l'espace libéré) :
+.\_log_del.bat --dry-run
+
+Pour afficher les détails de chaque fichier en plus de la simulation :
+.\_log_del.bat --dry-run --verbose
 
 Fait
 

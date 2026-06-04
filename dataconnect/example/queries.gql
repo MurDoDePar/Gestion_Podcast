@@ -50,7 +50,7 @@ query GetPodcastByFeedUrl($feedUrl: String!) @auth(level: PUBLIC, insecureReason
   }
 }
 
-query GetAffinityRecommendations($userId: UUID!) @auth(level: USER) {
+query GetAffinityRecommendations($userId: UUID!) @auth(level: USER, insecureReason: "Registered users can query affinity recommendations based on user UUID") {
   mySubscriptions: subscriptionTypes(where: { userId: { eq: $userId } }) {
     podcast {
       id

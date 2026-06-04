@@ -1,16 +1,16 @@
 # Basic Usage
 
 ```dart
-ExampleConnector.instance.FindUserByGoogleId(findUserByGoogleIdVariables).execute();
-ExampleConnector.instance.GetMySubscriptions(getMySubscriptionsVariables).execute();
-ExampleConnector.instance.GetRecommendations(getRecommendationsVariables).execute();
-ExampleConnector.instance.GetPodcastByFeedUrl(getPodcastByFeedUrlVariables).execute();
-ExampleConnector.instance.GetAffinityRecommendations(getAffinityRecommendationsVariables).execute();
-ExampleConnector.instance.GetPodcastHistoryDelta(getPodcastHistoryDeltaVariables).execute();
 ExampleConnector.instance.InsertUser(insertUserVariables).execute();
 ExampleConnector.instance.UpsertUser(upsertUserVariables).execute();
 ExampleConnector.instance.UpsertPodcast(upsertPodcastVariables).execute();
 ExampleConnector.instance.SubscribeToPodcast(subscribeToPodcastVariables).execute();
+ExampleConnector.instance.UpdateSubscriptionOrder(updateSubscriptionOrderVariables).execute();
+ExampleConnector.instance.UnsubscribeFromPodcast(unsubscribeFromPodcastVariables).execute();
+ExampleConnector.instance.CleanupDuplicates().execute();
+ExampleConnector.instance.SyncPodcastHistory(syncPodcastHistoryVariables).execute();
+ExampleConnector.instance.FindUserByGoogleId(findUserByGoogleIdVariables).execute();
+ExampleConnector.instance.GetMySubscriptions(getMySubscriptionsVariables).execute();
 
 ```
 

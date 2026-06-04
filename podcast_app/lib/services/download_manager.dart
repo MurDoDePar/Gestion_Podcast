@@ -47,7 +47,7 @@ class DownloadManager {
       // Exécuter l'audit anti-zombie au démarrage (v6)
       await auditStorage();
     } catch (e) {
-      debugPrint("DownloadManager: Erreur d'initialisation de la queue : $e");
+//       debugPrint("DownloadManager: Erreur d'initialisation de la queue : $e");
     }
   }
 
@@ -97,8 +97,8 @@ class DownloadManager {
       final allowed = await isDownloadAllowed(policy);
       if (!allowed) return;
 
-      debugPrint(
-          "DownloadManager: Début des téléchargements automatiques en Wi-Fi...");
+//       debugPrint(
+//           "DownloadManager: Début des téléchargements automatiques en Wi-Fi...");
 
       // Récupérer les épisodes de la liste "À écouter"
       final episodes = await DatabaseRepository().getEpisodesToListen();
@@ -114,8 +114,8 @@ class DownloadManager {
         }
       }
     } catch (e) {
-      debugPrint(
-          "DownloadManager: Erreur lors du déclenchement automatique : $e");
+//       debugPrint(
+//           "DownloadManager: Erreur lors du déclenchement automatique : $e");
     }
   }
 
@@ -149,15 +149,15 @@ class DownloadManager {
             }
           }
           await DatabaseRepository().updateEpisodeLocalPath(episodeId, null);
-          debugPrint(
-              "DownloadManager: Suppression de l'ancien téléchargement de l'épisode $episodeId");
+//           debugPrint(
+//               "DownloadManager: Suppression de l'ancien téléchargement de l'épisode $episodeId");
         } catch (e) {
-          debugPrint(
-              "DownloadManager: Impossible de supprimer le fichier $dbPath: $e");
+//           debugPrint(
+//               "DownloadManager: Impossible de supprimer le fichier $dbPath: $e");
         }
       }
     } catch (e) {
-      debugPrint("DownloadManager: Erreur lors de cleanupOldDownloads : $e");
+//       debugPrint("DownloadManager: Erreur lors de cleanupOldDownloads : $e");
     }
   }
 
@@ -243,7 +243,7 @@ class DownloadManager {
         return file.path;
       }
     } catch (e) {
-      debugPrint("DownloadManager error [getLocalFilePath] for $episodeId: $e");
+//       debugPrint("DownloadManager error [getLocalFilePath] for $episodeId: $e");
     }
     return null;
   }
@@ -258,7 +258,7 @@ class DownloadManager {
         return;
       }
 
-      debugPrint("DownloadManager: Démarrage de l'audit de stockage (v6)...");
+//       debugPrint("DownloadManager: Démarrage de l'audit de stockage (v6)...");
 
       final helper = DatabaseHelper();
       final db = await helper.database;
@@ -296,7 +296,7 @@ class DownloadManager {
       final directory = await getApplicationDocumentsDirectory();
       final downloadDir = Directory('${directory.path}/downloads');
       if (await downloadDir.exists()) {
-        int deletedCount = 0;
+        // int deletedCount = 0;
         final List<FileSystemEntity> files = await downloadDir.list().toList();
         for (var file in files) {
           if (file is File) {
@@ -307,28 +307,28 @@ class DownloadManager {
               if (!allowedFilenames.contains(filename)) {
                 try {
                   await file.delete();
-                  deletedCount++;
-                  debugPrint(
-                      "DownloadManager: auditStorage - Fichier zombie supprimé : $filename");
+                  // deletedCount++;
+//                   debugPrint(
+//                       "DownloadManager: auditStorage - Fichier zombie supprimé : $filename");
                 } catch (e) {
-                  debugPrint(
-                      "DownloadManager: Impossible de supprimer le fichier zombie $filename : $e");
+//                   debugPrint(
+//                       "DownloadManager: Impossible de supprimer le fichier zombie $filename : $e");
                 }
               }
             }
           }
         }
-        debugPrint(
-            "DownloadManager: auditStorage complété. Fichiers supprimés : $deletedCount");
+//         debugPrint(
+//             "DownloadManager: auditStorage complété. Fichiers supprimés : $deletedCount");
       } else {
-        debugPrint(
-            "DownloadManager: Le dossier de téléchargements n'existe pas. Aucun audit requis.");
+//         debugPrint(
+//             "DownloadManager: Le dossier de téléchargements n'existe pas. Aucun audit requis.");
       }
 
       // 5. Enregistrer le flag de fin d'audit
       await prefs.setBool('storage_audit_done_v6', true);
     } catch (e) {
-      debugPrint("DownloadManager: Erreur lors de l'audit de stockage : $e");
+//       debugPrint("DownloadManager: Erreur lors de l'audit de stockage : $e");
     }
   }
 
@@ -351,8 +351,8 @@ class DownloadManager {
     final policy = await DatabaseRepository().getDownloadNetworkPolicy();
     final allowed = await isDownloadAllowed(policy);
     if (!allowed) {
-      debugPrint(
-          "DownloadManager: Téléchargement en attente de connexion autorisée pour $episodeId");
+//       debugPrint(
+//           "DownloadManager: Téléchargement en attente de connexion autorisée pour $episodeId");
       statusNotifier.value = DownloadStatus.idle;
       // Enregistrer dans la queue persistante pour reprise ultérieure
       final directory = await getApplicationDocumentsDirectory();
@@ -383,8 +383,8 @@ class DownloadManager {
       // Enregistrer dans la file SQLite
       await DatabaseRepository().enqueueDownloadTask(episodeId, url, tempPath);
 
-      debugPrint(
-          "DownloadManager: Début du téléchargement de $url vers $tempPath");
+//       debugPrint(
+//           "DownloadManager: Début du téléchargement de $url vers $tempPath");
       await _dio.download(
         url,
         tempPath,
@@ -402,8 +402,8 @@ class DownloadManager {
         await tempFile.rename(savePath);
       }
 
-      debugPrint(
-          "DownloadManager: Téléchargement complété pour $episodeId. Enregistré sous $savePath");
+//       debugPrint(
+//           "DownloadManager: Téléchargement complété pour $episodeId. Enregistré sous $savePath");
       statusNotifier.value = DownloadStatus.downloaded;
       progressNotifier.value = 1.0;
 
@@ -414,13 +414,13 @@ class DownloadManager {
       await DatabaseRepository().dequeueDownloadTask(episodeId);
     } catch (e) {
       if (CancelToken.isCancel(e as DioException)) {
-        debugPrint(
-            "DownloadManager: Téléchargement annulé par l'utilisateur pour $episodeId");
+//         debugPrint(
+//             "DownloadManager: Téléchargement annulé par l'utilisateur pour $episodeId");
         statusNotifier.value = DownloadStatus.idle;
         await DatabaseRepository().updateEpisodeDownloadStatus(episodeId, 0);
       } else {
-        debugPrint(
-            "DownloadManager: Erreur de téléchargement pour $episodeId: $e");
+//         debugPrint(
+//             "DownloadManager: Erreur de téléchargement pour $episodeId: $e");
         statusNotifier.value = DownloadStatus.failed;
         await DatabaseRepository().updateEpisodeDownloadStatus(episodeId, 2);
       }
@@ -450,15 +450,15 @@ class DownloadManager {
         final file = File(path);
         if (await file.exists()) {
           await file.delete();
-          debugPrint(
-              "DownloadManager: Fichier supprimé pour l'épisode $episodeId");
+//           debugPrint(
+//               "DownloadManager: Fichier supprimé pour l'épisode $episodeId");
         }
       }
       await DatabaseRepository().updateEpisodeLocalPath(episodeId, null);
       await DatabaseRepository().dequeueDownloadTask(episodeId);
     } catch (e) {
-      debugPrint(
-          "DownloadManager: Erreur lors de la suppression de l'épisode $episodeId: $e");
+//       debugPrint(
+//           "DownloadManager: Erreur lors de la suppression de l'épisode $episodeId: $e");
     } finally {
       _progressNotifiers[episodeId]?.value = 0.0;
       _statusNotifiers[episodeId]?.value = DownloadStatus.idle;
@@ -475,8 +475,8 @@ class DownloadManager {
         await tempFile.delete();
       }
     } catch (e) {
-      debugPrint(
-          "DownloadManager: Impossible de nettoyer le fichier temporaire: $e");
+//       debugPrint(
+//           "DownloadManager: Impossible de nettoyer le fichier temporaire: $e");
     }
   }
 
@@ -517,7 +517,7 @@ class DownloadManager {
         }
       });
     } catch (e) {
-      debugPrint("DownloadManager error [clearCacheExcept]: $e");
+//       debugPrint("DownloadManager error [clearCacheExcept]: $e");
     }
   }
 

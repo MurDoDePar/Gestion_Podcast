@@ -12,10 +12,10 @@ import 'package:podcast_app/core/services/service_locator.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   setupLocator();
-  debugPrint('--- DEBUT INITIALISATION ---');
+//   debugPrint('--- DEBUT INITIALISATION ---');
 
-  debugPrint(
-      '--- Initialisation AudioService (PRIORITÉ MAX POUR ANDROID AUTO) ---');
+//   debugPrint(
+//       '--- Initialisation AudioService (PRIORITÉ MAX POUR ANDROID AUTO) ---');
   try {
     globalAudioHandler = await AudioService.init(
       builder: () => PodStreamAudioHandler(),
@@ -27,13 +27,13 @@ void main() async {
       ),
     );
 
-    debugPrint('--- AudioService OK ---');
+//     debugPrint('--- AudioService OK ---');
   } catch (e) {
-    debugPrint('Erreur critique AudioService: $e');
+//     debugPrint('Erreur critique AudioService: $e');
   }
 
   try {
-    debugPrint('--- Initialisation Firebase... ---');
+//     debugPrint('--- Initialisation Firebase... ---');
     await Firebase.initializeApp();
 
     await FirebaseAppCheck.instance.activate(
@@ -41,12 +41,12 @@ void main() async {
       providerApple: const AppleDebugProvider(),
     );
 
-    debugPrint('--- Firebase OK ---');
+//     debugPrint('--- Firebase OK ---');
   } catch (e) {
-    debugPrint('Erreur initialisation Firebase: $e');
+//     debugPrint('Erreur initialisation Firebase: $e');
   }
 
-  debugPrint('--- Lancement de l\'application ---');
+//   debugPrint('--- Lancement de l\'application ---');
   runApp(const PodStreamApp());
 }
 

@@ -48,7 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('is_logged_in', true);
     } catch (e) {
-      debugPrint('Erreur de connexion Google Sign-In: $e');
+//       debugPrint('Erreur de connexion Google Sign-In: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

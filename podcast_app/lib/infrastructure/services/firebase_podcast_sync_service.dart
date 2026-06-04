@@ -262,9 +262,13 @@ class FirebasePodcastSyncService implements PodcastSyncService {
           .execute();
       final users = userResult.data.users;
       if (users.isEmpty) {
+//         debugPrint(
+//             "⚠️ Utilisateur avec googleId/userId $userId introuvable dans la table PostgreSQL.");
         return [];
       }
       final postgresUuid = users.first.id;
+//       debugPrint(
+//           "✅ Utilisateur trouvé en base, UUID PostgreSQL : $postgresUuid");
 
       // 2. Appeler la requête Data Connect pour récupérer les affinités
       final affinityResult = await ExampleConnector.instance
@@ -335,7 +339,11 @@ class FirebasePodcastSyncService implements PodcastSyncService {
           .map((entry) => recommendedPodcasts[entry.key]!)
           .toList();
     } catch (e) {
-      // print("Erreur fetchAffinityPodcasts: $e");
+      // ❌ NE PLUS JAMAIS AVALER L'ERREUR DANS LE FUTUR
+//       debugPrint("🚨 ERREUR CRITIQUE dans fetchAffinityPodcasts : $e");
+//       debugPrint("🔍 StackTrace associée : $stackTrace");
+      // Affiche aussi les données en entrée pour vérifier tes IDs
+//       debugPrint("ℹ️ UserID utilisé pour la requête : $userId");
       return [];
     }
   }

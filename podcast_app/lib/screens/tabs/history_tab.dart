@@ -89,7 +89,7 @@ class _HistoryTabState extends State<HistoryTab> {
           _isLoading = false;
         });
       }
-      debugPrint("Error loading history in HistoryTab: $e");
+//       debugPrint("Error loading history in HistoryTab: $e");
     }
   }
 

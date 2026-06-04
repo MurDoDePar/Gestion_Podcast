@@ -60,7 +60,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await GoogleSignIn().signOut();
       await FirebaseAuth.instance.signOut();
     } catch (e) {
-      debugPrint('Erreur de déconnexion : $e');
+//       debugPrint('Erreur de déconnexion : $e');
       if (mounted) {
         setState(() {
           _isLoading = false;

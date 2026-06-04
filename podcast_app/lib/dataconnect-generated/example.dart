@@ -1,20 +1,7 @@
 library podcast_app;
-
 import 'package:firebase_data_connect/firebase_data_connect.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
-
-part 'find_user_by_google_id.dart';
-
-part 'get_my_subscriptions.dart';
-
-part 'get_recommendations.dart';
-
-part 'get_podcast_by_feed_url.dart';
-
-part 'get_affinity_recommendations.dart';
-
-part 'get_podcast_history_delta.dart';
 
 part 'insert_user.dart';
 
@@ -32,157 +19,96 @@ part 'cleanup_duplicates.dart';
 
 part 'sync_podcast_history.dart';
 
+part 'find_user_by_google_id.dart';
+
+part 'get_my_subscriptions.dart';
+
+part 'get_recommendations.dart';
+
+part 'get_podcast_by_feed_url.dart';
+
+part 'get_affinity_recommendations.dart';
+
+part 'get_podcast_history_delta.dart';
+
+
+
+
+
+
+
 class ExampleConnector {
-  FindUserByGoogleIdVariablesBuilder findUserByGoogleId({
-    required String googleId,
-  }) {
-    return FindUserByGoogleIdVariablesBuilder(
-      dataConnect,
-      googleId: googleId,
-    );
+  
+  
+  InsertUserVariablesBuilder insertUser ({required String googleId, required String displayName, required Timestamp createdAt, }) {
+    return InsertUserVariablesBuilder(dataConnect, googleId: googleId,displayName: displayName,createdAt: createdAt,);
   }
-
-  GetMySubscriptionsVariablesBuilder getMySubscriptions({
-    required String userId,
-  }) {
-    return GetMySubscriptionsVariablesBuilder(
-      dataConnect,
-      userId: userId,
-    );
+  
+  
+  UpsertUserVariablesBuilder upsertUser ({required String id, required String googleId, required String displayName, required Timestamp createdAt, }) {
+    return UpsertUserVariablesBuilder(dataConnect, id: id,googleId: googleId,displayName: displayName,createdAt: createdAt,);
   }
-
-  GetRecommendationsVariablesBuilder getRecommendations({
-    required String feedUrl,
-  }) {
-    return GetRecommendationsVariablesBuilder(
-      dataConnect,
-      feedUrl: feedUrl,
-    );
+  
+  
+  UpsertPodcastVariablesBuilder upsertPodcast ({required String title, required String feedUrl, required Timestamp createdAt, }) {
+    return UpsertPodcastVariablesBuilder(dataConnect, title: title,feedUrl: feedUrl,createdAt: createdAt,);
   }
-
-  GetPodcastByFeedUrlVariablesBuilder getPodcastByFeedUrl({
-    required String feedUrl,
-  }) {
-    return GetPodcastByFeedUrlVariablesBuilder(
-      dataConnect,
-      feedUrl: feedUrl,
-    );
+  
+  
+  SubscribeToPodcastVariablesBuilder subscribeToPodcast ({required String userId, required String podcastId, required Timestamp subscribedAt, }) {
+    return SubscribeToPodcastVariablesBuilder(dataConnect, userId: userId,podcastId: podcastId,subscribedAt: subscribedAt,);
   }
-
-  GetAffinityRecommendationsVariablesBuilder getAffinityRecommendations({
-    required String userId,
-  }) {
-    return GetAffinityRecommendationsVariablesBuilder(
-      dataConnect,
-      userId: userId,
-    );
+  
+  
+  UpdateSubscriptionOrderVariablesBuilder updateSubscriptionOrder ({required String userId, required String podcastId, required int listOrder, }) {
+    return UpdateSubscriptionOrderVariablesBuilder(dataConnect, userId: userId,podcastId: podcastId,listOrder: listOrder,);
   }
-
-  GetPodcastHistoryDeltaVariablesBuilder getPodcastHistoryDelta({
-    required String userId,
-    required Timestamp since,
-  }) {
-    return GetPodcastHistoryDeltaVariablesBuilder(
-      dataConnect,
-      userId: userId,
-      since: since,
-    );
+  
+  
+  UnsubscribeFromPodcastVariablesBuilder unsubscribeFromPodcast ({required String userId, required String podcastId, }) {
+    return UnsubscribeFromPodcastVariablesBuilder(dataConnect, userId: userId,podcastId: podcastId,);
   }
-
-  InsertUserVariablesBuilder insertUser({
-    required String googleId,
-    required String displayName,
-    required Timestamp createdAt,
-  }) {
-    return InsertUserVariablesBuilder(
-      dataConnect,
-      googleId: googleId,
-      displayName: displayName,
-      createdAt: createdAt,
-    );
+  
+  
+  CleanupDuplicatesVariablesBuilder cleanupDuplicates () {
+    return CleanupDuplicatesVariablesBuilder(dataConnect, );
   }
-
-  UpsertUserVariablesBuilder upsertUser({
-    required String id,
-    required String googleId,
-    required String displayName,
-    required Timestamp createdAt,
-  }) {
-    return UpsertUserVariablesBuilder(
-      dataConnect,
-      id: id,
-      googleId: googleId,
-      displayName: displayName,
-      createdAt: createdAt,
-    );
+  
+  
+  SyncPodcastHistoryVariablesBuilder syncPodcastHistory ({required String userId, required dynamic history, }) {
+    return SyncPodcastHistoryVariablesBuilder(dataConnect, userId: userId,history: history,);
   }
-
-  UpsertPodcastVariablesBuilder upsertPodcast({
-    required String title,
-    required String feedUrl,
-    required Timestamp createdAt,
-  }) {
-    return UpsertPodcastVariablesBuilder(
-      dataConnect,
-      title: title,
-      feedUrl: feedUrl,
-      createdAt: createdAt,
-    );
+  
+  
+  FindUserByGoogleIdVariablesBuilder findUserByGoogleId ({required String googleId, }) {
+    return FindUserByGoogleIdVariablesBuilder(dataConnect, googleId: googleId,);
   }
-
-  SubscribeToPodcastVariablesBuilder subscribeToPodcast({
-    required String userId,
-    required String podcastId,
-    required Timestamp subscribedAt,
-  }) {
-    return SubscribeToPodcastVariablesBuilder(
-      dataConnect,
-      userId: userId,
-      podcastId: podcastId,
-      subscribedAt: subscribedAt,
-    );
+  
+  
+  GetMySubscriptionsVariablesBuilder getMySubscriptions ({required String userId, }) {
+    return GetMySubscriptionsVariablesBuilder(dataConnect, userId: userId,);
   }
-
-  UpdateSubscriptionOrderVariablesBuilder updateSubscriptionOrder({
-    required String userId,
-    required String podcastId,
-    required int listOrder,
-  }) {
-    return UpdateSubscriptionOrderVariablesBuilder(
-      dataConnect,
-      userId: userId,
-      podcastId: podcastId,
-      listOrder: listOrder,
-    );
+  
+  
+  GetRecommendationsVariablesBuilder getRecommendations ({required String feedUrl, }) {
+    return GetRecommendationsVariablesBuilder(dataConnect, feedUrl: feedUrl,);
   }
-
-  UnsubscribeFromPodcastVariablesBuilder unsubscribeFromPodcast({
-    required String userId,
-    required String podcastId,
-  }) {
-    return UnsubscribeFromPodcastVariablesBuilder(
-      dataConnect,
-      userId: userId,
-      podcastId: podcastId,
-    );
+  
+  
+  GetPodcastByFeedUrlVariablesBuilder getPodcastByFeedUrl ({required String feedUrl, }) {
+    return GetPodcastByFeedUrlVariablesBuilder(dataConnect, feedUrl: feedUrl,);
   }
-
-  CleanupDuplicatesVariablesBuilder cleanupDuplicates() {
-    return CleanupDuplicatesVariablesBuilder(
-      dataConnect,
-    );
+  
+  
+  GetAffinityRecommendationsVariablesBuilder getAffinityRecommendations ({required String userId, }) {
+    return GetAffinityRecommendationsVariablesBuilder(dataConnect, userId: userId,);
   }
-
-  SyncPodcastHistoryVariablesBuilder syncPodcastHistory({
-    required String userId,
-    required dynamic history,
-  }) {
-    return SyncPodcastHistoryVariablesBuilder(
-      dataConnect,
-      userId: userId,
-      history: history,
-    );
+  
+  
+  GetPodcastHistoryDeltaVariablesBuilder getPodcastHistoryDelta ({required String userId, required Timestamp since, }) {
+    return GetPodcastHistoryDeltaVariablesBuilder(dataConnect, userId: userId,since: since,);
   }
+  
 
   static ConnectorConfig connectorConfig = ConnectorConfig(
     'europe-west9',
@@ -192,9 +118,11 @@ class ExampleConnector {
 
   ExampleConnector({required this.dataConnect});
   static ExampleConnector get instance {
+    
     return ExampleConnector(
         dataConnect: FirebaseDataConnect.instanceFor(
             connectorConfig: connectorConfig,
+            
             sdkType: CallerSDKType.generated));
   }
 
