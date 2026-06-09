@@ -8,9 +8,11 @@ import '../models/episode_model.dart';
 
 class DatabaseHelper {
   // Singleton pattern
-  static final DatabaseHelper _instance = DatabaseHelper._internal();
+  static DatabaseHelper _instance = DatabaseHelper._internal();
   factory DatabaseHelper() => _instance;
   DatabaseHelper._internal();
+
+  static set mockInstance(DatabaseHelper mock) => _instance = mock;
   static Database? _database;
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -21,12 +23,27 @@ class DatabaseHelper {
   Future<Database> _initDatabase() async {
     final dbPath = await getDatabasesPath();
     final pathString = join(dbPath, 'podstream.db');
-    return await openDatabase(
+    final db = await openDatabase(
       pathString,
-      version: 7,
+      version: 8,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
+
+    // Vérification de diagnostic au démarrage pour s'assurer que la migration v8 est intègre
+    try {
+      final tables = await db.rawQuery(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='recommended_podcasts'");
+      final hasRecommendedTable = tables.isNotEmpty;
+      final columns = await db.rawQuery("PRAGMA table_info(my_podcasts)");
+      final hasGenresColumn = columns.any((c) => c['name'] == 'genres');
+      print(
+          'DATABASE STATUS CHECK: hasRecommendedTable=$hasRecommendedTable, hasGenresColumn=$hasGenresColumn');
+    } catch (e) {
+      print('DATABASE STATUS CHECK ERROR: $e');
+    }
+
+    return db;
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -46,7 +63,8 @@ class DatabaseHelper {
         artistName TEXT,
         artworkUrl TEXT,
         sortOrder INTEGER,
-        isSynced INTEGER DEFAULT 1
+        isSynced INTEGER DEFAULT 1,
+        genres TEXT DEFAULT ''
       )
     ''');
     // Create index on my_podcasts.sortOrder for fast sorting
@@ -114,6 +132,19 @@ class DatabaseHelper {
         status TEXT
       )
     ''');
+    // 7. recommended_podcasts Table: stores tag-based recommendations
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS recommended_podcasts (
+        id TEXT PRIMARY KEY,
+        collectionId INTEGER,
+        collectionName TEXT,
+        artistName TEXT,
+        artworkUrl TEXT,
+        feedUrl TEXT UNIQUE,
+        recommendedByGenre TEXT,
+        cachedAt INTEGER
+      )
+    ''');
   }
 
   // --- HELPER METHODS FOR IDEMPOTENT MIGRATIONS ---
@@ -147,6 +178,8 @@ class DatabaseHelper {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    print(
+        'DATABASE MIGRATION: Upgrading database from version $oldVersion to $newVersion...');
     if (oldVersion < 2) {
       try {
         await _safeAddColumn(db, 'episodes_status', 'readAt', 'INTEGER');
@@ -359,6 +392,35 @@ class DatabaseHelper {
         // Capture l'erreur de manière atomique pour ne pas corrompre la base de données
       }
     }
+    if (oldVersion < 8) {
+      print('DATABASE MIGRATION (v8): Starting migration...');
+      try {
+        await _safeAddColumn(db, 'my_podcasts', 'genres', "TEXT DEFAULT ''");
+        print(
+            'DATABASE MIGRATION (v8): genres column successfully added to my_podcasts.');
+      } catch (e) {
+        print('DATABASE MIGRATION ERROR (v8): genres column failed: $e');
+      }
+      try {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS recommended_podcasts (
+            id TEXT PRIMARY KEY,
+            collectionId INTEGER,
+            collectionName TEXT,
+            artistName TEXT,
+            artworkUrl TEXT,
+            feedUrl TEXT UNIQUE,
+            recommendedByGenre TEXT,
+            cachedAt INTEGER
+          )
+        ''');
+        print(
+            'DATABASE MIGRATION (v8): recommended_podcasts table successfully created.');
+      } catch (e) {
+        print(
+            'DATABASE MIGRATION ERROR (v8): recommended_podcasts table failed: $e');
+      }
+    }
   }
 
   Future<bool> isTableEmpty(String tableName) async {
@@ -377,12 +439,18 @@ class DatabaseHelper {
       orderBy: 'sortOrder ASC',
     );
     return List.generate(maps.length, (i) {
+      List<String> parsedGenres = [];
+      final genresString = maps[i]['genres']?.toString() ?? '';
+      if (genresString.isNotEmpty) {
+        parsedGenres = genresString.split(',').map((g) => g.trim()).toList();
+      }
       return PodcastModel(
         collectionId: maps[i]['collectionId'] as int?,
         collectionName: maps[i]['collectionName']?.toString() ?? 'Sans titre',
         artistName: maps[i]['artistName']?.toString() ?? 'Artiste inconnu',
         artworkUrl: maps[i]['artworkUrl']?.toString() ?? '',
         feedUrl: maps[i]['feedUrl']?.toString() ?? '',
+        genres: parsedGenres,
       );
     });
   }
@@ -406,6 +474,7 @@ class DatabaseHelper {
         'artworkUrl': podcast.artworkUrl,
         'sortOrder': sortOrder,
         'isSynced': isSynced,
+        'genres': podcast.genres.join(','),
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );

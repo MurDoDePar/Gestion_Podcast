@@ -1,4 +1,5 @@
 import 'package:sqflite/sqflite.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/database_helper.dart';
 
 class AppSettings {
@@ -40,6 +41,17 @@ class AppSettings {
       );
     } catch (e) {
       // Échec silencieux
+    }
+  }
+
+  /// Récupère la langue configurée dans l'application (SharedPreferences),
+  /// avec 'fr' comme langue par défaut.
+  static Future<String> getLanguage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString('podstream_lang') ?? 'fr';
+    } catch (e) {
+      return 'fr';
     }
   }
 }

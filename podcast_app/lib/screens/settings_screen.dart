@@ -6,6 +6,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../theme/app_theme.dart';
 import '../services/database_repository.dart';
 import '../services/download_manager.dart';
+import '../services/database_helper.dart';
 import '../models/app_settings.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -130,6 +131,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
             backgroundColor: AppTheme.primaryColor,
           ),
         );
+      }
+    }
+  }
+
+  Future<void> _forceResetRecommendations(BuildContext context) async {
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      final helper = DatabaseHelper();
+      final db = await helper.database;
+      await db.delete('recommended_podcasts');
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('last_recommended_language');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text('Cache des recommandations réinitialisé avec succès !'),
+            backgroundColor: AppTheme.primaryColor,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur : $e'),
+            backgroundColor: AppTheme.dangerColor,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
@@ -303,6 +343,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         style: TextButton.styleFrom(
                           backgroundColor: Colors.red.withValues(alpha: 0.1),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: TextButton.icon(
+                        onPressed: () => _forceResetRecommendations(context),
+                        icon: const Icon(Icons.refresh,
+                            color: AppTheme.primaryColor),
+                        label: const Text(
+                          'Forcer la réinitialisation des recommandations',
+                          style: TextStyle(
+                              color: AppTheme.primaryColor,
+                              fontWeight: FontWeight.bold),
+                        ),
+                        style: TextButton.styleFrom(
+                          backgroundColor:
+                              AppTheme.primaryColor.withValues(alpha: 0.1),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12)),

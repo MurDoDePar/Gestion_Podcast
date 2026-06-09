@@ -47,6 +47,8 @@ class DownloadManager {
       await cleanupOldDownloads();
       // Exécuter l'audit anti-zombie au démarrage (v6)
       await auditStorage();
+      // Exécuter la réparation des tailles de fichiers nulles (v6)
+      await DatabaseRepository().repairZeroSizeEpisodes();
     } catch (e) {
 //       debugPrint("DownloadManager: Erreur d'initialisation de la queue : $e");
     }
@@ -402,20 +404,22 @@ class DownloadManager {
         },
       );
 
-      final tempFile = File(tempPath);
-      if (await tempFile.exists()) {
-        await tempFile.rename(savePath);
-      }
-
-      // Mesurer la taille du fichier téléchargé de manière sécurisée (après fermeture complète du flux Dio)
+      // Mesurer la taille du fichier téléchargé sur le fichier temporaire avant son renommage
       int fileSize = 0;
       try {
-        final savedFile = File(savePath);
-        if (await savedFile.exists()) {
-          fileSize = await savedFile.length();
+        final tempFile = File(tempPath);
+        if (await tempFile.exists()) {
+          fileSize = await tempFile.length();
+          await tempFile.rename(savePath);
         }
       } catch (e) {
-        // Échec silencieux pour éviter les crashs si le fichier est inaccessible
+        // Échec silencieux pour le renommage, on tente de forcer le renommage quand même
+        try {
+          final tempFile = File(tempPath);
+          if (await tempFile.exists()) {
+            await tempFile.rename(savePath);
+          }
+        } catch (_) {}
       }
 
       statusNotifier.value = DownloadStatus.downloaded;
@@ -550,7 +554,7 @@ class DownloadManager {
       final List<Map<String, dynamic>> sizeResult = await db.rawQuery('''
         SELECT SUM(fileSize) as totalSize 
         FROM episodes_status 
-        WHERE localPath IS NOT NULL AND status = 1
+        WHERE localPath IS NOT NULL
       ''');
 
       int currentBytes = 0;
@@ -567,7 +571,7 @@ class DownloadManager {
         SELECT s.episodeId, s.fileSize
         FROM episodes_status s
         LEFT JOIN episodes_metadata m ON s.episodeId = m.episodeId
-        WHERE s.localPath IS NOT NULL AND s.status = 1
+        WHERE s.localPath IS NOT NULL
         ORDER BY s.isRead DESC, m.pubDate ASC
       ''');
 

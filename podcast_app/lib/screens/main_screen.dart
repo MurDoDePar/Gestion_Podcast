@@ -6,6 +6,7 @@ import '../services/database_repository.dart';
 import 'tabs/my_podcasts_tab.dart';
 import 'tabs/themes_tab.dart';
 import 'tabs/discover_tab.dart';
+import 'tabs/discover_screen.dart';
 import 'tabs/history_tab.dart';
 import 'tabs/search_tab.dart';
 import 'settings_screen.dart';
@@ -248,7 +249,7 @@ class _AccueilView extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child: DefaultTabController(
-        length: 4,
+        length: 5,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -288,6 +289,7 @@ class _AccueilView extends StatelessWidget {
                   Tab(text: "Mes podcasts"),
                   Tab(text: "Par thème"),
                   Tab(text: "Affinités"),
+                  Tab(text: "Découvertes"),
                   Tab(text: "Historique"),
                 ],
               ),
@@ -299,6 +301,7 @@ class _AccueilView extends StatelessWidget {
                   const MyPodcastsTab(),
                   ThemesTab(),
                   const DiscoverTab(),
+                  const DiscoverScreen(),
                   HistoryTab(),
                 ],
               ),

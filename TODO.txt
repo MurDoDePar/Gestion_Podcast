@@ -1,10 +1,6 @@
-- question sur la gestion des episodes en cache
-    - combien d'episodes sont en cache ?
-    - combien d'espace prend les episodes en cache ?
-    - comment optimiser la gestion des episodes en cache ?
-    - comment est nettoyer le cache des episodes ?
-    - si l'ordre de la liste 'Mes podcasts' change, il faut rafraichir le cache des episodes
-    - si l'ordre de la liste 'Mes podcasts' change, il faut rafraichir la liste 'a ecouter'
+
+- verifier le l'affichage du de l'utilistaion du cache il reste a 0%
+- l'onglet decouerte doit obligatoirement proposer de podcasts dans la langue de parrametre
 
 
 - sauvegarde de la liste 'mes podcasts'
@@ -50,7 +46,17 @@ Pour faire une simulation (voir ce qui va être supprimé et l'espace libéré) 
 Pour afficher les détails de chaque fichier en plus de la simulation :
 .\_log_del.bat --dry-run --verbose
 
+-------------------------------------------------------------------------------------------------------------------
+
 Fait
+
+- question sur la gestion des episodes en cache
+    - combien d'episodes sont en cache ?
+    - combien d'espace prend les episodes en cache ?
+    - comment optimiser la gestion des episodes en cache ?
+    - comment est nettoyer le cache des episodes ?
+    - si l'ordre de la liste 'Mes podcasts' change, il faut rafraichir le cache des episodes
+    - si l'ordre de la liste 'Mes podcasts' change, il faut rafraichir la liste 'a ecouter'
 
 - le lecteur d'episode : changer l'ordre des boutons comme suit : -30s, +30s, Play/Pause, Lu
 

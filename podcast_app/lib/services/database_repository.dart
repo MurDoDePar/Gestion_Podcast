@@ -1,4 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
 import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -17,6 +20,8 @@ import 'package:sqflite/sqflite.dart';
 import 'itunes_service.dart';
 import 'audio_service.dart' as app_audio;
 import 'rss_service.dart';
+import 'discovery_service.dart';
+import '../models/app_settings.dart';
 
 class UpdateRequiredException implements Exception {
   final String message;
@@ -1376,12 +1381,33 @@ class DatabaseRepository {
       final helper = DatabaseHelper();
       final db = await helper.database;
 
+      // Diagnostic Stockage
+      final List<Map<String, dynamic>> countCheck = await db.query(
+        'episodes_status',
+        columns: ['episodeId', 'localPath', 'fileSize'],
+        where: 'localPath IS NOT NULL',
+      );
+      debugPrint(
+          'Diagnostic Stockage : ${countCheck.length} entrées trouvées avec localPath != null.');
+      for (var row in countCheck) {
+        final size = row['fileSize'] as int? ?? 0;
+        if (size == 0) {
+          final path = row['localPath'] as String;
+          final directory = await getApplicationDocumentsDirectory();
+          String resolvedPath =
+              p.isAbsolute(path) ? path : p.join(directory.path, path);
+          final exists = await File(resolvedPath).exists();
+          debugPrint(
+              'Diagnostic Stockage : Épisode ${row['episodeId']} a fileSize=0. Chemin: $resolvedPath. Existe physiquement: $exists.');
+        }
+      }
+
       final List<Map<String, dynamic>> result = await db.rawQuery('''
         SELECT 
           COUNT(*) as count, 
           SUM(fileSize) as totalBytes 
         FROM episodes_status 
-        WHERE localPath IS NOT NULL AND status = 1
+        WHERE localPath IS NOT NULL
       ''');
 
       Map<String, dynamic> data = {'count': 0, 'totalBytes': 0};
@@ -1417,13 +1443,312 @@ class DatabaseRepository {
         FROM episodes_status s
         JOIN episodes_metadata m ON s.episodeId = m.episodeId
         LEFT JOIN my_podcasts p ON m.podcastName = p.collectionName
-        WHERE s.localPath IS NOT NULL AND s.status = 1
+        WHERE s.localPath IS NOT NULL
         GROUP BY m.podcastName
         ORDER BY totalSize DESC
       ''');
       _cachedBreakdown = result;
       _cachedBreakdownTime = now;
       return result;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Extrait le top 3 des genres les plus représentés dans les abonnements locaux (insensible à la casse)
+  Future<List<String>> getDominantGenres() async {
+    try {
+      final helper = DatabaseHelper();
+      final List<PodcastModel> localSubs = await helper.getSubscribedPodcasts();
+
+      final Map<String, int> genreCounts = {};
+      final Map<String, String> originalNames = {};
+
+      for (var podcast in localSubs) {
+        for (var genre in podcast.genres) {
+          final trimmed = genre.trim();
+          if (trimmed.isEmpty) continue;
+
+          final lowercase = trimmed.toLowerCase();
+          genreCounts[lowercase] = (genreCounts[lowercase] ?? 0) + 1;
+
+          // Enregistrer la version originale avec la meilleure casse (la première rencontrée)
+          if (!originalNames.containsKey(lowercase)) {
+            originalNames[lowercase] = trimmed;
+          }
+        }
+      }
+
+      // Trier les genres par ordre de fréquence décroissante
+      final sortedEntries = genreCounts.entries.toList()
+        ..sort((a, b) => b.value.compareTo(a.value));
+
+      // Récupérer le nom original (avec casse correcte) pour les 3 genres dominants
+      return sortedEntries
+          .take(3)
+          .map((entry) => originalNames[entry.key] ?? entry.key)
+          .toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Imprime la liste des épisodes dont le localPath n'est pas nul mais dont le fileSize est 0
+  Future<void> debugPrintZeroSizeEpisodes() async {
+    try {
+      final helper = DatabaseHelper();
+      final db = await helper.database;
+      final List<Map<String, dynamic>> results = await db.rawQuery('''
+        SELECT s.episodeId, s.localPath, s.status, m.title, m.podcastName
+        FROM episodes_status s
+        LEFT JOIN episodes_metadata m ON s.episodeId = m.episodeId
+        WHERE s.localPath IS NOT NULL AND s.fileSize = 0
+      ''');
+      print('--- ÉPISODES AVEC TAILLE DE FICHIER NULLE (fileSize = 0) ---');
+      for (var row in results) {
+        final episodeId = row['episodeId'] as String;
+        final podcast = row['podcastName'] ?? 'Inconnu';
+        final title = row['title'] ?? 'Sans titre';
+        final path = row['localPath'] as String;
+        print(
+            'Examen : podcast $podcast, épisode $title (ID: $episodeId), chemin: $path');
+      }
+      print('Nombre total d\'épisodes concernés : ${results.length}');
+      print('-----------------------------------------------------------');
+    } catch (e) {
+      if (!Platform.environment.containsKey('FLUTTER_TEST')) {
+        print('Erreur debugPrintZeroSizeEpisodes: $e');
+      }
+    }
+  }
+
+  /// Répare la colonne fileSize dans SQLite en scannant le dossier /downloads/
+  /// pour tous les fichiers existants ayant une taille de 0, dans une transaction SQLite.
+  Future<void> repairZeroSizeEpisodes() async {
+    try {
+      final helper = DatabaseHelper();
+      final db = await helper.database;
+      final directory = await getApplicationDocumentsDirectory();
+
+      // Récupérer les épisodes concernés avec métadonnées pour les logs
+      final List<Map<String, dynamic>> results = await db.rawQuery('''
+        SELECT s.episodeId, s.localPath, m.title, m.podcastName
+        FROM episodes_status s
+        LEFT JOIN episodes_metadata m ON s.episodeId = m.episodeId
+        WHERE s.localPath IS NOT NULL AND s.fileSize = 0
+      ''');
+
+      debugPrint(
+          'Diagnostic Réparation : ${results.length} entrées avec localPath != null et fileSize = 0.');
+      for (var row in results) {
+        final title = row['title'] ?? 'Sans titre';
+        final dbPath = row['localPath'] as String;
+        String? absolutePath =
+            p.isAbsolute(dbPath) ? dbPath : p.join(directory.path, dbPath);
+        final exists = await File(absolutePath).exists();
+        debugPrint(
+            'Diagnostic Réparation : Épisode $title a fileSize=0. Chemin: $absolutePath. Existe physiquement: $exists.');
+      }
+
+      if (results.isEmpty) {
+        return;
+      }
+
+      int repairedCount = 0;
+      await db.transaction((txn) async {
+        for (var row in results) {
+          final episodeId = row['episodeId'] as String;
+          final dbPath = row['localPath'] as String;
+          final podcast = row['podcastName'] ?? 'Inconnu';
+          final title = row['title'] ?? 'Sans titre';
+
+          // Résoudre le chemin absolu
+          String? absolutePath;
+          if (p.isAbsolute(dbPath)) {
+            absolutePath = dbPath;
+          } else {
+            absolutePath = p.join(directory.path, dbPath);
+          }
+
+          final file = File(absolutePath);
+          try {
+            if (await file.exists()) {
+              final size = await file.length();
+              print(
+                  'Calcul de taille en temps réel pour $title : $size octets');
+
+              if (size > 0) {
+                await txn.update(
+                  'episodes_status',
+                  {
+                    'fileSize': size,
+                    'status':
+                        1, // S'assurer du status = 1 pour un fichier téléchargé
+                  },
+                  where: 'episodeId = ?',
+                  whereArgs: [episodeId],
+                );
+                repairedCount++;
+                final double sizeMb = size / (1024 * 1024);
+                print(
+                    'Réparation : podcast $podcast, épisode $title, taille détectée : ${sizeMb.toStringAsFixed(2)} Mo');
+              }
+            } else {
+              print('Fichier non trouvé sur le disque : $absolutePath');
+            }
+          } catch (fileErr) {
+            print(
+                'Échec d\'accès au fichier physique pour l\'épisode $title ($absolutePath) : $fileErr');
+          }
+        }
+      });
+
+      if (repairedCount > 0) {
+        invalidateCacheStats();
+      }
+    } catch (e) {
+      if (!Platform.environment.containsKey('FLUTTER_TEST')) {
+        print(
+            'Erreur lors de la réparation automatique des tailles de fichiers: $e');
+      }
+    }
+  }
+
+  /// Enregistre les recommandations par lots dans SQLite
+  Future<void> saveRecommendations(List<PodcastModel> recommendations) async {
+    try {
+      final helper = DatabaseHelper();
+      final db = await helper.database;
+      final cachedAt = DateTime.now().millisecondsSinceEpoch;
+
+      await db.transaction((txn) async {
+        // Vider les anciennes recommandations pour éviter l'accumulation
+        await txn.delete('recommended_podcasts');
+
+        final batch = txn.batch();
+        for (var podcast in recommendations) {
+          batch.insert(
+            'recommended_podcasts',
+            {
+              'id': podcast.id,
+              'collectionId': podcast.collectionId,
+              'collectionName': podcast.collectionName,
+              'artistName': podcast.artistName,
+              'artworkUrl': podcast.artworkUrl,
+              'feedUrl': podcast.feedUrl,
+              'recommendedByGenre': podcast.recommendedByGenre ?? '',
+              'cachedAt': cachedAt,
+            },
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+        await batch.commit(noResult: true);
+      });
+
+      // Enregistrer la langue actuelle associée à ces recommandations pour le suivi de cache
+      final currentLang = await AppSettings.getLanguage();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('last_recommended_language', currentLang);
+    } catch (e) {
+      // Ignorer ou logguer l'erreur
+    }
+  }
+
+  /// Récupère la liste des recommandations stockées localement en base
+  Future<List<PodcastModel>> getCachedRecommendations() async {
+    try {
+      final helper = DatabaseHelper();
+      final db = await helper.database;
+      final List<Map<String, dynamic>> maps =
+          await db.query('recommended_podcasts');
+
+      return List.generate(maps.length, (i) {
+        final genreStr = maps[i]['recommendedByGenre']?.toString() ?? '';
+        return PodcastModel(
+          collectionId: maps[i]['collectionId'] as int?,
+          collectionName: maps[i]['collectionName']?.toString() ?? 'Sans titre',
+          artistName: maps[i]['artistName']?.toString() ?? 'Artiste inconnu',
+          artworkUrl: maps[i]['artworkUrl']?.toString() ?? '',
+          feedUrl: maps[i]['feedUrl']?.toString() ?? '',
+          genres: genreStr.isNotEmpty ? [genreStr] : [],
+          recommendedByGenre: genreStr,
+        );
+      });
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Gère le cycle de vie des recommandations (Offline-First)
+  Future<List<PodcastModel>> getRecommendations() async {
+    try {
+      final helper = DatabaseHelper();
+      final db = await helper.database;
+
+      // 1. Récupérer le cache local et son timestamp
+      final List<Map<String, dynamic>> cacheSample = await db.query(
+        'recommended_podcasts',
+        columns: ['cachedAt'],
+        limit: 1,
+      );
+
+      final prefs = await SharedPreferences.getInstance();
+      final lastLang = prefs.getString('last_recommended_language') ?? '';
+      final currentLang = await AppSettings.getLanguage();
+
+      bool hasCache = cacheSample.isNotEmpty;
+      int cachedAt = 0;
+      if (hasCache) {
+        if (lastLang != currentLang) {
+          // Si le moteur détecte des données dans recommended_podcasts qui ne correspondent pas à la langue active, il déclenche un clear et un re-fetch.
+          print(
+              'Forçage de re-fetch : changement de langue détecté, langue cible: $currentLang');
+          await db.delete('recommended_podcasts');
+          await prefs.remove('last_recommended_language');
+          hasCache = false;
+          cachedAt = 0;
+        } else {
+          cachedAt = cacheSample.first['cachedAt'] as int? ?? 0;
+        }
+      }
+
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final bool isCacheFresh = hasCache &&
+          (now - cachedAt < 7 * 24 * 60 * 60 * 1000) &&
+          (lastLang == currentLang);
+
+      if (isCacheFresh) {
+        return await getCachedRecommendations();
+      }
+
+      // Le cache est vide ou périmé (ou la langue a changé), rafraîchissement nécessaire
+      final List<String> dominantGenres = await getDominantGenres();
+
+      // Genres par défaut s'il n'y a pas encore d'abonnements locaux
+      final genresToFetch = dominantGenres.isNotEmpty
+          ? dominantGenres
+          : const ['News', 'Comedy', 'Technology'];
+
+      try {
+        final discoveryService = DiscoveryService();
+        final newRecommendations =
+            await discoveryService.fetchRecommendationsForGenres(
+          genresToFetch,
+          lang: currentLang,
+        );
+
+        if (newRecommendations.isNotEmpty) {
+          await saveRecommendations(newRecommendations);
+          return newRecommendations;
+        }
+      } catch (e) {
+        // En cas d'erreur réseau, Offline-Fallback
+        if (hasCache) {
+          return await getCachedRecommendations();
+        }
+      }
+
+      return await getCachedRecommendations();
     } catch (e) {
       return [];
     }
