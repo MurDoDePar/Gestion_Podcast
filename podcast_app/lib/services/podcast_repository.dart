@@ -67,28 +67,30 @@ class PodcastRepository {
       final prefs = await SharedPreferences.getInstance();
       final order = prefs.getString('podstream_order') ?? 'asc';
 
-      final subsResult = await ExampleConnector.instance
-          .getMySubscriptions(userId: postgresUuid)
-          .execute();
-      final subs = subsResult.data.subscriptionTypes.toList();
-
-      // Sort podcasts according to listOrder
-      subs.sort((a, b) {
-        final orderA = a.listOrder ?? 9999;
-        final orderB = b.listOrder ?? 9999;
-        if (orderA == orderB) return a.podcast.title.compareTo(b.podcast.title);
-        return orderA.compareTo(orderB);
-      });
+      // Récupération des abonnements depuis la base locale SQLite (déjà triés par sortOrder)
+      final subs = await DatabaseHelper().getSubscribedPodcasts();
 
       List<EpisodeModel> allEpisodes = [];
 
       for (var sub in subs) {
-        final podcastName = sub.podcast.title;
-        final podcastImageUrl = sub.podcast.imageUrl;
-        final feedUrl = sub.podcast.feedUrl;
+        final podcastName = sub.collectionName;
+        final podcastImageUrl = sub.artworkUrl;
+        final feedUrl = sub.feedUrl;
 
         // Récupération des épisodes directement depuis le flux RSS (Offline-First)
-        final rssEpisodes = await RssService().getEpisodesFromFeed(feedUrl);
+        var rssEpisodes = await RssService().getEpisodesFromFeed(feedUrl);
+        if (rssEpisodes == null) {
+          // 304 Not Modified : utiliser le cache
+          rssEpisodes = await RssService().getCachedEpisodes(feedUrl);
+        } else {
+          if (rssEpisodes.isEmpty) {
+            // Diagnostic silencieux en cas de flux 200 vide
+            // print("Warning: RSS feed returned 200 but empty list for: $feedUrl");
+          } else {
+            // Mettre à jour la base de données locale avec les métadonnées fraîches
+            await DatabaseHelper().insertEpisodesMetadata(rssEpisodes);
+          }
+        }
 
         // Tri des épisodes du podcast courant
         rssEpisodes.sort((a, b) {
@@ -121,9 +123,7 @@ class PodcastRepository {
               id: ep.id,
               title: ep.title,
               audioUrl: ep.audioUrl,
-              imageUrl: ep.imageUrl.isNotEmpty
-                  ? ep.imageUrl
-                  : (podcastImageUrl ?? ''),
+              imageUrl: ep.imageUrl.isNotEmpty ? ep.imageUrl : podcastImageUrl,
               podcastName: podcastName,
               pubDate: ep.pubDate,
               description: ep.description,

@@ -7,6 +7,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'database_repository.dart';
 import 'database_helper.dart';
+import '../models/app_settings.dart';
 
 enum DownloadStatus {
   idle,
@@ -141,6 +142,11 @@ class DownloadManager {
         final episodeId = row['episodeId'] as String;
         final dbPath = row['localPath'] as String;
         try {
+          // 1. Mettre à jour la base de données en premier pour conserver la cohérence de la SSOT
+          await DatabaseRepository().updateEpisodeLocalPath(episodeId, null);
+
+          // 2. Supprimer ensuite le fichier physique. Si cela échoue (ex: verrouillé),
+          // le fichier devenu orphelin (zombie) sera supprimé par auditStorage() au démarrage suivant.
           final resolvedPath = await _resolveToAbsolutePath(dbPath);
           if (resolvedPath != null) {
             final file = File(resolvedPath);
@@ -148,12 +154,11 @@ class DownloadManager {
               await file.delete();
             }
           }
-          await DatabaseRepository().updateEpisodeLocalPath(episodeId, null);
 //           debugPrint(
 //               "DownloadManager: Suppression de l'ancien téléchargement de l'épisode $episodeId");
         } catch (e) {
 //           debugPrint(
-//               "DownloadManager: Impossible de supprimer le fichier $dbPath: $e");
+//               "DownloadManager: Erreur lors du nettoyage de l'épisode $episodeId: $e");
         }
       }
     } catch (e) {
@@ -402,16 +407,29 @@ class DownloadManager {
         await tempFile.rename(savePath);
       }
 
-//       debugPrint(
-//           "DownloadManager: Téléchargement complété pour $episodeId. Enregistré sous $savePath");
+      // Mesurer la taille du fichier téléchargé de manière sécurisée (après fermeture complète du flux Dio)
+      int fileSize = 0;
+      try {
+        final savedFile = File(savePath);
+        if (await savedFile.exists()) {
+          fileSize = await savedFile.length();
+        }
+      } catch (e) {
+        // Échec silencieux pour éviter les crashs si le fichier est inaccessible
+      }
+
       statusNotifier.value = DownloadStatus.downloaded;
       progressNotifier.value = 1.0;
 
-      // Mettre à jour localPath en SQLite
-      await DatabaseRepository().updateEpisodeLocalPath(episodeId, savePath);
+      // Mettre à jour localPath et fileSize en SQLite
+      await DatabaseRepository()
+          .updateEpisodeLocalPath(episodeId, savePath, fileSize: fileSize);
 
       // Retirer de la queue SQLite
       await DatabaseRepository().dequeueDownloadTask(episodeId);
+
+      // Appliquer la limite de stockage LRU de manière active et asynchrone
+      await enforceCacheLimit();
     } catch (e) {
       if (CancelToken.isCancel(e as DioException)) {
 //         debugPrint(
@@ -518,6 +536,124 @@ class DownloadManager {
       });
     } catch (e) {
 //       debugPrint("DownloadManager error [clearCacheExcept]: $e");
+    }
+  }
+
+  /// Limite activement la taille du stockage des épisodes téléchargés (LRU)
+  Future<void> enforceCacheLimit() async {
+    try {
+      final maxSizeBytes = await AppSettings.getMaxCacheSize();
+      final helper = DatabaseHelper();
+      final db = await helper.database;
+
+      // 1. Calculer la taille totale actuelle via SQL
+      final List<Map<String, dynamic>> sizeResult = await db.rawQuery('''
+        SELECT SUM(fileSize) as totalSize 
+        FROM episodes_status 
+        WHERE localPath IS NOT NULL AND status = 1
+      ''');
+
+      int currentBytes = 0;
+      if (sizeResult.isNotEmpty && sizeResult.first['totalSize'] != null) {
+        currentBytes = sizeResult.first['totalSize'] as int;
+      }
+
+      if (currentBytes <= maxSizeBytes) {
+        return; // Le cache respecte déjà la limite
+      }
+
+      // 2. Récupérer les candidats à la suppression (triés par isRead DESC (lus d'abord) et pubDate ASC (anciens d'abord))
+      final List<Map<String, dynamic>> candidates = await db.rawQuery('''
+        SELECT s.episodeId, s.fileSize
+        FROM episodes_status s
+        LEFT JOIN episodes_metadata m ON s.episodeId = m.episodeId
+        WHERE s.localPath IS NOT NULL AND s.status = 1
+        ORDER BY s.isRead DESC, m.pubDate ASC
+      ''');
+
+      for (var row in candidates) {
+        if (currentBytes <= maxSizeBytes) break;
+
+        final episodeId = row['episodeId'] as String;
+        final fileSize = row['fileSize'] as int? ?? 0;
+
+        // Supprimer physiquement et mettre à jour la base de données + UI notifiers
+        await deleteDownloadedEpisode(episodeId);
+
+        currentBytes -= fileSize;
+      }
+    } catch (e) {
+      // Échec silencieux
+    }
+  }
+
+  /// Supprime absolument tous les fichiers téléchargés (cache complet) de manière robuste.
+  Future<void> clearAllCache() async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final downloadDir = Directory('${directory.path}/downloads');
+      if (await downloadDir.exists()) {
+        final List<FileSystemEntity> files = await downloadDir.list().toList();
+        for (var file in files) {
+          if (file is File) {
+            final filename = p.basename(file.path);
+            if (filename.endsWith('.mp3') || filename.endsWith('.tmp')) {
+              try {
+                await file.delete();
+              } catch (_) {
+                // Capturer l'échec de suppression de chaque fichier individuel (ex: s'il est verrouillé)
+              }
+            }
+          }
+        }
+      }
+
+      // Mettre à jour SQLite de manière cohérente pour les fichiers réellement supprimés
+      final helper = DatabaseHelper();
+      final db = await helper.database;
+
+      // Récupérer tous les épisodes avec un localPath
+      final List<Map<String, dynamic>> results = await db.query(
+        'episodes_status',
+        columns: ['episodeId', 'localPath'],
+        where: 'localPath IS NOT NULL',
+      );
+
+      await db.transaction((txn) async {
+        for (var row in results) {
+          final episodeId = row['episodeId'] as String;
+          final dbPath = row['localPath'] as String;
+          final resolvedPath = await _resolveToAbsolutePath(dbPath);
+
+          bool stillExists = false;
+          if (resolvedPath != null) {
+            stillExists = await File(resolvedPath).exists();
+          }
+
+          if (!stillExists) {
+            // Le fichier a bien été supprimé
+            await txn.update(
+              'episodes_status',
+              {
+                'localPath': null,
+                'status': 0,
+                'fileSize': 0,
+              },
+              where: 'episodeId = ?',
+              whereArgs: [episodeId],
+            );
+
+            // Réinitialiser les notificateurs en mémoire correspondants
+            _statusNotifiers[episodeId]?.value = DownloadStatus.idle;
+            _progressNotifiers[episodeId]?.value = 0.0;
+          }
+        }
+      });
+
+      // Invalider le cache des statistiques
+      DatabaseRepository.invalidateCacheStats();
+    } catch (e) {
+      // Échec silencieux global
     }
   }
 

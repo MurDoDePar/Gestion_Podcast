@@ -4,30 +4,100 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:xml/xml.dart' as xml;
 import 'package:html/parser.dart' as html_parser;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/episode_model.dart';
 
 class RssService {
-  /// Télécharge et parse le flux RSS pour en extraire la liste des épisodes réels
-  Future<List<EpisodeModel>> getEpisodesFromFeed(String feedUrl) async {
+  /// Télécharge et parse le flux RSS pour en extraire la liste des épisodes réels.
+  /// Retourne [null] si le serveur renvoie un code 304 (flux non modifié).
+  Future<List<EpisodeModel>?> getEpisodesFromFeed(String feedUrl) async {
     if (feedUrl.isEmpty) return [];
 
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final etagKey = 'rss_etag_$feedUrl';
+      final lastModifiedKey = 'rss_last_modified_$feedUrl';
+      final cacheEpisodesKey = 'rss_episodes_$feedUrl';
+
+      final cachedEtag = prefs.getString(etagKey);
+      final cachedLastModified = prefs.getString(lastModifiedKey);
+
+      final Map<String, String> headers = {};
+      if (cachedEtag != null) {
+        headers['If-None-Match'] = cachedEtag;
+      }
+      if (cachedLastModified != null) {
+        headers['If-Modified-Since'] = cachedLastModified;
+      }
+
       final response = await http
-          .get(Uri.parse(feedUrl))
+          .get(Uri.parse(feedUrl), headers: headers)
           .timeout(const Duration(seconds: 10));
 
+      if (response.statusCode == 304) {
+        return null; // Flux non modifié
+      }
+
       if (response.statusCode == 200) {
+        String? newEtag;
+        String? newLastModified;
+
+        response.headers.forEach((key, value) {
+          final lkey = key.toLowerCase();
+          if (lkey == 'etag') {
+            newEtag = value;
+          } else if (lkey == 'last-modified') {
+            newLastModified = value;
+          }
+        });
+
+        if (newEtag != null) {
+          await prefs.setString(etagKey, newEtag!);
+        } else {
+          await prefs.remove(etagKey);
+        }
+
+        if (newLastModified != null) {
+          await prefs.setString(lastModifiedKey, newLastModified!);
+        } else {
+          await prefs.remove(lastModifiedKey);
+        }
+
         // Déporter le décodage UTF-8 et le parsing XML dans un Isolate séparé
-        return await compute(_parseRss, response.bodyBytes);
+        final episodes = await compute(_parseRss, response.bodyBytes);
+
+        // Mettre à jour le cache local d'épisodes de ce flux
+        final jsonEpisodes =
+            jsonEncode(episodes.map((e) => e.toMap()).toList());
+        await prefs.setString(cacheEpisodesKey, jsonEpisodes);
+
+        return episodes;
       } else {
-        // print(
-        // 'Erreur HTTP lors du téléchargement du flux RSS : ${response.statusCode}');
-        return [];
+        // Erreur HTTP (ex: 500, 404, etc.) : renvoyer null pour forcer le repli sur le cache local
+        return null;
       }
     } catch (e) {
-      // print('Exception lors du parsing du flux RSS de $feedUrl : $e');
-      return [];
+      // Exception réseau (ex: Timeout, SocketException) ou de parsing XML : renvoyer null pour forcer le repli sur le cache local
+      return null;
     }
+  }
+
+  /// Récupère la liste des épisodes sauvegardés localement en cache pour ce flux
+  Future<List<EpisodeModel>> getCachedEpisodes(String feedUrl) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cacheEpisodesKey = 'rss_episodes_$feedUrl';
+      final cachedJson = prefs.getString(cacheEpisodesKey);
+      if (cachedJson != null && cachedJson.isNotEmpty) {
+        final List<dynamic> decoded = jsonDecode(cachedJson);
+        return decoded
+            .map((item) => EpisodeModel.fromMap(item as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      // print('Exception lors de la lecture du cache RSS local : $e');
+    }
+    return [];
   }
 }
 

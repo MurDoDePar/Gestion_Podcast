@@ -4,6 +4,7 @@ import 'package:crypto/crypto.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import '../models/podcast_model.dart';
+import '../models/episode_model.dart';
 
 class DatabaseHelper {
   // Singleton pattern
@@ -22,7 +23,7 @@ class DatabaseHelper {
     final pathString = join(dbPath, 'podstream.db');
     return await openDatabase(
       pathString,
-      version: 6,
+      version: 7,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -74,7 +75,8 @@ class DatabaseHelper {
         isRead INTEGER DEFAULT 0,
         readAt INTEGER,
         localPath TEXT,
-        status INTEGER DEFAULT 0
+        status INTEGER DEFAULT 0,
+        fileSize INTEGER DEFAULT 0
       )
     ''');
     // Create index on episodes_status.readAt for fast history ordering
@@ -349,6 +351,14 @@ class DatabaseHelper {
         rethrow;
       }
     }
+    if (oldVersion < 7) {
+      try {
+        await _safeAddColumn(
+            db, 'episodes_status', 'fileSize', 'INTEGER DEFAULT 0');
+      } catch (e) {
+        // Capture l'erreur de manière atomique pour ne pas corrompre la base de données
+      }
+    }
   }
 
   Future<bool> isTableEmpty(String tableName) async {
@@ -565,6 +575,44 @@ class DatabaseHelper {
       whereArgs: [1],
     );
     return maps.map((m) => m['episodeId'] as String).toList();
+  }
+
+  Future<int> insertEpisodeMetadata(EpisodeModel episode) async {
+    final db = await database;
+    return await db.insert(
+      'episodes_metadata',
+      {
+        'episodeId': episode.id,
+        'title': episode.title,
+        'audioUrl': episode.audioUrl,
+        'imageUrl': episode.imageUrl,
+        'podcastName': episode.podcastName,
+        'pubDate': episode.pubDate?.toIso8601String(),
+        'description': episode.description,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> insertEpisodesMetadata(List<EpisodeModel> episodes) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      for (var episode in episodes) {
+        await txn.insert(
+          'episodes_metadata',
+          {
+            'episodeId': episode.id,
+            'title': episode.title,
+            'audioUrl': episode.audioUrl,
+            'imageUrl': episode.imageUrl,
+            'podcastName': episode.podcastName,
+            'pubDate': episode.pubDate?.toIso8601String(),
+            'description': episode.description,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
   }
 
   // --- THEMES CACHE OPERATIONS ---

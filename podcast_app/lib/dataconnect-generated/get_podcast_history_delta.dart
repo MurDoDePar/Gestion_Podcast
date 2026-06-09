@@ -5,41 +5,52 @@ class GetPodcastHistoryDeltaVariablesBuilder {
   Timestamp since;
 
   final FirebaseDataConnect _dataConnect;
-  GetPodcastHistoryDeltaVariablesBuilder(this._dataConnect, {required  this.userId,required  this.since,});
-  Deserializer<GetPodcastHistoryDeltaData> dataDeserializer = (dynamic json)  => GetPodcastHistoryDeltaData.fromJson(jsonDecode(json));
-  Serializer<GetPodcastHistoryDeltaVariables> varsSerializer = (GetPodcastHistoryDeltaVariables vars) => jsonEncode(vars.toJson());
-  Future<QueryResult<GetPodcastHistoryDeltaData, GetPodcastHistoryDeltaVariables>> execute() {
+  GetPodcastHistoryDeltaVariablesBuilder(
+    this._dataConnect, {
+    required this.userId,
+    required this.since,
+  });
+  Deserializer<GetPodcastHistoryDeltaData> dataDeserializer =
+      (dynamic json) => GetPodcastHistoryDeltaData.fromJson(jsonDecode(json));
+  Serializer<GetPodcastHistoryDeltaVariables> varsSerializer =
+      (GetPodcastHistoryDeltaVariables vars) => jsonEncode(vars.toJson());
+  Future<
+      QueryResult<GetPodcastHistoryDeltaData,
+          GetPodcastHistoryDeltaVariables>> execute() {
     return ref().execute();
   }
 
   QueryRef<GetPodcastHistoryDeltaData, GetPodcastHistoryDeltaVariables> ref() {
-    GetPodcastHistoryDeltaVariables vars= GetPodcastHistoryDeltaVariables(userId: userId,since: since,);
-    return _dataConnect.query("GetPodcastHistoryDelta", dataDeserializer, varsSerializer, vars);
+    GetPodcastHistoryDeltaVariables vars = GetPodcastHistoryDeltaVariables(
+      userId: userId,
+      since: since,
+    );
+    return _dataConnect.query(
+        "GetPodcastHistoryDelta", dataDeserializer, varsSerializer, vars);
   }
 }
 
 @immutable
 class GetPodcastHistoryDeltaUser {
   final String googleId;
-  GetPodcastHistoryDeltaUser.fromJson(dynamic json):
-  
-  googleId = nativeFromJson<String>(json['googleId']);
+  GetPodcastHistoryDeltaUser.fromJson(dynamic json)
+      : googleId = nativeFromJson<String>(json['googleId']);
   @override
   bool operator ==(Object other) {
-    if(identical(this, other)) {
+    if (identical(this, other)) {
       return true;
     }
-    if(other.runtimeType != runtimeType) {
+    if (other.runtimeType != runtimeType) {
       return false;
     }
 
-    final GetPodcastHistoryDeltaUser otherTyped = other as GetPodcastHistoryDeltaUser;
+    final GetPodcastHistoryDeltaUser otherTyped =
+        other as GetPodcastHistoryDeltaUser;
     return googleId == otherTyped.googleId;
-    
   }
+
   @override
   int get hashCode => googleId.hashCode;
-  
 
   Map<String, dynamic> toJson() {
     Map<String, dynamic> json = {};
@@ -57,31 +68,37 @@ class GetPodcastHistoryDeltaData {
   final GetPodcastHistoryDeltaUser? user;
   final List<AnyValue>? delta;
   final AnyValue? serverTime;
-  GetPodcastHistoryDeltaData.fromJson(dynamic json):
-  
-  user = json['user'] == null ? null : GetPodcastHistoryDeltaUser.fromJson(json['user']),
-  delta = json['delta'] == null ? null : (json['delta'] as List<dynamic>)
-        .map((e) => AnyValue.fromJson(e))
-        .toList(),
-  serverTime = json['serverTime'] == null ? null : AnyValue.fromJson(json['serverTime']);
+  GetPodcastHistoryDeltaData.fromJson(dynamic json)
+      : user = json['user'] == null
+            ? null
+            : GetPodcastHistoryDeltaUser.fromJson(json['user']),
+        delta = json['delta'] == null
+            ? null
+            : (json['delta'] as List<dynamic>)
+                .map((e) => AnyValue.fromJson(e))
+                .toList(),
+        serverTime = json['serverTime'] == null
+            ? null
+            : AnyValue.fromJson(json['serverTime']);
   @override
   bool operator ==(Object other) {
-    if(identical(this, other)) {
+    if (identical(this, other)) {
       return true;
     }
-    if(other.runtimeType != runtimeType) {
+    if (other.runtimeType != runtimeType) {
       return false;
     }
 
-    final GetPodcastHistoryDeltaData otherTyped = other as GetPodcastHistoryDeltaData;
-    return user == otherTyped.user && 
-    delta == otherTyped.delta && 
-    serverTime == otherTyped.serverTime;
-    
+    final GetPodcastHistoryDeltaData otherTyped =
+        other as GetPodcastHistoryDeltaData;
+    return user == otherTyped.user &&
+        delta == otherTyped.delta &&
+        serverTime == otherTyped.serverTime;
   }
+
   @override
-  int get hashCode => Object.hashAll([user.hashCode, delta.hashCode, serverTime.hashCode]);
-  
+  int get hashCode =>
+      Object.hashAll([user.hashCode, delta.hashCode, serverTime.hashCode]);
 
   Map<String, dynamic> toJson() {
     Map<String, dynamic> json = {};
@@ -108,28 +125,27 @@ class GetPodcastHistoryDeltaData {
 class GetPodcastHistoryDeltaVariables {
   final String userId;
   final Timestamp since;
-  @Deprecated('fromJson is deprecated for Variable classes as they are no longer required for deserialization.')
-  GetPodcastHistoryDeltaVariables.fromJson(Map<String, dynamic> json):
-  
-  userId = nativeFromJson<String>(json['userId']),
-  since = Timestamp.fromJson(json['since']);
+  @Deprecated(
+      'fromJson is deprecated for Variable classes as they are no longer required for deserialization.')
+  GetPodcastHistoryDeltaVariables.fromJson(Map<String, dynamic> json)
+      : userId = nativeFromJson<String>(json['userId']),
+        since = Timestamp.fromJson(json['since']);
   @override
   bool operator ==(Object other) {
-    if(identical(this, other)) {
+    if (identical(this, other)) {
       return true;
     }
-    if(other.runtimeType != runtimeType) {
+    if (other.runtimeType != runtimeType) {
       return false;
     }
 
-    final GetPodcastHistoryDeltaVariables otherTyped = other as GetPodcastHistoryDeltaVariables;
-    return userId == otherTyped.userId && 
-    since == otherTyped.since;
-    
+    final GetPodcastHistoryDeltaVariables otherTyped =
+        other as GetPodcastHistoryDeltaVariables;
+    return userId == otherTyped.userId && since == otherTyped.since;
   }
+
   @override
   int get hashCode => Object.hashAll([userId.hashCode, since.hashCode]);
-  
 
   Map<String, dynamic> toJson() {
     Map<String, dynamic> json = {};
@@ -143,4 +159,3 @@ class GetPodcastHistoryDeltaVariables {
     required this.since,
   });
 }
-

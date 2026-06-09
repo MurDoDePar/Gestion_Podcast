@@ -118,11 +118,11 @@ class _MyPodcastsTabState extends State<MyPodcastsTab> {
 
     try {
       // 1. Charger tous les flux RSS en parallèle pour optimiser les performances réseau
-      final List<Future<List<EpisodeModel>>> futures = subscribedPodcasts
+      final List<Future<List<EpisodeModel>?>> futures = subscribedPodcasts
           .map((podcast) => RssService().getEpisodesFromFeed(podcast.feedUrl))
           .toList();
 
-      final List<List<EpisodeModel>> results = await Future.wait(futures);
+      final List<List<EpisodeModel>?> results = await Future.wait(futures);
 
       // 2. Récupérer l'historique de lecture et les préférences locales (SharedPreferences)
       final Set<String> readEpisodeIds = {};
@@ -151,7 +151,17 @@ class _MyPodcastsTabState extends State<MyPodcastsTab> {
 
       for (int i = 0; i < subscribedPodcasts.length; i++) {
         final podcast = subscribedPodcasts[i];
-        final podcastEpisodes = results[i];
+        var podcastEpisodes = results[i];
+        if (podcastEpisodes == null) {
+          // 304 Not Modified : charger le cache d'épisodes local
+          podcastEpisodes =
+              await RssService().getCachedEpisodes(podcast.feedUrl);
+        } else {
+          if (podcastEpisodes.isNotEmpty) {
+            // Mettre à jour la base de données locale avec les métadonnées fraîches
+            await DatabaseHelper().insertEpisodesMetadata(podcastEpisodes);
+          }
+        }
 
         // A. Filtrer pour ne garder que les épisodes non lus de ce podcast
         final List<EpisodeModel> unreadEpisodes = [];

@@ -31,6 +31,16 @@ class DatabaseRepository {
   static List<EpisodeModel>? _cachedEpisodesToListen;
   static bool debugSimulateSqliteFailure = false;
   static final Set<String> _attemptedRepairIds = {};
+  static Map<String, dynamic>? _cachedStats;
+  static int _cachedStatsTime = 0;
+  static List<Map<String, dynamic>>? _cachedBreakdown;
+  static int _cachedBreakdownTime = 0;
+
+  static void invalidateCacheStats() {
+    _cachedStats = null;
+    _cachedBreakdown = null;
+  }
+
   Future<List<EpisodeModel>> getMyEpisodes() async {
     const String cacheKey = 'my_episodes';
     // 1. Vérifier le cache en mémoire pour éviter des requêtes inutiles
@@ -384,11 +394,7 @@ class DatabaseRepository {
     }
     // 2. Mettre à jour le cache local en mémoire
     _cacheManager.write('my_subscribed_podcasts', updatedList);
-    _refreshEpisodesToListen(); // Rafraîchir les épisodes à écouter
-    // 3. Notifier immédiatement l'interface utilisateur
-    try {
-      app_audio.AudioService().listRefreshNotifier.value++;
-    } catch (_) {}
+    await recalculateEpisodesToListenInstantly(); // Reconstitution locale instantanée (sans I/O réseau)
   }
 
   Future<void> subscribeToPodcast(PodcastModel podcast) async {
@@ -645,22 +651,103 @@ class DatabaseRepository {
           return !readIdsSet.contains(ep.id) &&
               !readIdsSet.contains(ep.audioUrl);
         }).toList();
+
+        // Diagnostic silencieux si le filtrage élimine la totalité des épisodes
+        if (filtered.isEmpty && list.isNotEmpty) {
+          print(
+              "DIAGNOSTIC_REFRESH: Le rafraîchissement a retourné 0 épisodes après filtrage.");
+          print(
+              "DIAGNOSTIC_REFRESH: Total épisodes récupérés (réseau/cache) : ${list.length}");
+          print(
+              "DIAGNOSTIC_REFRESH: Total épisodes marqués comme lus en local : ${readIdsSet.length}");
+        }
+
         return filtered;
       } catch (e) {
         return list;
       }
     }
+
     return [];
   }
 
-  Future<void> _refreshEpisodesToListen() async {
-    _cachedEpisodesToListen = null;
-    _cacheManager.remove('cache_episodes_to_listen');
-    // Recharger immédiatement en tâche de fond pour reconstruire le cache
-    // Cette opération asynchrone gère elle-même son exception/réseau sans bloquer l'UI
+  Future<void> recalculateEpisodesToListenInstantly() async {
     try {
-      await getEpisodesToListen(forceRefresh: true);
-    } catch (e) {}
+      final prefs = await SharedPreferences.getInstance();
+      const String cacheKey = 'cache_episodes_to_listen';
+
+      // 1. Récupérer les abonnements locaux triés par ordre favori depuis SQLite
+      final localSubs = await DatabaseHelper().getSubscribedPodcasts();
+
+      // 2. Récupérer l'historique des épisodes lus (à exclure)
+      final readIds = await DatabaseHelper().getReadEpisodeIds();
+      final readIdsSet = readIds.toSet();
+
+      List<EpisodeModel> instantList = [];
+      final rssService = RssService();
+      final order = prefs.getString('podstream_order') ?? 'asc';
+
+      // 3. Charger le cache RSS de chaque flux localement
+      for (var podcast in localSubs) {
+        final cachedEpisodes =
+            await rssService.getCachedEpisodes(podcast.feedUrl);
+
+        // Trier les épisodes du podcast selon l'ordre configuré
+        cachedEpisodes.sort((a, b) {
+          int cmp = 0;
+          final matchA = RegExp(r'#(\d+)').firstMatch(a.title);
+          final matchB = RegExp(r'#(\d+)').firstMatch(b.title);
+
+          if (matchA != null && matchB != null) {
+            final numA = int.parse(matchA.group(1)!);
+            final numB = int.parse(matchB.group(1)!);
+            cmp = numA.compareTo(numB);
+          } else {
+            final dateA = a.pubDate ?? DateTime.now();
+            final dateB = b.pubDate ?? DateTime.now();
+            cmp = dateA.compareTo(dateB);
+            if (cmp == 0) cmp = a.title.compareTo(b.title);
+          }
+
+          if (order == 'asc') {
+            return cmp; // le plus ancien d'abord
+          } else {
+            return -cmp; // le plus récent d'abord
+          }
+        });
+
+        // Filtrer et mapper dans la liste finale
+        for (var ep in cachedEpisodes) {
+          if (!readIdsSet.contains(ep.id) &&
+              !readIdsSet.contains(ep.audioUrl)) {
+            instantList.add(EpisodeModel(
+              id: ep.id,
+              title: ep.title,
+              audioUrl: ep.audioUrl,
+              imageUrl:
+                  ep.imageUrl.isNotEmpty ? ep.imageUrl : podcast.artworkUrl,
+              podcastName: podcast.collectionName,
+              pubDate: ep.pubDate,
+              description: ep.description,
+            ));
+          }
+        }
+      }
+
+      // 4. Mettre à jour les caches mémoire et SharedPreferences
+      _cachedEpisodesToListen = instantList;
+      await prefs.setString(
+          cacheKey, jsonEncode(instantList.map((e) => e.toMap()).toList()));
+      await prefs.setInt('cache_episodes_to_listen_time',
+          DateTime.now().millisecondsSinceEpoch);
+
+      // 5. Notifier l'interface utilisateur instantanément
+      try {
+        app_audio.AudioService().listRefreshNotifier.value++;
+      } catch (_) {}
+    } catch (e) {
+      // Échec silencieux pour éviter tout crash
+    }
   }
 
   Future<void> markEpisodeAsRead(
@@ -936,7 +1023,14 @@ class DatabaseRepository {
       // Récupérer les épisodes des flux en parallèle sous timeout de 15 secondes
       final fetchFutures = subscribed.map((podcast) async {
         try {
-          final eps = await rssService.getEpisodesFromFeed(podcast.feedUrl);
+          var eps = await rssService.getEpisodesFromFeed(podcast.feedUrl);
+          if (eps == null) {
+            eps = await rssService.getCachedEpisodes(podcast.feedUrl);
+          } else {
+            if (eps.isNotEmpty) {
+              await DatabaseHelper().insertEpisodesMetadata(eps);
+            }
+          }
           for (var ep in eps) {
             if (ep.id.isNotEmpty) feedEpisodes[ep.id] = ep;
             if (ep.audioUrl.isNotEmpty) feedEpisodes[ep.audioUrl] = ep;
@@ -1103,9 +1197,10 @@ class DatabaseRepository {
 
   // --- LOCAL PATH operations & DOWNLOAD STATUS ---
   /// Met à jour le localPath et le statut d'un épisode dans SQLite
-  Future<void> updateEpisodeLocalPath(
-      String episodeId, String? localPath) async {
+  Future<void> updateEpisodeLocalPath(String episodeId, String? localPath,
+      {int fileSize = 0}) async {
     try {
+      invalidateCacheStats();
       final helper = DatabaseHelper();
       final db = await helper.database;
       final int status = localPath != null ? 1 : 0;
@@ -1137,6 +1232,7 @@ class DatabaseRepository {
           {
             'localPath': relativePath,
             'status': status,
+            'fileSize': fileSize,
           },
           where: 'episodeId = ?',
           whereArgs: [episodeId],
@@ -1151,6 +1247,7 @@ class DatabaseRepository {
             'isRead': 0,
             'readAt': null,
             'status': status,
+            'fileSize': fileSize,
           },
         );
       }
@@ -1264,6 +1361,69 @@ class DatabaseRepository {
       final helper = DatabaseHelper();
       final db = await helper.database;
       return await db.query('download_queue');
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Récupère les statistiques globales du cache (nombre d'épisodes et taille totale en octets)
+  Future<Map<String, dynamic>> getCachedEpisodesStats() async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (_cachedStats != null && (now - _cachedStatsTime) < 3000) {
+      return _cachedStats!;
+    }
+    try {
+      final helper = DatabaseHelper();
+      final db = await helper.database;
+
+      final List<Map<String, dynamic>> result = await db.rawQuery('''
+        SELECT 
+          COUNT(*) as count, 
+          SUM(fileSize) as totalBytes 
+        FROM episodes_status 
+        WHERE localPath IS NOT NULL AND status = 1
+      ''');
+
+      Map<String, dynamic> data = {'count': 0, 'totalBytes': 0};
+      if (result.isNotEmpty && result.first['count'] != 0) {
+        data = {
+          'count': result.first['count'] ?? 0,
+          'totalBytes': result.first['totalBytes'] ?? 0,
+        };
+      }
+      _cachedStats = data;
+      _cachedStatsTime = now;
+      return data;
+    } catch (e) {
+      return {'count': 0, 'totalBytes': 0};
+    }
+  }
+
+  /// Récupère la répartition du stockage par podcast (jointure SQL episodes_status x my_podcasts)
+  Future<List<Map<String, dynamic>>> getStorageBreakdownPerPodcast() async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (_cachedBreakdown != null && (now - _cachedBreakdownTime) < 3000) {
+      return _cachedBreakdown!;
+    }
+    try {
+      final helper = DatabaseHelper();
+      final db = await helper.database;
+      final List<Map<String, dynamic>> result = await db.rawQuery('''
+        SELECT 
+          m.podcastName as podcastName,
+          p.artworkUrl as artworkUrl,
+          COUNT(s.episodeId) as episodeCount,
+          SUM(s.fileSize) as totalSize
+        FROM episodes_status s
+        JOIN episodes_metadata m ON s.episodeId = m.episodeId
+        LEFT JOIN my_podcasts p ON m.podcastName = p.collectionName
+        WHERE s.localPath IS NOT NULL AND s.status = 1
+        GROUP BY m.podcastName
+        ORDER BY totalSize DESC
+      ''');
+      _cachedBreakdown = result;
+      _cachedBreakdownTime = now;
+      return result;
     } catch (e) {
       return [];
     }

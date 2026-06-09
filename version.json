@@ -1,5 +1,5 @@
 {
-  "version": "3.2.9",
-  "build_number": 329,
-  "release_notes": "mise à jour 3.2.9 (01/06/2026) - correction de bug"
+  "version": "3.3.3",
+  "build_number": 333,
+  "release_notes": "mise à jour 3.3.3 (09/06/2026) - ameliore la gestion du cache"
 }
