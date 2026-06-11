@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/podcast_model.dart';
-import '../../services/itunes_service.dart';
+import '../../services/itunes_gateway.dart';
 import '../../theme/app_theme.dart';
 import '../podcast_details_screen.dart';
 
@@ -14,7 +14,7 @@ class SearchTab extends StatefulWidget {
 
 class _SearchTabState extends State<SearchTab> {
   final TextEditingController _searchController = TextEditingController();
-  final ItunesService _itunesService = ItunesService();
+  final ITunesGateway _itunesGateway = ITunesGateway();
   List<PodcastModel> _searchResults = [];
   bool _isLoading = false;
   String _searchedQuery = '';
@@ -38,7 +38,7 @@ class _SearchTabState extends State<SearchTab> {
       final prefs = await SharedPreferences.getInstance();
       final lang = prefs.getString('podstream_lang') ?? 'fr';
       final results =
-          await _itunesService.searchPodcasts(trimmedQuery, lang: lang);
+          await _itunesGateway.searchPodcasts(trimmedQuery, lang: lang);
       setState(() {
         _searchResults = results;
       });

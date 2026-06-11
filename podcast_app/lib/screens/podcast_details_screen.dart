@@ -15,6 +15,7 @@ import 'main_screen.dart';
 import 'package:podcast_app/services/audio_handler_locator.dart'; // Pour globalAudioHandler
 import 'package:audio_service/audio_service.dart'; // Pour MediaItem
 import '../services/audio_service.dart' as app_audio;
+import '../services/itunes_gateway.dart';
 
 class ParsedEpisode {
   final xml.XmlElement element;
@@ -197,13 +198,10 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
       final title = widget.podcast['collectionName'] ?? widget.podcast['title'];
       if (title != null) {
         try {
-          final searchRes = await http.get(Uri.parse(
-              'https://itunes.apple.com/search?media=podcast&term=${Uri.encodeComponent(title)}&limit=1'));
-          if (searchRes.statusCode == 200) {
-            final data = json.decode(searchRes.body);
-            if (data['results'] != null && data['results'].isNotEmpty) {
-              feedUrl = data['results'][0]['feedUrl'];
-            }
+          final results =
+              await ITunesGateway().searchPodcasts(title, lang: 'all');
+          if (results.isNotEmpty) {
+            feedUrl = results.first.feedUrl;
           }
         } catch (_) {}
       }

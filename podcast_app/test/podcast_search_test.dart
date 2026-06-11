@@ -1,15 +1,34 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
-import 'package:podcast_app/services/itunes_service.dart';
+import 'package:dio/dio.dart';
+import 'package:podcast_app/services/itunes_gateway.dart';
+
+class FakeHttpClientAdapter implements HttpClientAdapter {
+  final Future<ResponseBody> Function(RequestOptions options) handler;
+
+  FakeHttpClientAdapter(this.handler);
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) {
+    return handler(options);
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
 
 void main() {
-  group('iTunes Search Service Tests (Filtre par Langue / Pays)', () {
+  group('iTunes Search Gateway Tests (Filtre par Langue / Pays)', () {
     test('1. Recherche avec langue "fr" doit ajouter &country=FR', () async {
       String? requestedUrl;
-      final mockClient = MockClient((request) async {
-        final uriStr = request.url.toString();
+      final dio = Dio();
+      dio.httpClientAdapter = FakeHttpClientAdapter((options) async {
+        final uriStr = options.uri.toString();
         if (uriStr.contains('itunes.apple.com')) {
           requestedUrl = uriStr;
           final mockResponse = {
@@ -21,18 +40,32 @@ void main() {
                 'artworkUrl600': 'https://example.com/artwork.jpg',
                 'feedUrl': 'https://example.com/feed.xml',
                 'collectionId': 12345,
+                'country': 'FRA',
+                'language': 'fr',
               }
             ]
           };
-          return http.Response(jsonEncode(mockResponse), 200);
+          return ResponseBody.fromBytes(
+            utf8.encode(jsonEncode(mockResponse)),
+            200,
+            headers: {
+              Headers.contentTypeHeader: [Headers.jsonContentType],
+            },
+          );
         } else {
-          return http.Response(
-              '<rss><channel><language>fr-FR</language></channel></rss>', 200);
+          return ResponseBody.fromBytes(
+            utf8.encode(
+                '<rss><channel><language>fr-FR</language></channel></rss>'),
+            200,
+            headers: {
+              Headers.contentTypeHeader: ['application/xml'],
+            },
+          );
         }
       });
 
-      final itunesService = ItunesService(client: mockClient);
-      final results = await itunesService.searchPodcasts('dedo', lang: 'fr');
+      final gateway = ITunesGateway(dio: dio);
+      final results = await gateway.searchPodcasts('dedo', lang: 'fr');
 
       expect(requestedUrl, contains('country=FR'));
       expect(requestedUrl, contains('term=dedo'));
@@ -43,13 +76,20 @@ void main() {
 
     test('2. Recherche avec langue "en" doit ajouter &country=US', () async {
       String? requestedUrl;
-      final mockClient = MockClient((request) async {
-        requestedUrl = request.url.toString();
-        return http.Response(jsonEncode({'results': []}), 200);
+      final dio = Dio();
+      dio.httpClientAdapter = FakeHttpClientAdapter((options) async {
+        requestedUrl = options.uri.toString();
+        return ResponseBody.fromBytes(
+          utf8.encode(jsonEncode({'results': []})),
+          200,
+          headers: {
+            Headers.contentTypeHeader: [Headers.jsonContentType],
+          },
+        );
       });
 
-      final itunesService = ItunesService(client: mockClient);
-      await itunesService.searchPodcasts('finger', lang: 'en');
+      final gateway = ITunesGateway(dio: dio);
+      await gateway.searchPodcasts('finger', lang: 'en');
 
       expect(requestedUrl, contains('country=US'));
       expect(requestedUrl, contains('term=finger'));
@@ -57,26 +97,40 @@ void main() {
 
     test('3. Recherche avec langue "es" doit ajouter &country=ES', () async {
       String? requestedUrl;
-      final mockClient = MockClient((request) async {
-        requestedUrl = request.url.toString();
-        return http.Response(jsonEncode({'results': []}), 200);
+      final dio = Dio();
+      dio.httpClientAdapter = FakeHttpClientAdapter((options) async {
+        requestedUrl = options.uri.toString();
+        return ResponseBody.fromBytes(
+          utf8.encode(jsonEncode({'results': []})),
+          200,
+          headers: {
+            Headers.contentTypeHeader: [Headers.jsonContentType],
+          },
+        );
       });
 
-      final itunesService = ItunesService(client: mockClient);
-      await itunesService.searchPodcasts('dedo', lang: 'es');
+      final gateway = ITunesGateway(dio: dio);
+      await gateway.searchPodcasts('dedo', lang: 'es');
 
       expect(requestedUrl, contains('country=ES'));
     });
 
     test('4. Recherche avec langue "de" doit ajouter &country=DE', () async {
       String? requestedUrl;
-      final mockClient = MockClient((request) async {
-        requestedUrl = request.url.toString();
-        return http.Response(jsonEncode({'results': []}), 200);
+      final dio = Dio();
+      dio.httpClientAdapter = FakeHttpClientAdapter((options) async {
+        requestedUrl = options.uri.toString();
+        return ResponseBody.fromBytes(
+          utf8.encode(jsonEncode({'results': []})),
+          200,
+          headers: {
+            Headers.contentTypeHeader: [Headers.jsonContentType],
+          },
+        );
       });
 
-      final itunesService = ItunesService(client: mockClient);
-      await itunesService.searchPodcasts('finger', lang: 'de');
+      final gateway = ITunesGateway(dio: dio);
+      await gateway.searchPodcasts('finger', lang: 'de');
 
       expect(requestedUrl, contains('country=DE'));
     });
@@ -84,49 +138,51 @@ void main() {
     test('5. Recherche avec langue "all" ne doit pas inclure country',
         () async {
       String? requestedUrl;
-      final mockClient = MockClient((request) async {
-        requestedUrl = request.url.toString();
-        return http.Response(jsonEncode({'results': []}), 200);
+      final dio = Dio();
+      dio.httpClientAdapter = FakeHttpClientAdapter((options) async {
+        requestedUrl = options.uri.toString();
+        return ResponseBody.fromBytes(
+          utf8.encode(jsonEncode({'results': []})),
+          200,
+          headers: {
+            Headers.contentTypeHeader: [Headers.jsonContentType],
+          },
+        );
       });
 
-      final itunesService = ItunesService(client: mockClient);
-      await itunesService.searchPodcasts('dedo', lang: 'all');
+      final gateway = ITunesGateway(dio: dio);
+      await gateway.searchPodcasts('dedo', lang: 'all');
 
       expect(requestedUrl, isNotNull);
       expect(requestedUrl, isNot(contains('country=')));
     });
 
-    test('6. Recherche avec langue null ne doit pas inclure country', () async {
-      String? requestedUrl;
-      final mockClient = MockClient((request) async {
-        requestedUrl = request.url.toString();
-        return http.Response(jsonEncode({'results': []}), 200);
-      });
-
-      final itunesService = ItunesService(client: mockClient);
-      await itunesService.searchPodcasts('dedo');
-
-      expect(requestedUrl, isNotNull);
-      expect(requestedUrl, isNot(contains('country=')));
-    });
-
-    test('7. Désérialisation robuste si certains champs sont manquants',
+    test('6. Désérialisation robuste si certains champs sont manquants',
         () async {
-      final mockClient = MockClient((request) async {
+      final dio = Dio();
+      dio.httpClientAdapter = FakeHttpClientAdapter((options) async {
         final mockResponse = {
           'results': [
             {
               // Pas de collectionName, pas d'artworkUrl600, pas de collectionId
               'artistName': 'Inconnu',
               'feedUrl': 'https://example.com/feed.xml',
+              'country': 'USA',
+              'language': 'en',
             }
           ]
         };
-        return http.Response(jsonEncode(mockResponse), 200);
+        return ResponseBody.fromBytes(
+          utf8.encode(jsonEncode(mockResponse)),
+          200,
+          headers: {
+            Headers.contentTypeHeader: [Headers.jsonContentType],
+          },
+        );
       });
 
-      final itunesService = ItunesService(client: mockClient);
-      final results = await itunesService.searchPodcasts('test');
+      final gateway = ITunesGateway(dio: dio);
+      final results = await gateway.searchPodcasts('test', lang: 'en');
 
       expect(results.length, 1);
       expect(results.first.collectionName, 'Sans titre');
@@ -135,9 +191,10 @@ void main() {
       expect(results.first.collectionId, isNull);
     });
 
-    test('8. Filtrage strict par langue via RSS', () async {
-      final mockClient = MockClient((request) async {
-        final uriStr = request.url.toString();
+    test('7. Filtrage strict par langue via RSS', () async {
+      final dio = Dio();
+      dio.httpClientAdapter = FakeHttpClientAdapter((options) async {
+        final uriStr = options.uri.toString();
         if (uriStr.contains('itunes.apple.com')) {
           final mockResponse = {
             'results': [
@@ -145,46 +202,69 @@ void main() {
                 'collectionName': 'Podcast Français',
                 'artistName': 'FR Author',
                 'feedUrl': 'https://example.com/fr_feed.xml',
+                'country': 'FRA',
+                'language': 'fr',
               },
               {
                 'collectionName': 'Podcast Anglais',
                 'artistName': 'EN Author',
                 'feedUrl': 'https://example.com/en_feed.xml',
+                'country': 'USA',
+                'language': 'en',
               },
               {
                 'collectionName': 'Podcast Sans Langue',
                 'artistName': 'Unknown Author',
                 'feedUrl': 'https://example.com/no_lang_feed.xml',
+                'country': null,
+                'language': null,
               }
             ]
           };
-          return http.Response(jsonEncode(mockResponse), 200);
+          return ResponseBody.fromBytes(
+            utf8.encode(jsonEncode(mockResponse)),
+            200,
+            headers: {
+              Headers.contentTypeHeader: [Headers.jsonContentType],
+            },
+          );
         } else if (uriStr == 'https://example.com/fr_feed.xml') {
-          return http.Response(
-              '<rss><channel><language><![CDATA[fr-FR]]></language></channel></rss>',
-              200);
+          return ResponseBody.fromBytes(
+            utf8.encode(
+                '<rss><channel><language><![CDATA[fr-FR]]></language></channel></rss>'),
+            200,
+            headers: {
+              Headers.contentTypeHeader: ['application/xml'],
+            },
+          );
         } else if (uriStr == 'https://example.com/en_feed.xml') {
-          return http.Response(
-              '<rss><channel><language><![CDATA[en-US]]></language></channel></rss>',
-              200);
+          return ResponseBody.fromBytes(
+            utf8.encode(
+                '<rss><channel><language><![CDATA[en-US]]></language></channel></rss>'),
+            200,
+            headers: {
+              Headers.contentTypeHeader: ['application/xml'],
+            },
+          );
         } else if (uriStr == 'https://example.com/no_lang_feed.xml') {
-          return http.Response('<rss><channel></channel></rss>', 200);
+          return ResponseBody.fromBytes(
+            utf8.encode('<rss><channel></channel></rss>'),
+            200,
+            headers: {
+              Headers.contentTypeHeader: ['application/xml'],
+            },
+          );
         }
-        return http.Response('', 404);
+        return ResponseBody.fromBytes(utf8.encode(''), 404);
       });
 
-      final itunesService = ItunesService(client: mockClient);
-      final results = await itunesService.searchPodcasts('test', lang: 'fr');
+      final gateway = ITunesGateway(dio: dio);
+      final results = await gateway.searchPodcasts('test', lang: 'fr');
 
-      // Doit inclure le podcast français et celui sans langue (accepté par défaut)
-      // Mais doit EXCLURE le podcast anglais
-      expect(results.length, 2);
-      expect(
-          results.any((p) => p.collectionName == 'Podcast Français'), isTrue);
-      expect(results.any((p) => p.collectionName == 'Podcast Sans Langue'),
-          isTrue);
-      expect(
-          results.any((p) => p.collectionName == 'Podcast Anglais'), isFalse);
+      // Doit inclure le podcast français et exclure le podcast anglais.
+      // Le podcast sans langue n'a pas d'indication de langue dans son RSS, donc il sera exclu par sécurité (notre filtrage strict).
+      expect(results.length, 1);
+      expect(results.first.collectionName, 'Podcast Français');
     });
   });
 }

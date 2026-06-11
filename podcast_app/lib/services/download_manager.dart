@@ -404,23 +404,37 @@ class DownloadManager {
         },
       );
 
-      // Mesurer la taille du fichier téléchargé sur le fichier temporaire avant son renommage
+      // Renommer le fichier temporaire en fichier final
+      final tempFile = File(tempPath);
+      if (await tempFile.exists()) {
+        try {
+          // Tenter un renommage direct
+          await tempFile.rename(savePath);
+        } catch (e) {
+          // En cas d'échec (ex: partition différente ou fichier cible existant),
+          // on procède par copie et suppression
+          try {
+            await tempFile.copy(savePath);
+            await tempFile.delete();
+          } catch (_) {
+            // Dernier recours : tentative de renommage brut
+            try {
+              if (await tempFile.exists()) {
+                await tempFile.rename(savePath);
+              }
+            } catch (_) {}
+          }
+        }
+      }
+
+      // Mesurer de façon robuste la taille du fichier finalisé sur le disque
       int fileSize = 0;
       try {
-        final tempFile = File(tempPath);
-        if (await tempFile.exists()) {
-          fileSize = await tempFile.length();
-          await tempFile.rename(savePath);
+        final finalFile = File(savePath);
+        if (await finalFile.exists()) {
+          fileSize = await finalFile.length();
         }
-      } catch (e) {
-        // Échec silencieux pour le renommage, on tente de forcer le renommage quand même
-        try {
-          final tempFile = File(tempPath);
-          if (await tempFile.exists()) {
-            await tempFile.rename(savePath);
-          }
-        } catch (_) {}
-      }
+      } catch (_) {}
 
       statusNotifier.value = DownloadStatus.downloaded;
       progressNotifier.value = 1.0;

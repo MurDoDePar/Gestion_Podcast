@@ -101,6 +101,55 @@ void main() {
     });
 
     test(
+        '1b. Podcast avec pays "FRA" et langue nulle n\'est pas exclu en langue "fr"',
+        () async {
+      await prefs.setString('podstream_lang', 'fr');
+
+      final mockItunesResponse = {
+        'results': [
+          {
+            'collectionName': 'Podcast Français Sans Langue',
+            'artistName': 'Auteur FR',
+            'feedUrl': 'https://example.com/fr-nolang.xml',
+            'country': 'FRA',
+            'language': null,
+          }
+        ]
+      };
+
+      final dio = Dio();
+      dio.httpClientAdapter = FakeHttpClientAdapter((options) async {
+        if (options.path.contains('itunes.apple.com')) {
+          return ResponseBody.fromBytes(
+            utf8.encode(jsonEncode(mockItunesResponse)),
+            200,
+            headers: {
+              Headers.contentTypeHeader: [Headers.jsonContentType],
+            },
+          );
+        } else {
+          const mockRssXml =
+              '<?xml version="1.0" encoding="UTF-8"?><rss><channel><language>fr</language></channel></rss>';
+          return ResponseBody.fromBytes(
+            utf8.encode(mockRssXml),
+            200,
+            headers: {
+              Headers.contentTypeHeader: ['application/xml; charset=utf-8'],
+            },
+          );
+        }
+      });
+
+      final discoveryService = DiscoveryService(dio: dio);
+      final results =
+          await discoveryService.fetchRecommendationsForGenres(['Tech']);
+
+      // Verification : The podcast should be kept because country FRA matches target language 'fr'
+      expect(results.length, 1);
+      expect(results.first.collectionName, 'Podcast Français Sans Langue');
+    });
+
+    test(
         '2. Recherche avec langue "en" exclut les podcasts français et conserve les EN',
         () async {
       // Configure target language to 'en'

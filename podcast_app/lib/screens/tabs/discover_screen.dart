@@ -112,7 +112,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                     ),
                     const SizedBox(height: 24),
                     const Text(
-                      'Aucune recommandation',
+                      'Aucune recommandation disponible',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 20,
@@ -122,7 +122,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      'Abonnez-vous à des podcasts pour que nous puissions identifier vos genres préférés et vous suggérer des nouveautés.',
+                      'Abonnez-vous à des podcasts pour identifier vos genres favoris ou tirez vers le bas pour rafraîchir l\'affichage.',
                       style:
                           TextStyle(color: AppTheme.textSecondary, height: 1.5),
                       textAlign: TextAlign.center,
