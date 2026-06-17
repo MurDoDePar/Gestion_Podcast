@@ -1,93 +1,73 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/podcast_model.dart';
-import '../../models/episode_model.dart';
 import '../../screens/podcast_details_screen.dart';
-import '../../services/database_repository.dart';
-import '../../services/rss_service.dart';
+import '../../services/podcasts_tab_service.dart';
+import '../../services/podcast_cache_manager.dart';
+import '../../core/services/service_locator.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/episode_list_tile.dart';
 import '../../services/audio_service.dart' as app_audio;
-import '../../services/database_helper.dart';
+import '../../services/app_state_notifier.dart';
 
 class MyPodcastsTab extends StatefulWidget {
-  const MyPodcastsTab({super.key});
+  final PodcastsTabService service;
+
+  MyPodcastsTab({
+    super.key,
+    PodcastsTabService? service,
+  }) : service = service ?? locator<PodcastsTabService>();
 
   @override
   State<MyPodcastsTab> createState() => _MyPodcastsTabState();
 }
 
 class _MyPodcastsTabState extends State<MyPodcastsTab> {
-  Future<List<PodcastModel>>? _podcastsFuture;
-  List<PodcastModel>? _myPodcastsList;
-  Future<List<EpisodeModel>>? _episodesFuture;
-  bool _isRefreshing = false;
-
   @override
   void initState() {
     super.initState();
-    _podcastsFuture = DatabaseRepository().getMySubscribedPodcasts();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.service.refresh();
+    });
     app_audio.AudioService().listRefreshNotifier.addListener(_onListRefresh);
+    locator<PodcastCacheManager>().addListener(_onCacheRefresh);
   }
 
   @override
   void dispose() {
     app_audio.AudioService().listRefreshNotifier.removeListener(_onListRefresh);
+    locator<PodcastCacheManager>().removeListener(_onCacheRefresh);
     super.dispose();
   }
 
   void _onListRefresh() {
     if (mounted) {
-      setState(() {
-        _triggerEpisodesRefresh();
-      });
+      widget.service.refresh();
     }
   }
 
-  /// Compare si deux listes de podcasts contiennent exactement les mêmes éléments (sans se soucier de l'ordre)
-  bool _areSetsEqual(List<PodcastModel> a, List<PodcastModel> b) {
-    if (a.length != b.length) return false;
-    final setA = a.map((p) => p.feedUrl).toSet();
-    final setB = b.map((p) => p.feedUrl).toSet();
-    return setA.containsAll(setB);
-  }
-
-  void _triggerEpisodesRefresh() {
-    if (_myPodcastsList != null && _myPodcastsList!.isNotEmpty) {
-      _episodesFuture = _fetchAndAggregateEpisodes(_myPodcastsList!);
-    } else {
-      _episodesFuture = Future.value(<EpisodeModel>[]);
+  void _onCacheRefresh() {
+    if (mounted) {
+      widget.service.refresh();
     }
   }
 
   void _onReorderItem(int oldIndex, int newIndex) {
-    if (_myPodcastsList == null) return;
-    setState(() {
-      final item = _myPodcastsList!.removeAt(oldIndex);
-      _myPodcastsList!.insert(newIndex, item);
+    final list = List<PodcastModel>.from(widget.service.subscribedPodcasts);
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    final item = list.removeAt(oldIndex);
+    list.insert(newIndex, item);
 
-      // Déclenche un rafraîchissement immédiat de la section "À écouter" selon le nouvel ordre
-      _triggerEpisodesRefresh();
-    });
-
-    // Sauvegarde asynchrone en tâche de fond dans Firestore
-    DatabaseRepository().updatePodcastsOrder(_myPodcastsList!);
+    widget.service.updatePodcastsOrder(list).then((_) {
+      AppStateNotifier().notifyCacheUpdate();
+    }).catchError((_) {});
   }
 
   Future<void> _onRefreshEpisodes() async {
-    if (_isRefreshing) {
-      return;
-    }
-    _isRefreshing = true;
-
     try {
-      // Forcer le rechargement depuis le réseau (et mise à jour SQLite)
-      await DatabaseRepository().getEpisodesToListen(forceRefresh: true);
-
+      await widget.service.refresh(forceRefresh: true);
       if (mounted) {
-        setState(() {
-          _triggerEpisodesRefresh();
-        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text("Épisodes rafraîchis avec succès."),
@@ -106,113 +86,16 @@ class _MyPodcastsTabState extends State<MyPodcastsTab> {
           ),
         );
       }
-    } finally {
-      _isRefreshing = false;
-    }
-  }
-
-  /// Récupère, filtre et trie les épisodes en respectant l'ordre des abonnements
-  Future<List<EpisodeModel>> _fetchAndAggregateEpisodes(
-      List<PodcastModel> subscribedPodcasts) async {
-    if (subscribedPodcasts.isEmpty) return [];
-
-    try {
-      // 1. Charger tous les flux RSS en parallèle pour optimiser les performances réseau
-      final List<Future<List<EpisodeModel>?>> futures = subscribedPodcasts
-          .map((podcast) => RssService().getEpisodesFromFeed(podcast.feedUrl))
-          .toList();
-
-      final List<List<EpisodeModel>?> results = await Future.wait(futures);
-
-      // 2. Récupérer l'historique de lecture et les préférences locales (SharedPreferences)
-      final Set<String> readEpisodeIds = {};
-      final List<String> localReadList = [];
-      String order = 'asc';
-
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        order = prefs.getString('podstream_order') ?? 'asc';
-      } catch (e) {
-        // print("Error fetching settings in MyPodcastsTab: $e");
-      }
-
-      try {
-        final sqliteReadList = await DatabaseHelper().getReadEpisodeIds();
-        localReadList.addAll(sqliteReadList);
-      } catch (e) {
-        // print("Error fetching SQLite read episodes in MyPodcastsTab: $e");
-      }
-
-      // Conversion en Set pour une recherche en O(1)
-      final Set<String> localReadSet = localReadList.toSet();
-
-      // 3. Traiter les épisodes dans l'ordre exact des abonnements
-      final List<EpisodeModel> orderedEpisodes = [];
-
-      for (int i = 0; i < subscribedPodcasts.length; i++) {
-        final podcast = subscribedPodcasts[i];
-        var podcastEpisodes = results[i];
-        if (podcastEpisodes == null) {
-          // 304 Not Modified : charger le cache d'épisodes local
-          podcastEpisodes =
-              await RssService().getCachedEpisodes(podcast.feedUrl);
-        } else {
-          if (podcastEpisodes.isNotEmpty) {
-            // Mettre à jour la base de données locale avec les métadonnées fraîches
-            await DatabaseHelper().insertEpisodesMetadata(podcastEpisodes);
-          }
-        }
-
-        // A. Filtrer pour ne garder que les épisodes non lus de ce podcast
-        final List<EpisodeModel> unreadEpisodes = [];
-        for (var episode in podcastEpisodes) {
-          if (!readEpisodeIds.contains(episode.id) &&
-              !localReadSet.contains(episode.id)) {
-            unreadEpisodes.add(
-              EpisodeModel(
-                id: episode.id,
-                audioUrl: episode.audioUrl,
-                title: episode.title,
-                podcastName: episode.podcastName.isNotEmpty
-                    ? episode.podcastName
-                    : podcast.collectionName,
-                imageUrl: podcast
-                    .artworkUrl, // Associe la pochette du podcast correspondant
-                description: episode.description,
-                pubDate: episode.pubDate,
-              ),
-            );
-          }
-        }
-
-        // B. Trier les épisodes de ce podcast (le tri ascendant place les plus anciens en premier)
-        unreadEpisodes.sort((a, b) {
-          if (a.pubDate == null && b.pubDate == null) return 0;
-          if (a.pubDate == null) return 1;
-          if (b.pubDate == null) return -1;
-
-          final cmp = a.pubDate!.compareTo(b.pubDate!);
-          return order == 'asc' ? cmp : -cmp;
-        });
-
-        // C. Ajouter à la liste globale
-        orderedEpisodes.addAll(unreadEpisodes);
-      }
-
-      return orderedEpisodes;
-    } catch (e) {
-      // print('Erreur lors de l\'agrégation ordonnée des épisodes : $e');
-      return [];
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<PodcastModel>>(
-      future: _podcastsFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting &&
-            _myPodcastsList == null) {
+    return ListenableBuilder(
+      listenable: widget.service,
+      builder: (context, _) {
+        if (widget.service.isLoading &&
+            widget.service.subscribedPodcasts.isEmpty) {
           return const Center(
             child: CircularProgressIndicator(
               valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
@@ -220,12 +103,13 @@ class _MyPodcastsTabState extends State<MyPodcastsTab> {
           );
         }
 
-        if (snapshot.hasError && _myPodcastsList == null) {
+        if (widget.service.errorMessage != null &&
+            widget.service.subscribedPodcasts.isEmpty) {
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Text(
-                'Erreur lors du chargement des podcasts : ${snapshot.error}',
+                'Erreur lors du chargement des podcasts : ${widget.service.errorMessage}',
                 style: const TextStyle(color: AppTheme.dangerColor),
                 textAlign: TextAlign.center,
               ),
@@ -233,16 +117,8 @@ class _MyPodcastsTabState extends State<MyPodcastsTab> {
           );
         }
 
-        if (snapshot.hasData) {
-          final fetched = snapshot.data!;
-          if (_myPodcastsList == null ||
-              !_areSetsEqual(_myPodcastsList!, fetched)) {
-            _myPodcastsList = List.from(fetched);
-            _triggerEpisodesRefresh();
-          }
-        }
-
-        final podcasts = _myPodcastsList ?? [];
+        final podcasts = widget.service.subscribedPodcasts;
+        final episodes = widget.service.episodesToListen;
 
         return RefreshIndicator(
           onRefresh: _onRefreshEpisodes,
@@ -389,71 +265,28 @@ class _MyPodcastsTabState extends State<MyPodcastsTab> {
                 // Section 2 : Liste verticale dynamique issue de tous les abonnements triés/filtrés par priorité
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: ValueListenableBuilder<int>(
-                    valueListenable:
-                        app_audio.AudioService().listRefreshNotifier,
-                    builder: (context, refreshCount, _) {
-                      return FutureBuilder<List<EpisodeModel>>(
-                        key: ValueKey(refreshCount),
-                        future: _episodesFuture,
-                        builder: (context, episodeSnapshot) {
-                          if (episodeSnapshot.connectionState ==
-                              ConnectionState.waiting) {
-                            return const Center(
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(vertical: 24.0),
-                                child: CircularProgressIndicator(
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                      AppTheme.primaryColor),
-                                ),
+                  child: episodes.isEmpty
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24.0),
+                            child: Text(
+                              'Aucun épisode disponible.',
+                              style: TextStyle(
+                                color: AppTheme.textSecondary,
+                                fontStyle: FontStyle.italic,
                               ),
-                            );
-                          }
-
-                          if (episodeSnapshot.hasError) {
-                            return Center(
-                              child: Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 16.0),
-                                child: Text(
-                                  'Erreur lors du chargement des épisodes : ${episodeSnapshot.error}',
-                                  style: const TextStyle(
-                                      color: AppTheme.dangerColor),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            );
-                          }
-
-                          final episodes = episodeSnapshot.data ?? [];
-                          if (episodes.isEmpty) {
-                            return const Center(
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(vertical: 24.0),
-                                child: Text(
-                                  'Aucun épisode disponible.',
-                                  style: TextStyle(
-                                    color: AppTheme.textSecondary,
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                ),
-                              ),
-                            );
-                          }
-
-                          return ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount:
-                                episodes.length > 20 ? 20 : episodes.length,
-                            itemBuilder: (context, index) {
-                              return EpisodeListTile(episode: episodes[index]);
-                            },
-                          );
-                        },
-                      );
-                    },
-                  ),
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount:
+                              episodes.length > 20 ? 20 : episodes.length,
+                          itemBuilder: (context, index) {
+                            return EpisodeListTile(episode: episodes[index]);
+                          },
+                        ),
                 ),
 
                 // Marge inférieure pour éviter que le mini player ne masque les derniers éléments

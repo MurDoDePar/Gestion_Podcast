@@ -3,6 +3,10 @@ import 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
 import 'database_repository.dart';
 import 'download_manager.dart';
+import '../core/services/service_locator.dart';
+import 'podcasts_tab_service.dart';
+import 'podcast_cache_manager.dart';
+import '../models/episode_model.dart';
 
 // Instance globale du service audio pour toute l'application
 AudioHandler? audioHandler;
@@ -244,19 +248,30 @@ class PodStreamAudioHandler extends BaseAudioHandler
   Future<void> _playNextOrStop() async {
     _logAA("_playNextOrStop: Recherche...");
     try {
-      final nextEpisodes = await DatabaseRepository().getEpisodesToListen();
+      final currentEpisodeId =
+          mediaItem.value?.extras?['episodeId'] as String? ??
+              mediaItem.value?.id;
 
-      if (nextEpisodes.isNotEmpty) {
-        final next = nextEpisodes.first;
+      EpisodeModel? next;
+      if (currentEpisodeId != null) {
+        next = await locator<PodcastsTabService>()
+            .getNextEpisode(currentEpisodeId);
+      } else {
+        final list = await locator<PodcastsTabService>().getEpisodesToListen();
+        if (list.isNotEmpty) {
+          next = list.first;
+        }
+      }
+
+      if (next != null) {
         _logAA("_playNextOrStop: Prochain épisode légitime : ${next.title}");
 
         // 1. Supprimer le cache de tous les autres épisodes sauf le prochain
         await DownloadManager().clearCacheExcept(next.id);
 
-        // 2. Démarrer/Vérifier le téléchargement du prochain épisode en arrière-plan
-        // Ne pas await pour permettre le démarrage immédiat de la lecture (en local si déjà
-        // téléchargé via prefetch, ou en streaming s'il reste une partie à charger).
-        DownloadManager().download(next.id, next.audioUrl);
+        // 2. Déclencher le chargement réactif (qui inclut la purge FIFO de l'espace disque si nécessaire)
+        // Ne pas await pour permettre le démarrage immédiat de la lecture.
+        locator<PodcastCacheManager>().loadEpisodes([next]);
 
         final media = MediaItem(
           id: next.audioUrl,
@@ -285,16 +300,20 @@ class PodStreamAudioHandler extends BaseAudioHandler
     _logAA(
         "_prefetchNextEpisode: Début de la détection de l'épisode suivant...");
     try {
-      final nextEpisodes = await DatabaseRepository().getEpisodesToListen();
+      final currentEpisodeId =
+          mediaItem.value?.extras?['episodeId'] as String? ??
+              mediaItem.value?.id;
+      if (currentEpisodeId == null) return;
 
-      if (nextEpisodes.isNotEmpty) {
-        final next = nextEpisodes.first;
+      final next =
+          await locator<PodcastsTabService>().getNextEpisode(currentEpisodeId);
+
+      if (next != null) {
         _logAA(
             "_prefetchNextEpisode: Épisode trouvé pour le préchargement : ${next.title}");
 
-        // Démarrer le téléchargement en tâche de fond pour qu'il soit disponible localement
-        // Cela sert de mécanisme de préchargement sans coupure audio
-        DownloadManager().downloadEpisode(next.id, next.audioUrl);
+        // Déclencher le préchargement de manière réactive
+        locator<PodcastCacheManager>().loadEpisodes([next]);
       } else {
         _logAA(
             "_prefetchNextEpisode: Aucun épisode suivant disponible pour le préchargement.");

@@ -1,21 +1,20 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:xml/xml.dart' as xml;
 import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/app_theme.dart';
 import '../services/audio_service.dart';
-import '../services/cache_manager.dart';
 import '../models/podcast_model.dart';
-import '../services/database_repository.dart';
 import '../dataconnect-generated/example.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'main_screen.dart';
 import 'package:podcast_app/services/audio_handler_locator.dart'; // Pour globalAudioHandler
 import 'package:audio_service/audio_service.dart'; // Pour MediaItem
 import '../services/audio_service.dart' as app_audio;
-import '../services/itunes_gateway.dart';
+import '../core/services/service_locator.dart';
+import '../services/podcasts_tab_service.dart';
+import '../services/itunes_search_gateway.dart';
 
 class ParsedEpisode {
   final xml.XmlElement element;
@@ -75,14 +74,18 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
     _fetchEpisodes();
   }
 
+  /// **Utilité** : Vérifie si le podcast en cours est présent dans la liste des abonnements de l'utilisateur.
+  /// **Point d'entrée** : Appelé lors du chargement de l'écran (`initState`).
+  /// **Maintenance** : En cas de modification de la structure de l'objet PodcastModel ou de son identification, modifier ici.
   Future<void> _checkSubscription() async {
     final currentFeedUrl = widget.podcast['feedUrl'];
     if (currentFeedUrl != null) {
       try {
-        final subscribedIds =
-            await DatabaseRepository().getSubscribedPodcastIds();
+        final subscribedList =
+            await locator<PodcastsTabService>().getMySubscribedPodcasts();
         setState(() {
-          _isSubscribed = subscribedIds.contains(currentFeedUrl);
+          _isSubscribed =
+              subscribedList.any((p) => p.feedUrl == currentFeedUrl);
         });
 
         // Résolution asynchrone de l'ID Data Connect en arrière-plan
@@ -99,6 +102,9 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
     }
   }
 
+  /// **Utilité** : Alterne l'état d'abonnement (s'abonner ou se désabonner) pour le podcast en cours.
+  /// **Point d'entrée** : Appelé au clic sur le bouton S'abonner / Se désabonner.
+  /// **Maintenance** : Modifier en cas de changement de comportement lors de la transition d'écran post-abonnement.
   Future<void> _toggleSubscription() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -138,9 +144,8 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
         setState(() {
           _isSubscribed = false;
         });
-        await DatabaseRepository().unsubscribeFromPodcast(feedUrl);
+        await locator<PodcastsTabService>().unsubscribeFromPodcast(feedUrl);
 
-        CacheManager().remove('my_subscribed_podcasts');
         app_audio.AudioService().listRefreshNotifier.value++;
 
         if (mounted) {
@@ -153,9 +158,8 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
           _isSubscribed = true;
         });
 
-        await DatabaseRepository().subscribeToPodcast(podcastModel);
+        await locator<PodcastsTabService>().subscribeToPodcast(podcastModel);
 
-        CacheManager().remove('my_subscribed_podcasts');
         _syncEpisodesFromRSS();
         app_audio.AudioService().listRefreshNotifier.value++;
 
@@ -187,6 +191,9 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
     _syncEpisodesFromRSS();
   }
 
+  /// **Utilité** : Récupère les épisodes du podcast depuis son flux RSS (et effectue une recherche iTunes si nécessaire).
+  /// **Point d'entrée** : Appelé à l'initialisation pour afficher les épisodes du podcast.
+  /// **Maintenance** : Si l'API de recherche iTunes ou le format des réponses HTTP change, modifier ici.
   Future<void> _syncEpisodesFromRSS() async {
     String? feedUrl = widget.podcast['feedUrl'];
     if (feedUrl == null || feedUrl.isEmpty) {
@@ -199,7 +206,7 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
       if (title != null) {
         try {
           final results =
-              await ITunesGateway().searchPodcasts(title, lang: 'all');
+              await locator<ITunesSearchGateway>().searchPodcasts(title);
           if (results.isNotEmpty) {
             feedUrl = results.first.feedUrl;
           }
@@ -213,7 +220,7 @@ class _PodcastDetailsScreenState extends State<PodcastDetailsScreen> {
     }
 
     try {
-      final response = await http.get(Uri.parse(feedUrl));
+      final response = await locator<ITunesSearchGateway>().fetchUrl(feedUrl);
       if (response.statusCode == 200) {
         final document = xml.XmlDocument.parse(utf8.decode(response.bodyBytes));
 

@@ -27,6 +27,38 @@ class GetMySubscriptionsVariablesBuilder {
 }
 
 @immutable
+class GetMySubscriptionsUser {
+  final String googleId;
+  GetMySubscriptionsUser.fromJson(dynamic json)
+      : googleId = nativeFromJson<String>(json['googleId']);
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    if (other.runtimeType != runtimeType) {
+      return false;
+    }
+
+    final GetMySubscriptionsUser otherTyped = other as GetMySubscriptionsUser;
+    return googleId == otherTyped.googleId;
+  }
+
+  @override
+  int get hashCode => googleId.hashCode;
+
+  Map<String, dynamic> toJson() {
+    Map<String, dynamic> json = {};
+    json['googleId'] = nativeToJson<String>(googleId);
+    return json;
+  }
+
+  GetMySubscriptionsUser({
+    required this.googleId,
+  });
+}
+
+@immutable
 class GetMySubscriptionsSubscriptionTypes {
   final int? listOrder;
   final GetMySubscriptionsSubscriptionTypesPodcast podcast;
@@ -150,9 +182,13 @@ class GetMySubscriptionsSubscriptionTypesPodcast {
 
 @immutable
 class GetMySubscriptionsData {
+  final GetMySubscriptionsUser? user;
   final List<GetMySubscriptionsSubscriptionTypes> subscriptionTypes;
   GetMySubscriptionsData.fromJson(dynamic json)
-      : subscriptionTypes = (json['subscriptionTypes'] as List<dynamic>)
+      : user = json['user'] == null
+            ? null
+            : GetMySubscriptionsUser.fromJson(json['user']),
+        subscriptionTypes = (json['subscriptionTypes'] as List<dynamic>)
             .map((e) => GetMySubscriptionsSubscriptionTypes.fromJson(e))
             .toList();
   @override
@@ -165,20 +201,26 @@ class GetMySubscriptionsData {
     }
 
     final GetMySubscriptionsData otherTyped = other as GetMySubscriptionsData;
-    return subscriptionTypes == otherTyped.subscriptionTypes;
+    return user == otherTyped.user &&
+        subscriptionTypes == otherTyped.subscriptionTypes;
   }
 
   @override
-  int get hashCode => subscriptionTypes.hashCode;
+  int get hashCode =>
+      Object.hashAll([user.hashCode, subscriptionTypes.hashCode]);
 
   Map<String, dynamic> toJson() {
     Map<String, dynamic> json = {};
+    if (user != null) {
+      json['user'] = user!.toJson();
+    }
     json['subscriptionTypes'] =
         subscriptionTypes.map((e) => e.toJson()).toList();
     return json;
   }
 
   GetMySubscriptionsData({
+    this.user,
     required this.subscriptionTypes,
   });
 }

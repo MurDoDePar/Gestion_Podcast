@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,14 +12,14 @@ import '../core/services/auth_service.dart';
 import '../core/services/podcast_sync_service.dart';
 import '../models/episode_model.dart';
 import '../models/podcast_model.dart';
-import 'cache_manager.dart';
+import 'podcast_cache_manager.dart';
 import 'podcast_repository.dart';
 import 'database_helper.dart';
+import 'download_manager.dart';
 import 'package:sqflite/sqflite.dart';
 import 'itunes_gateway.dart';
 import 'audio_service.dart' as app_audio;
 import 'rss_service.dart';
-import 'discovery_service.dart';
 import '../models/app_settings.dart';
 
 class UpdateRequiredException implements Exception {
@@ -31,7 +30,7 @@ class UpdateRequiredException implements Exception {
 }
 
 class DatabaseRepository {
-  final CacheManager _cacheManager = CacheManager();
+  final PodcastCacheManager _cacheManager = locator<PodcastCacheManager>();
   static bool _isSyncing = false;
   static List<EpisodeModel>? _cachedEpisodesToListen;
   static bool debugSimulateSqliteFailure = false;
@@ -400,6 +399,9 @@ class DatabaseRepository {
     // 2. Mettre à jour le cache local en mémoire
     _cacheManager.write('my_subscribed_podcasts', updatedList);
     await recalculateEpisodesToListenInstantly(); // Reconstitution locale instantanée (sans I/O réseau)
+
+    // 3. Déclencher le téléchargement automatique des nouveaux épisodes priorisés
+    DownloadManager().triggerAutoDownloads();
   }
 
   Future<void> subscribeToPodcast(PodcastModel podcast) async {
@@ -659,12 +661,12 @@ class DatabaseRepository {
 
         // Diagnostic silencieux si le filtrage élimine la totalité des épisodes
         if (filtered.isEmpty && list.isNotEmpty) {
-          print(
-              "DIAGNOSTIC_REFRESH: Le rafraîchissement a retourné 0 épisodes après filtrage.");
-          print(
-              "DIAGNOSTIC_REFRESH: Total épisodes récupérés (réseau/cache) : ${list.length}");
-          print(
-              "DIAGNOSTIC_REFRESH: Total épisodes marqués comme lus en local : ${readIdsSet.length}");
+//           print(
+//               "DIAGNOSTIC_REFRESH: Le rafraîchissement a retourné 0 épisodes après filtrage.");
+//           print(
+//               "DIAGNOSTIC_REFRESH: Total épisodes récupérés (réseau/cache) : ${list.length}");
+//           print(
+//               "DIAGNOSTIC_REFRESH: Total épisodes marqués comme lus en local : ${readIdsSet.length}");
         }
 
         return filtered;
@@ -872,6 +874,16 @@ class DatabaseRepository {
 
   Future<List<PodcastModel>> getPodcastsByThemeWithCache(String theme) async {
     try {
+      final currentLang = await AppSettings.getLanguage();
+      final prefs = await SharedPreferences.getInstance();
+      final lastThemeLang = prefs.getString('last_theme_language') ?? '';
+
+      if (lastThemeLang != currentLang) {
+        final db = await DatabaseHelper().database;
+        await db.delete('themes_cache');
+        await prefs.setString('last_theme_language', currentLang);
+      }
+
       final cacheTime = await DatabaseHelper().getThemeCacheTime(theme);
       final now = DateTime.now().millisecondsSinceEpoch;
       // 7 jours en millisecondes = 7 * 24 * 60 * 60 * 1000 = 604 800 000
@@ -882,9 +894,7 @@ class DatabaseRepository {
           return cachedPodcasts;
         }
       }
-      final currentLang = await AppSettings.getLanguage();
-      final freshPodcasts =
-          await ITunesGateway().searchPodcasts(theme, lang: currentLang);
+      final freshPodcasts = await ITunesGateway().searchPodcasts(theme);
       if (freshPodcasts.isNotEmpty) {
         // Enregistrer dans SQLite de manière transactionnelle
         await DatabaseHelper().saveThemeCache(theme, freshPodcasts);
@@ -1362,68 +1372,271 @@ class DatabaseRepository {
     } catch (e) {}
   }
 
-  /// Récupère la liste des tâches de téléchargement persistantes
-  Future<List<Map<String, dynamic>>> getDownloadQueueTasks() async {
+  /// Récupère la liste des tâches de téléchargement persistantes sous forme typée.
+  Future<List<DownloadTask>> getDownloadQueueTasks() async {
     try {
       final helper = DatabaseHelper();
       final db = await helper.database;
-      return await db.query('download_queue');
+      final List<Map<String, dynamic>> maps = await db.query('download_queue');
+      return maps
+          .map((m) => DownloadTask(
+                episodeId: m['episodeId'] as String,
+                audioUrl: m['audioUrl'] as String,
+                tempPath: m['tempPath'] as String,
+                status: m['status'] as String,
+              ))
+          .toList();
     } catch (e) {
       return [];
     }
   }
 
-  /// Récupère les statistiques globales du cache (nombre d'épisodes et taille totale en octets)
-  Future<Map<String, dynamic>> getCachedEpisodesStats() async {
+  /// Récupère les statistiques globales du cache sous forme typée (CacheStats).
+  Future<CacheStats> getCachedEpisodesStats() async {
     final now = DateTime.now().millisecondsSinceEpoch;
     if (_cachedStats != null && (now - _cachedStatsTime) < 3000) {
-      return _cachedStats!;
+      return CacheStats(
+        count: _cachedStats!['count'] as int? ?? 0,
+        totalBytes: _cachedStats!['totalBytes'] as int? ?? 0,
+      );
     }
     try {
       final helper = DatabaseHelper();
       final db = await helper.database;
 
-      // Diagnostic Stockage
-      final List<Map<String, dynamic>> countCheck = await db.query(
+      final List<Map<String, dynamic>> results = await db.query(
         'episodes_status',
         columns: ['episodeId', 'localPath', 'fileSize'],
         where: 'localPath IS NOT NULL',
       );
-      debugPrint(
-          'Diagnostic Stockage : ${countCheck.length} entrées trouvées avec localPath != null.');
-      for (var row in countCheck) {
+
+      final directory = await getApplicationDocumentsDirectory();
+
+      int count = 0;
+      int totalBytes = 0;
+
+      final checkFutures = results.map((row) async {
+        final dbPath = row['localPath'] as String;
         final size = row['fileSize'] as int? ?? 0;
-        if (size == 0) {
-          final path = row['localPath'] as String;
-          final directory = await getApplicationDocumentsDirectory();
-          String resolvedPath =
-              p.isAbsolute(path) ? path : p.join(directory.path, path);
-          final exists = await File(resolvedPath).exists();
-          debugPrint(
-              'Diagnostic Stockage : Épisode ${row['episodeId']} a fileSize=0. Chemin: $resolvedPath. Existe physiquement: $exists.');
+
+        String resolvedPath =
+            p.isAbsolute(dbPath) ? dbPath : p.join(directory.path, dbPath);
+
+        final exists = await File(resolvedPath).exists();
+        if (exists) {
+          return size;
+        }
+        return -1;
+      }).toList();
+
+      final sizes = await Future.wait(checkFutures);
+      for (var size in sizes) {
+        if (size >= 0) {
+          count++;
+          totalBytes += size;
         }
       }
 
+      final Map<String, dynamic> data = {
+        'count': count,
+        'totalBytes': totalBytes,
+      };
+
+      _cachedStats = data;
+      _cachedStatsTime = now;
+      return CacheStats(count: count, totalBytes: totalBytes);
+    } catch (e) {
+      return CacheStats(count: 0, totalBytes: 0);
+    }
+  }
+
+  /// Lit un paramètre entier depuis la table settings.
+  Future<int> getSettingInt(String key, {required int defaultValue}) async {
+    try {
+      final helper = DatabaseHelper();
+      final db = await helper.database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'settings',
+        where: 'key = ?',
+        whereArgs: [key],
+      );
+      if (maps.isEmpty || maps.first['value'] == null) {
+        return defaultValue;
+      }
+      return int.tryParse(maps.first['value'] as String) ?? defaultValue;
+    } catch (_) {
+      return defaultValue;
+    }
+  }
+
+  /// Écrit un paramètre dans la table settings.
+  Future<void> setSetting(String key, String value) async {
+    try {
+      final helper = DatabaseHelper();
+      final db = await helper.database;
+      await db.insert(
+        'settings',
+        {
+          'key': key,
+          'value': value,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (_) {}
+  }
+
+  /// Récupère la liste des épisodes lus obsolètes à supprimer du stockage local.
+  Future<List<EpisodeCacheInfo>> getOldReadEpisodes(int ageLimitEpoch) async {
+    try {
+      final helper = DatabaseHelper();
+      final db = await helper.database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'episodes_status',
+        columns: ['episodeId', 'localPath', 'fileSize'],
+        where: 'isRead = 1 AND readAt < ? AND localPath IS NOT NULL',
+        whereArgs: [ageLimitEpoch],
+      );
+      return maps
+          .map((m) => EpisodeCacheInfo(
+                episodeId: m['episodeId'] as String,
+                fileSize: m['fileSize'] as int? ?? 0,
+                localPath: m['localPath'] as String?,
+              ))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Récupère l'ensemble des localPath de tous les épisodes téléchargés.
+  Future<Set<String>> getAllCachedLocalPaths() async {
+    try {
+      final helper = DatabaseHelper();
+      final db = await helper.database;
+      final List<Map<String, dynamic>> results = await db.query(
+        'episodes_status',
+        columns: ['localPath'],
+        where: 'localPath IS NOT NULL',
+      );
+      return results
+          .map((row) => row['localPath'] as String?)
+          .where((path) => path != null && path.isNotEmpty)
+          .cast<String>()
+          .toSet();
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Récupère l'ensemble des tempPath de la queue de téléchargement.
+  Future<Set<String>> getAllQueuedTempPaths() async {
+    try {
+      final helper = DatabaseHelper();
+      final db = await helper.database;
+      final List<Map<String, dynamic>> results = await db.query(
+        'download_queue',
+        columns: ['tempPath'],
+      );
+      return results
+          .map((row) => row['tempPath'] as String?)
+          .where((path) => path != null && path.isNotEmpty)
+          .cast<String>()
+          .toSet();
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Récupère tous les épisodes disposant d'un cache physique (localPath non nul).
+  Future<List<EpisodeCacheInfo>> getAllCachedEpisodes() async {
+    try {
+      final helper = DatabaseHelper();
+      final db = await helper.database;
+      final List<Map<String, dynamic>> results = await db.query(
+        'episodes_status',
+        columns: ['episodeId', 'localPath', 'fileSize'],
+        where: 'localPath IS NOT NULL',
+      );
+      return results
+          .map((m) => EpisodeCacheInfo(
+                episodeId: m['episodeId'] as String,
+                fileSize: m['fileSize'] as int? ?? 0,
+                localPath: m['localPath'] as String?,
+              ))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Supprime un ensemble d'épisodes du cache en BDD dans une transaction unique (Atomicité).
+  Future<void> removeEpisodesFromCache(List<String> episodeIds) async {
+    if (episodeIds.isEmpty) return;
+    try {
+      final helper = DatabaseHelper();
+      final db = await helper.database;
+      await db.transaction((txn) async {
+        for (var episodeId in episodeIds) {
+          await txn.update(
+            'episodes_status',
+            {
+              'localPath': null,
+              'status': 0,
+              'fileSize': 0,
+            },
+            where: 'episodeId = ?',
+            whereArgs: [episodeId],
+          );
+        }
+      });
+    } catch (_) {}
+  }
+
+  /// Supprime un épisode du cache en BDD.
+  Future<void> removeEpisodeFromCache(String episodeId) async {
+    await removeEpisodesFromCache([episodeId]);
+  }
+
+  /// Récupère la taille totale en octets consommée par le cache.
+  Future<int> getTotalCacheSize() async {
+    try {
+      final helper = DatabaseHelper();
+      final db = await helper.database;
       final List<Map<String, dynamic>> result = await db.rawQuery('''
-        SELECT 
-          COUNT(*) as count, 
-          SUM(fileSize) as totalBytes 
+        SELECT SUM(fileSize) as totalSize 
         FROM episodes_status 
         WHERE localPath IS NOT NULL
       ''');
-
-      Map<String, dynamic> data = {'count': 0, 'totalBytes': 0};
-      if (result.isNotEmpty && result.first['count'] != 0) {
-        data = {
-          'count': result.first['count'] ?? 0,
-          'totalBytes': result.first['totalBytes'] ?? 0,
-        };
+      if (result.isNotEmpty && result.first['totalSize'] != null) {
+        return result.first['totalSize'] as int;
       }
-      _cachedStats = data;
-      _cachedStatsTime = now;
-      return data;
-    } catch (e) {
-      return {'count': 0, 'totalBytes': 0};
+      return 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Récupère les candidats pour le nettoyage de cache (ordonnés par date de publication croissante).
+  Future<List<EpisodeCacheInfo>> getCacheCandidates() async {
+    try {
+      final helper = DatabaseHelper();
+      final db = await helper.database;
+      final List<Map<String, dynamic>> candidates = await db.rawQuery('''
+        SELECT s.episodeId, s.fileSize, s.localPath
+        FROM episodes_status s
+        LEFT JOIN episodes_metadata m ON s.episodeId = m.episodeId
+        WHERE s.localPath IS NOT NULL
+        ORDER BY m.pubDate ASC
+      ''');
+      return candidates
+          .map((m) => EpisodeCacheInfo(
+                episodeId: m['episodeId'] as String,
+                fileSize: m['fileSize'] as int? ?? 0,
+                localPath: m['localPath'] as String?,
+              ))
+          .toList();
+    } catch (_) {
+      return [];
     }
   }
 
@@ -1457,51 +1670,6 @@ class DatabaseRepository {
     }
   }
 
-  /// Extrait le top 3 des genres les plus représentés dans les abonnements locaux (insensible à la casse)
-  Future<List<String>> getDominantGenres() async {
-    try {
-      final helper = DatabaseHelper();
-      final List<PodcastModel> localSubs = await helper.getSubscribedPodcasts();
-      print('--- DIAGNOSTIC SIGNATURE (getDominantGenres) ---');
-      print('Abonnements locaux trouvés : ${localSubs.length}');
-
-      final Map<String, int> genreCounts = {};
-      final Map<String, String> originalNames = {};
-
-      for (var podcast in localSubs) {
-        print(
-            '  Podcast : "${podcast.collectionName}" | Genres : ${podcast.genres}');
-        for (var genre in podcast.genres) {
-          final trimmed = genre.trim();
-          if (trimmed.isEmpty) continue;
-
-          final lowercase = trimmed.toLowerCase();
-          genreCounts[lowercase] = (genreCounts[lowercase] ?? 0) + 1;
-
-          // Enregistrer la version originale avec la meilleure casse (la première rencontrée)
-          if (!originalNames.containsKey(lowercase)) {
-            originalNames[lowercase] = trimmed;
-          }
-        }
-      }
-
-      // Trier les genres par ordre de fréquence décroissante
-      final sortedEntries = genreCounts.entries.toList()
-        ..sort((a, b) => b.value.compareTo(a.value));
-
-      final result = sortedEntries
-          .take(3)
-          .map((entry) => originalNames[entry.key] ?? entry.key)
-          .toList();
-      print('Genres dominants calculés : $result');
-      print('------------------------------------------------');
-      return result;
-    } catch (e) {
-      print('❌ Erreur dans getDominantGenres : $e');
-      return [];
-    }
-  }
-
   /// Imprime la liste des épisodes dont le localPath n'est pas nul mais dont le fileSize est 0 (ou NULL)
   Future<void> debugPrintZeroSizeEpisodes() async {
     try {
@@ -1513,21 +1681,25 @@ class DatabaseRepository {
         LEFT JOIN episodes_metadata m ON s.episodeId = m.episodeId
         WHERE s.localPath IS NOT NULL AND (s.fileSize IS NULL OR s.fileSize = 0)
       ''');
-      print(
-          '--- ÉPISODES AVEC TAILLE DE FICHIER NULLE (fileSize = 0/NULL) ---');
+//       print(
+//           '--- ÉPISODES AVEC TAILLE DE FICHIER NULLE (fileSize = 0/NULL) ---');
       for (var row in results) {
-        final episodeId = row['episodeId'] as String;
-        final podcast = row['podcastName'] ?? 'Inconnu';
-        final title = row['title'] ?? 'Sans titre';
-        final path = row['localPath'] as String;
-        print(
-            'Examen : podcast $podcast, épisode $title (ID: $episodeId), chemin: $path');
+        final episodeId = // ignore: unused_local_variable
+            row['episodeId'] as String; // ignore: unused_local_variable
+        final podcast = // ignore: unused_local_variable
+            row['podcastName'] ?? 'Inconnu'; // ignore: unused_local_variable
+        final title = // ignore: unused_local_variable
+            row['title'] ?? 'Sans titre'; // ignore: unused_local_variable
+        final path = // ignore: unused_local_variable
+            row['localPath'] as String; // ignore: unused_local_variable
+//         print(
+//             'Examen : podcast $podcast, épisode $title (ID: $episodeId), chemin: $path');
       }
-      print('Nombre total d\'épisodes concernés : ${results.length}');
-      print('-----------------------------------------------------------');
+//       print('Nombre total d\'épisodes concernés : ${results.length}');
+//       print('-----------------------------------------------------------');
     } catch (e) {
       if (!Platform.environment.containsKey('FLUTTER_TEST')) {
-        print('Erreur debugPrintZeroSizeEpisodes: $e');
+//         print('Erreur debugPrintZeroSizeEpisodes: $e');
       }
     }
   }
@@ -1549,16 +1721,18 @@ class DatabaseRepository {
         WHERE s.localPath IS NOT NULL AND (s.fileSize IS NULL OR s.fileSize = 0)
       ''');
 
-      debugPrint(
-          'Diagnostic Réparation : ${results.length} entrées avec localPath != null et fileSize = 0 ou NULL.');
+//       debugPrint(
+//           'Diagnostic Réparation : ${results.length} entrées avec localPath != null et fileSize = 0 ou NULL.');
       for (var row in results) {
-        final title = row['title'] ?? 'Sans titre';
+        final title = // ignore: unused_local_variable
+            row['title'] ?? 'Sans titre'; // ignore: unused_local_variable
         final dbPath = row['localPath'] as String;
         String? absolutePath =
             p.isAbsolute(dbPath) ? dbPath : p.join(directory.path, dbPath);
-        final exists = await File(absolutePath).exists();
-        debugPrint(
-            'Diagnostic Réparation : Épisode $title a fileSize=0/NULL. Chemin: $absolutePath. Existe physiquement: $exists.');
+        final exists = // ignore: unused_local_variable
+            await File(absolutePath).exists(); // ignore: unused_local_variable
+//         debugPrint(
+//             'Diagnostic Réparation : Épisode $title a fileSize=0/NULL. Chemin: $absolutePath. Existe physiquement: $exists.');
       }
 
       if (results.isEmpty) {
@@ -1570,8 +1744,10 @@ class DatabaseRepository {
         for (var row in results) {
           final episodeId = row['episodeId'] as String;
           final dbPath = row['localPath'] as String;
-          final podcast = row['podcastName'] ?? 'Inconnu';
-          final title = row['title'] ?? 'Sans titre';
+          final podcast = // ignore: unused_local_variable
+              row['podcastName'] ?? 'Inconnu'; // ignore: unused_local_variable
+          final title = // ignore: unused_local_variable
+              row['title'] ?? 'Sans titre'; // ignore: unused_local_variable
 
           // Résoudre le chemin absolu
           String? absolutePath;
@@ -1585,8 +1761,8 @@ class DatabaseRepository {
           try {
             if (await file.exists()) {
               final size = await file.length();
-              print(
-                  'Calcul de taille en temps réel pour $title : $size octets');
+//               print(
+//                   'Calcul de taille en temps réel pour $title : $size octets');
 
               if (size > 0) {
                 await txn.update(
@@ -1600,13 +1776,13 @@ class DatabaseRepository {
                   whereArgs: [episodeId],
                 );
                 repairedCount++;
-                final double sizeMb = size / (1024 * 1024);
-                print(
-                    'Réparation : podcast $podcast, épisode $title, taille détectée : ${sizeMb.toStringAsFixed(2)} Mo');
+                // final double sizeMb = size / (1024 * 1024);
+//                 print(
+//                     'Réparation : podcast $podcast, épisode $title, taille détectée : ${sizeMb.toStringAsFixed(2)} Mo');
               }
             } else {
-              print(
-                  'Fichier non trouvé sur le disque : $absolutePath. Auto-correction...');
+//               print(
+//                   'Fichier non trouvé sur le disque : $absolutePath. Auto-correction...');
               // Auto-correction : Fichier absent du disque, on réinitialise l'état local dans SQLite
               await txn.update(
                 'episodes_status',
@@ -1621,8 +1797,8 @@ class DatabaseRepository {
               repairedCount++;
             }
           } catch (fileErr) {
-            print(
-                'Échec d\'accès au fichier physique pour l\'épisode $title ($absolutePath) : $fileErr');
+//             print(
+//                 'Échec d\'accès au fichier physique pour l\'épisode $title ($absolutePath) : $fileErr');
           }
         }
       });
@@ -1632,195 +1808,248 @@ class DatabaseRepository {
       }
     } catch (e) {
       if (!Platform.environment.containsKey('FLUTTER_TEST')) {
-        print(
-            'Erreur lors de la réparation automatique des tailles de fichiers: $e');
+//         print(
+//             'Erreur lors de la réparation automatique des tailles de fichiers: $e');
       }
     }
   }
 
-  /// Enregistre les recommandations par lots dans SQLite
-  Future<void> saveRecommendations(List<PodcastModel> recommendations) async {
+  /// Récupère la taille du fichier d'un épisode enregistré en base.
+  ///
+  /// **Utilité** : Permet d'obtenir la taille en octets enregistrée en base pour le calcul du cache.
+  /// **Point d'entrée** : Appelé par le gestionnaire de cache (`PodcastCacheManager`).
+  /// **Maintenance** : Si le schéma de la table `episodes_status` change, modifier ici.
+  Future<int> getEpisodeFileSize(String episodeId) async {
     try {
       final helper = DatabaseHelper();
       final db = await helper.database;
-      final cachedAt = DateTime.now().millisecondsSinceEpoch;
-
-      await db.transaction((txn) async {
-        // Vider les anciennes recommandations pour éviter l'accumulation
-        await txn.delete('recommended_podcasts');
-
-        final batch = txn.batch();
-        for (var podcast in recommendations) {
-          batch.insert(
-            'recommended_podcasts',
-            {
-              'id': podcast.id,
-              'collectionId': podcast.collectionId,
-              'collectionName': podcast.collectionName,
-              'artistName': podcast.artistName,
-              'artworkUrl': podcast.artworkUrl,
-              'feedUrl': podcast.feedUrl,
-              'recommendedByGenre': podcast.recommendedByGenre ?? '',
-              'cachedAt': cachedAt,
-            },
-            conflictAlgorithm: ConflictAlgorithm.replace,
-          );
-        }
-        await batch.commit(noResult: true);
-      });
-
-      // Enregistrer la langue actuelle associée à ces recommandations pour le suivi de cache
-      final currentLang = await AppSettings.getLanguage();
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('last_recommended_language', currentLang);
-      await prefs.setInt('recs_rules_version', 2);
-    } catch (e) {
-      // Ignorer ou logguer l'erreur
+      final List<Map<String, dynamic>> maps = await db.query(
+        'episodes_status',
+        columns: ['fileSize'],
+        where: 'episodeId = ?',
+        whereArgs: [episodeId],
+      );
+      if (maps.isEmpty) return 0;
+      return maps.first['fileSize'] as int? ?? 0;
+    } catch (_) {
+      return 0;
     }
   }
 
-  /// Récupère la liste des recommandations stockées localement en base
-  Future<List<PodcastModel>> getCachedRecommendations() async {
+  /// Liste tous les fichiers .mp3 présents sur le disque et les compare à la base de données
+  Future<void> debugPrintCacheFiles() async {
     try {
+      final directory = await getApplicationDocumentsDirectory();
+      final downloadDir = Directory('${directory.path}/downloads');
+      if (!await downloadDir.exists()) {
+//         print('--- DIAGNOSTIC VISIBILITÉ CACHE ---');
+//         print('Le dossier downloads n\'existe pas sur le disque.');
+//         print('------------------------------------');
+        return;
+      }
+
+      final List<FileSystemEntity> files = await downloadDir.list().toList();
+      final List<File> mp3Files = files
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.mp3'))
+          .toList();
+
       final helper = DatabaseHelper();
       final db = await helper.database;
-      final List<Map<String, dynamic>> maps =
-          await db.query('recommended_podcasts');
-
-      return List.generate(maps.length, (i) {
-        final genreStr = maps[i]['recommendedByGenre']?.toString() ?? '';
-        return PodcastModel(
-          collectionId: maps[i]['collectionId'] as int?,
-          collectionName: maps[i]['collectionName']?.toString() ?? 'Sans titre',
-          artistName: maps[i]['artistName']?.toString() ?? 'Artiste inconnu',
-          artworkUrl: maps[i]['artworkUrl']?.toString() ?? '',
-          feedUrl: maps[i]['feedUrl']?.toString() ?? '',
-          genres: genreStr.isNotEmpty ? [genreStr] : [],
-          recommendedByGenre: genreStr,
-        );
-      });
-    } catch (e) {
-      return [];
-    }
-  }
-
-  /// Gère le cycle de vie des recommandations (Offline-First)
-  Future<List<PodcastModel>> getRecommendations() async {
-    try {
-      print('getRecommendations : Démarrage du chargement...');
-      final helper = DatabaseHelper();
-      final db = await helper.database;
-
-      // 1. Récupérer le cache local et son timestamp
-      final List<Map<String, dynamic>> cacheSample = await db.query(
-        'recommended_podcasts',
-        columns: ['cachedAt'],
-        limit: 1,
+      final List<Map<String, dynamic>> dbRows = await db.query(
+        'episodes_status',
+        columns: ['episodeId', 'localPath'],
       );
 
-      final prefs = await SharedPreferences.getInstance();
-      final lastLang = prefs.getString('last_recommended_language') ?? '';
-      final currentLang = await AppSettings.getLanguage();
+      final Map<String, String> dbPaths = {};
+      for (var row in dbRows) {
+        final path = row['localPath'] as String?;
+        if (path != null) {
+          dbPaths[p.basename(path)] = row['episodeId'] as String;
+        }
+      }
 
-      const int currentRulesVersion =
-          2; // Incremented to invalidate cache for ITunesGateway migration
-      final bool needsInvalidation =
-          (prefs.getInt('recs_rules_version') ?? 0) < currentRulesVersion;
+//       print('--- DIAGNOSTIC VISIBILITÉ CACHE ---');
+//       print('Nombre de fichiers MP3 sur disque : ${mp3Files.length}');
+//       print('Nombre d\'entrées localPath dans la base : ${dbPaths.length}');
 
-      bool hasCache = cacheSample.isNotEmpty;
-      int cachedAt = 0;
-      if (hasCache) {
-        if (lastLang != currentLang || needsInvalidation) {
-          // Si le moteur détecte des données dans recommended_podcasts qui ne correspondent pas à la langue active ou aux règles actives, il déclenche un clear et un re-fetch.
-          print(
-              'Forçage de re-fetch : changement de langue ou de version de règles détecté (langue cible: $currentLang, précédente: $lastLang, règles obsolètes: $needsInvalidation)');
-          await db.delete('recommended_podcasts');
-          await prefs.remove('last_recommended_language');
-          hasCache = false;
-          cachedAt = 0;
+      for (var file in mp3Files) {
+        final name = p.basename(file.path);
+        if (dbPaths.containsKey(name)) {
+//           print(
+//               'Fichier présent et lié à la DB : $name -> Episode ID: ${dbPaths[name]}');
         } else {
-          cachedAt = cacheSample.first['cachedAt'] as int? ?? 0;
+//           print('Fichier trouvé sur disque mais absent de la DB : $name');
         }
       }
-
-      final now = DateTime.now().millisecondsSinceEpoch;
-      final bool isCacheFresh = hasCache &&
-          (now - cachedAt < 7 * 24 * 60 * 60 * 1000) &&
-          (lastLang == currentLang);
-
-      print(
-          'getRecommendations : cache présent = $hasCache, fraîcheur = $isCacheFresh');
-
-      if (isCacheFresh) {
-        print('getRecommendations : Chargement depuis le cache local');
-        final cachedRecs = await getCachedRecommendations();
-        await debugCheckDatabaseContent();
-        return cachedRecs;
-      }
-
-      // Le cache est vide ou périmé (ou la langue a changé), rafraîchissement nécessaire
-      final List<String> dominantGenres = await getDominantGenres();
-
-      // Genres par défaut s'il n'y a pas encore d'abonnements locaux
-      final genresToFetch = dominantGenres.isNotEmpty
-          ? dominantGenres
-          : const ['News', 'Comedy', 'Technology'];
-
-      print(
-          'getRecommendations : Rafraîchissement nécessaire. Genres ciblés = $genresToFetch, Langue cible = $currentLang');
-
-      try {
-        final discoveryService = DiscoveryService();
-        final newRecommendations =
-            await discoveryService.fetchRecommendationsForGenres(
-          genresToFetch,
-          lang: currentLang,
-        );
-
-        print(
-            'getRecommendations : ${newRecommendations.length} recommandations reçues de DiscoveryService');
-
-        if (newRecommendations.isNotEmpty) {
-          await saveRecommendations(newRecommendations);
-          final savedRecs = await getCachedRecommendations();
-          await debugCheckDatabaseContent();
-          return savedRecs;
-        }
-      } catch (e) {
-        print('❌ Erreur lors du rafraîchissement des recommandations : $e');
-        // En cas d'erreur réseau, Offline-Fallback
-        if (hasCache) {
-          final cachedRecs = await getCachedRecommendations();
-          await debugCheckDatabaseContent();
-          return cachedRecs;
-        }
-      }
-
-      final finalRecs = await getCachedRecommendations();
-      await debugCheckDatabaseContent();
-      return finalRecs;
+//       print('------------------------------------');
     } catch (e) {
-      print('❌ Erreur générale dans getRecommendations : $e');
-      return [];
+//       print('Erreur dans debugPrintCacheFiles : $e');
     }
   }
 
-  /// Imprime dans la console le contenu brut de la table recommended_podcasts.
-  Future<void> debugCheckDatabaseContent() async {
+  /// Scanne le dossier de téléchargement et recrée/corrige les entrées de la base de données
+  Future<void> syncFileSystemToDatabase() async {
     try {
+      final directory = await getApplicationDocumentsDirectory();
+      final downloadDir = Directory('${directory.path}/downloads');
+//       print(
+//           'syncFileSystemToDatabase : Dossier downloads existant : ${await downloadDir.exists()} at path: ${downloadDir.path}');
+      if (!await downloadDir.exists()) return;
+
+      final List<FileSystemEntity> files = await downloadDir.list().toList();
+//       print(
+//           'syncFileSystemToDatabase : Nombre d\'entités sur disque : ${files.length}');
+      final List<File> mp3Files = files
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.mp3'))
+          .toList();
+//       print(
+//           'syncFileSystemToDatabase : Nombre de fichiers MP3 sur disque : ${mp3Files.length}');
+
+      if (mp3Files.isEmpty) return;
+
       final helper = DatabaseHelper();
       final db = await helper.database;
-      final List<Map<String, dynamic>> maps =
-          await db.query('recommended_podcasts');
-      print('--- DIAGNOSTIC STOCKAGE (recommended_podcasts) ---');
-      print('Nombre de lignes dans recommended_podcasts : ${maps.length}');
-      for (var i = 0; i < maps.length; i++) {
-        print(
-            '  [$i] ID : ${maps[i]['id']} | Nom : "${maps[i]['collectionName']}" | Genre : "${maps[i]['recommendedByGenre']}" | CachedAt : ${maps[i]['cachedAt']}');
+
+      // 1. Récupérer tous les épisodes connus (ID et métadonnées) pour pouvoir faire la correspondance
+      final List<Map<String, dynamic>> metaRows = await db.query(
+        'episodes_metadata',
+        columns: ['episodeId'],
+      );
+      final List<Map<String, dynamic>> statusRows = await db.query(
+        'episodes_status',
+        columns: ['episodeId'],
+      );
+
+      final Set<String> allKnownIds = {
+        ...metaRows.map((r) => r['episodeId'] as String),
+        ...statusRows.map((r) => r['episodeId'] as String),
+      };
+//       print(
+//           'syncFileSystemToDatabase : Nombre total d\'identifiants d\'épisodes connus en base : ${allKnownIds.length}');
+
+      // 2. Générer la map de correspondance filename -> episodeId
+      final Map<String, String> filenameToId = {};
+      final downloadManager = DownloadManager();
+      for (var id in allKnownIds) {
+        final expectedName = downloadManager.getSafeFileName(id);
+        filenameToId[expectedName] = id;
       }
-      print('--------------------------------------------------');
+
+      // 3. Réparer les entrées manquantes ou invalides
+      await db.transaction((txn) async {
+        for (var file in mp3Files) {
+          final filename = p.basename(file.path);
+          final episodeId = filenameToId[filename];
+
+          if (episodeId != null) {
+            int size = 0;
+            try {
+              if (await file.exists()) {
+                size = await file.length();
+              } else {
+//                 print(
+//                     'syncFileSystemToDatabase : Le fichier n\'existe plus sur le disque : ${file.path}');
+                continue;
+              }
+            } catch (fileErr) {
+//               print(
+//                   'syncFileSystemToDatabase : Impossible de lire la taille du fichier ${file.path} : $fileErr');
+              continue;
+            }
+            final relativePath = 'downloads/$filename';
+
+            // Vérifier s'il y a déjà une entrée dans episodes_status
+            final List<Map<String, dynamic>> existing = await txn.query(
+              'episodes_status',
+              where: 'episodeId = ?',
+              whereArgs: [episodeId],
+            );
+
+            if (existing.isEmpty) {
+              // Insérer une entrée propre
+              await txn.insert('episodes_status', {
+                'episodeId': episodeId,
+                'isRead': 0,
+                'readAt': null,
+                'localPath': relativePath,
+                'status': 1, // 1 = Téléchargé
+                'fileSize': size,
+              });
+//               print(
+//                   'syncFileSystemToDatabase : Entrée créée pour l\'épisode $episodeId (taille: $size)');
+            } else {
+              final row = existing.first;
+              final currentPath = row['localPath'] as String?;
+              final currentStatus = row['status'] as int? ?? 0;
+              final currentSize = row['fileSize'] as int? ?? 0;
+
+              if (currentPath == null ||
+                  currentStatus != 1 ||
+                  currentSize != size) {
+                // Mettre à jour l'entrée existante
+                await txn.update(
+                  'episodes_status',
+                  {
+                    'localPath': relativePath,
+                    'status': 1,
+                    'fileSize': size,
+                  },
+                  where: 'episodeId = ?',
+                  whereArgs: [episodeId],
+                );
+//                 print(
+//                     'syncFileSystemToDatabase : Entrée mise à jour pour l\'épisode $episodeId (taille: $size)');
+              } else {
+//                 print(
+//                     'syncFileSystemToDatabase : L\'épisode $episodeId est déjà correctement lié.');
+              }
+            }
+          } else {
+//             print(
+//                 'syncFileSystemToDatabase : Impossible d\'associer le fichier $filename à un episodeId connu.');
+          }
+        }
+      });
+
+      // Invalider le cache des stats
+      DatabaseRepository.invalidateCacheStats();
     } catch (e) {
-      print('❌ Erreur dans debugCheckDatabaseContent : $e');
+//       print('Erreur dans syncFileSystemToDatabase : $e');
     }
   }
+}
+
+class EpisodeCacheInfo {
+  final String episodeId;
+  final int fileSize;
+  final String? localPath;
+
+  EpisodeCacheInfo({
+    required this.episodeId,
+    required this.fileSize,
+    this.localPath,
+  });
+}
+
+class CacheStats {
+  final int count;
+  final int totalBytes;
+
+  CacheStats({required this.count, required this.totalBytes});
+}
+
+class DownloadTask {
+  final String episodeId;
+  final String audioUrl;
+  final String tempPath;
+  final String status;
+
+  DownloadTask({
+    required this.episodeId,
+    required this.audioUrl,
+    required this.tempPath,
+    required this.status,
+  });
 }

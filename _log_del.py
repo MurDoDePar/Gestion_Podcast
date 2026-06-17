@@ -172,6 +172,217 @@ def clear_adb_logcat(dry_run):
         print(f"   {Colors.YELLOW}[INFO] Erreur lors de l'exécution de adb logcat : {e}{Colors.RESET}\n")
         return False
 
+# Mots-clés Dart à ignorer lors de l'extraction des identifiants
+DART_KEYWORDS = {
+    'final', 'const', 'var', 'double', 'int', 'String', 'bool', 'Map', 'List',
+    'dynamic', 'null', 'true', 'false', 'as', 'in', 'is', 'await', 'void',
+    'class', 'import', 'export', 'extends', 'with', 'implements', 'this',
+    'super', 'new', 'return', 'if', 'else', 'for', 'while', 'do', 'switch',
+    'case', 'default', 'break', 'continue', 'try', 'catch', 'finally', 'throw',
+    'rethrow', 'async', 'sync', 'yield', 'get', 'set', 'factory', 'static',
+    'operator', 'typedef', 'enum', 'covariant', 'deferred', 'external',
+    'library', 'part', 'of', 'show', 'hide', 'late', 'required', 'base',
+    'interface', 'sealed', 'mixin', 'when', 'then', 'override'
+}
+
+def is_decl_or_write_only(line, var_name):
+    """Vérifie si une ligne est uniquement une déclaration ou une affectation simple de var_name."""
+    stripped = line.strip()
+    if stripped.startswith("//") or stripped.startswith("*") or stripped.startswith("/*"):
+        return True
+        
+    if '//' in line:
+        line_code = line.split('//')[0]
+    else:
+        line_code = line
+        
+    # Nettoyer les chaînes de caractères pour ne pas confondre avec des clés de maps (ex: row['episodeId'])
+    line_code = re.sub(r"'[^']*'", "", line_code)
+    line_code = re.sub(r'"[^"]*"', "", line_code)
+        
+    # Utiliser un lookbehind négatif pour ne pas matcher des méthodes comme .exists()
+    pattern = re.compile(r'(?<!\.)\b' + re.escape(var_name) + r'\b')
+    occurrences = pattern.findall(line_code)
+    if not occurrences:
+        return True
+        
+    if len(occurrences) > 1:
+        return False
+        
+    decl_pattern = re.compile(
+        r'\b(?:final|const|var|double|int|String|bool|Map|List|dynamic|[A-Z][a-zA-Z0-9_]*)\??\s+' + re.escape(var_name) + r'\b'
+    )
+    if decl_pattern.search(line_code):
+        return True
+        
+    assign_pattern = re.compile(
+        r'^\s*' + re.escape(var_name) + r'\s*=[^=]'
+    )
+    if assign_pattern.search(line_code):
+        return True
+        
+    return False
+
+def comment_out_statement(lines, line_idx):
+    """Commente la ligne à line_idx et les lignes suivantes jusqu'au point-virgule ';' final."""
+    idx = line_idx
+    modified = False
+    while idx < len(lines):
+        line = lines[idx]
+        stripped = line.strip()
+        if not stripped.startswith("//"):
+            indent = line[:len(line) - len(line.lstrip())]
+            content = line.lstrip()
+            lines[idx] = f"{indent}// {content}"
+            modified = True
+        if ";" in line:
+            break
+        idx += 1
+    return modified
+
+def find_statement_start(lines, line_idx, var_name):
+    """Recherche vers le haut la ligne de début de déclaration d'une variable (gère les déclarations multi-lignes)."""
+    pattern = re.compile(
+        r'\b(?:final|const|var|double|int|String|bool|Map|List|dynamic|[A-Z][a-zA-Z0-9_]*)\??\s+' + re.escape(var_name) + r'\b'
+    )
+    idx = line_idx
+    while idx >= 0 and idx >= line_idx - 5:
+        if pattern.search(lines[idx]):
+            return idx
+        # Si on rencontre une fin d'instruction ou un bloc, on s'arrête
+        if idx < line_idx and (";" in lines[idx] or "{" in lines[idx] or "}" in lines[idx]):
+            break
+        idx -= 1
+    return line_idx
+
+def ignore_unused_variables(project_dir, dry_run, verbose):
+    """Exécute 'flutter analyze' en boucle et nettoie/commente les variables inutilisées."""
+    app_dir = project_dir / "podcast_app"
+    if not app_dir.exists():
+        return
+        
+    print(f"{Colors.BOLD}5. Traitement des variables inutilisées dans le code source Dart...{Colors.RESET}")
+    
+    if dry_run:
+        print(f"   {Colors.YELLOW}[SIMULATION] L'analyse statique et le nettoyage des variables inutilisées auraient été effectués.{Colors.RESET}\n")
+        return
+        
+    loop_count = 0
+    while True:
+        loop_count += 1
+        print(f"   [Passe {loop_count}] Lancement de 'flutter analyze'...")
+        
+        try:
+            result = subprocess.run(
+                ["flutter", "analyze", "--no-pub"],
+                cwd=str(app_dir),
+                capture_output=True,
+                text=True,
+                shell=True
+            )
+            output = result.stdout
+        except Exception as e:
+            print(f"   {Colors.RED}[ERREUR] Impossible de lancer flutter analyze : {e}{Colors.RESET}\n")
+            break
+            
+        pattern = re.compile(
+            r"local variable '([a-zA-Z0-9_]+)' isn't used.*?-\s*(\S+?\.dart):(\d+):(\d+)\s+-\s+unused_local_variable",
+            re.IGNORECASE | re.MULTILINE
+        )
+        
+        matches = pattern.findall(output)
+        if not matches:
+            print("   Plus aucune variable inutilisée détectée. Nettoyage terminé !\n")
+            break
+            
+        print(f"   Détecté {len(matches)} avertissement(s) de variable(s) inutilisée(s).")
+        
+        # Regrouper les avertissements par fichier
+        files_to_modify = {}
+        for var_name, rel_path, line_str, col_str in matches:
+            standard_rel_path = rel_path.replace('\\', '/')
+            file_path = app_dir / standard_rel_path
+            line_idx = int(line_str) - 1
+            if file_path.exists():
+                if file_path not in files_to_modify:
+                    files_to_modify[file_path] = []
+                files_to_modify[file_path].append((line_idx, var_name))
+                
+        any_modified = False
+        for file_path, warnings in files_to_modify.items():
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+                
+                modified_file = False
+                
+                # Warnings uniques triés par index de ligne décroissant
+                warnings = sorted(list(set(warnings)), key=lambda x: x[0], reverse=True)
+                
+                for line_idx, var_name in warnings:
+                    if line_idx >= len(lines):
+                        continue
+                        
+                    # Trouver le début réel de la déclaration
+                    decl_line_idx = find_statement_start(lines, line_idx, var_name)
+                        
+                    # 1. Vérifier si toutes les occurrences de var_name sont des déclarations ou write-only
+                    all_safe = True
+                    var_pattern = re.compile(r'(?<!\.)\b' + re.escape(var_name) + r'\b')
+                    
+                    # Récupérer les indices des lignes contenant la variable
+                    var_line_indices = []
+                    for idx, line in enumerate(lines):
+                        if line.strip().startswith("//") or line.strip().startswith("*") or line.strip().startswith("/*"):
+                            continue
+                        if '//' in line:
+                            line_code = line.split('//')[0]
+                        else:
+                            line_code = line
+                        # Nettoyer les chaînes de caractères pour ne pas confondre avec des clés de maps (ex: row['episodeId'])
+                        line_code = re.sub(r"'[^']*'", "", line_code)
+                        line_code = re.sub(r'"[^"]*"', "", line_code)
+                        if var_pattern.search(line_code):
+                            var_line_indices.append(idx)
+                            if not is_decl_or_write_only(line, var_name):
+                                all_safe = False
+                                break
+                                
+                    if all_safe and var_line_indices:
+                        # Commenter toutes les occurrences
+                        for idx in var_line_indices:
+                            # Utiliser decl_line_idx si l'occurrence est sur la ligne signalée
+                            target_idx = decl_line_idx if idx == line_idx else idx
+                            if comment_out_statement(lines, target_idx):
+                                modified_file = True
+                                any_modified = True
+                        if verbose:
+                            print(f"   - {file_path.name} : Variable '{var_name}' commentée (lignes { [i+1 for i in var_line_indices] })")
+                    else:
+                        # Ajouter ignore à la déclaration
+                        line_content = lines[decl_line_idx]
+                        if "ignore: unused_local_variable" not in line_content:
+                            newline_char = "\n" if line_content.endswith("\n") else ""
+                            stripped_line = line_content.rstrip("\r\n")
+                            lines[decl_line_idx] = f"{stripped_line} // ignore: unused_local_variable{newline_char}"
+                            modified_file = True
+                            any_modified = True
+                            if verbose:
+                                print(f"   - {file_path.name}:{decl_line_idx+1} : Variable '{var_name}' ignorée par linter")
+                                
+                if modified_file:
+                    with open(file_path, 'w', encoding='utf-8') as f:
+                        f.writelines(lines)
+                    print(f"   - Modifié: {file_path.relative_to(project_dir)}")
+                    
+            except Exception as e:
+                print(f"   {Colors.RED}[ERREUR] Impossible de traiter le fichier {file_path.name} : {e}{Colors.RESET}")
+                
+        # Si rien n'a été modifié lors de cette passe, on arrête pour éviter une boucle infinie
+        if not any_modified:
+            print("   Aucune modification effectuée dans cette passe. Fin de la boucle.\n")
+            break
+
 def clean_logs():
     args = parse_arguments()
     
@@ -278,6 +489,10 @@ def clean_logs():
     # Phase 4 : Vider logcat
     if not args.no_logcat_clear:
         clear_adb_logcat(args.dry_run)
+
+    # Phase 5 : Traitement des variables inutilisées induites par les commentaires des logs
+    if not args.no_code:
+        ignore_unused_variables(project_dir, args.dry_run, args.verbose)
 
     # Résumé final
     print(f"{Colors.BOLD}{Colors.BLUE}=================================================={Colors.RESET}")

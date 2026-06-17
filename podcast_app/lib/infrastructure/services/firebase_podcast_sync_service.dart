@@ -47,6 +47,7 @@ class FirebasePodcastSyncService implements PodcastSyncService {
             feedUrl: sub.podcast.feedUrl,
             collectionId:
                 int.tryParse(sub.podcast.id) ?? sub.podcast.id.hashCode,
+            genres: sub.podcast.categories ?? [],
           );
         }).toList();
       }
@@ -60,6 +61,13 @@ class FirebasePodcastSyncService implements PodcastSyncService {
       final List<MapEntry<PodcastModel, int>> podcastWithOrder =
           querySnapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
+        List<String> parsedGenres = [];
+        final genresRaw = data['genres']?.toString() ?? '';
+        if (genresRaw.isNotEmpty) {
+          parsedGenres = genresRaw.split(',').map((g) => g.trim()).toList();
+        } else if (data['primaryGenreName'] != null) {
+          parsedGenres = [data['primaryGenreName'].toString().trim()];
+        }
         final podcast = PodcastModel(
           collectionName: data['collectionName']?.toString() ?? 'Sans titre',
           artistName: data['artistName']?.toString() ?? 'Artiste inconnu',
@@ -67,6 +75,7 @@ class FirebasePodcastSyncService implements PodcastSyncService {
               data['artworkUrl100']?.toString() ??
               '',
           feedUrl: data['feedUrl']?.toString() ?? '',
+          genres: parsedGenres,
           collectionId: data['collectionId'] is int?
               ? data['collectionId'] as int?
               : int.tryParse(data['collectionId']?.toString() ?? ''),
@@ -124,10 +133,14 @@ class FirebasePodcastSyncService implements PodcastSyncService {
         'artworkUrl600': podcast.artworkUrl,
         'feedUrl': podcast.feedUrl,
         'orderIndex': orderIndex,
+        'genres': podcast.genres.join(','),
         'subscribedAt': FieldValue.serverTimestamp(),
       });
     } else {
-      await query.docs.first.reference.update({'orderIndex': orderIndex});
+      await query.docs.first.reference.update({
+        'orderIndex': orderIndex,
+        'genres': podcast.genres.join(','),
+      });
     }
     // 2. Ajouter dans Data Connect
     final userResult = await ExampleConnector.instance
@@ -145,6 +158,7 @@ class FirebasePodcastSyncService implements PodcastSyncService {
           .id(podcastUuid)
           .imageUrl(podcast.artworkUrl)
           .author(podcast.artistName)
+          .categories(podcast.genres)
           .execute();
       await ExampleConnector.instance
           .subscribeToPodcast(
@@ -326,6 +340,7 @@ class FirebasePodcastSyncService implements PodcastSyncService {
               artworkUrl: podcast.imageUrl ?? '',
               feedUrl: feedUrl,
               collectionId: int.tryParse(podcast.id) ?? podcast.id.hashCode,
+              genres: podcast.categories ?? [],
             );
           }
           recommendedScores[feedUrl] =

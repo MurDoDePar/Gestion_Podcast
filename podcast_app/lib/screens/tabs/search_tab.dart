@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../../models/podcast_model.dart';
-import '../../services/itunes_gateway.dart';
+import '../../services/search_page_service.dart';
+import '../../core/services/service_locator.dart';
 import '../../theme/app_theme.dart';
 import '../podcast_details_screen.dart';
 
 class SearchTab extends StatefulWidget {
-  const SearchTab({super.key});
+  final SearchPageService service;
+
+  SearchTab({
+    super.key,
+    SearchPageService? service,
+  }) : service = service ?? locator<SearchPageService>();
 
   @override
   State<SearchTab> createState() => _SearchTabState();
@@ -14,10 +18,6 @@ class SearchTab extends StatefulWidget {
 
 class _SearchTabState extends State<SearchTab> {
   final TextEditingController _searchController = TextEditingController();
-  final ITunesGateway _itunesGateway = ITunesGateway();
-  List<PodcastModel> _searchResults = [];
-  bool _isLoading = false;
-  String _searchedQuery = '';
 
   @override
   void dispose() {
@@ -29,164 +29,157 @@ class _SearchTabState extends State<SearchTab> {
     final trimmedQuery = query.trim();
     if (trimmedQuery.isEmpty) return;
 
-    setState(() {
-      _isLoading = true;
-      _searchedQuery = trimmedQuery;
-    });
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final lang = prefs.getString('podstream_lang') ?? 'fr';
-      final results =
-          await _itunesGateway.searchPodcasts(trimmedQuery, lang: lang);
-      setState(() {
-        _searchResults = results;
-      });
-    } catch (e) {
-      // print('Erreur recherche : $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur de recherche : $e'),
-            backgroundColor: AppTheme.dangerColor,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
+    await widget.service.search(trimmedQuery);
   }
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: TextField(
-              controller: _searchController,
-              textInputAction: TextInputAction.search,
-              onSubmitted: _performSearch,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: 'Rechercher un podcast, un auteur...',
-                hintStyle: const TextStyle(color: AppTheme.textSecondary),
-                prefixIcon:
-                    const Icon(Icons.search, color: AppTheme.primaryColor),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.clear, color: Colors.grey),
-                  onPressed: () {
-                    _searchController.clear();
-                    setState(() {
-                      _searchResults = [];
-                      _searchedQuery = '';
-                    });
-                  },
-                ),
-                filled: true,
-                fillColor: AppTheme.surfaceColor,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30),
-                  borderSide:
-                      const BorderSide(color: AppTheme.primaryColor, width: 2),
+      child: ListenableBuilder(
+        listenable: widget.service,
+        builder: (context, _) {
+          final query = widget.service.query;
+          final searchResults = widget.service.searchResults;
+          final isLoading = widget.service.isLoading;
+          final errorMessage = widget.service.errorMessage;
+
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: TextField(
+                  controller: _searchController,
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: _performSearch,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'Rechercher un podcast, un auteur...',
+                    hintStyle: const TextStyle(color: AppTheme.textSecondary),
+                    prefixIcon:
+                        const Icon(Icons.search, color: AppTheme.primaryColor),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.clear, color: Colors.grey),
+                      onPressed: () {
+                        _searchController.clear();
+                        widget.service.search('');
+                      },
+                    ),
+                    filled: true,
+                    fillColor: AppTheme.surfaceColor,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: const BorderSide(
+                          color: AppTheme.primaryColor, width: 2),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          Expanded(
-            child: _isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(
-                      valueColor:
-                          AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
-                    ),
-                  )
-                : _searchResults.isEmpty
-                    ? Center(
-                        child: Text(
-                          _searchedQuery.isEmpty
-                              ? 'Saisissez un terme pour rechercher.'
-                              : 'Aucun résultat trouvé pour "$_searchedQuery".',
-                          style: const TextStyle(
-                            color: AppTheme.textSecondary,
-                            fontStyle: FontStyle.italic,
-                          ),
+              Expanded(
+                child: isLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                              AppTheme.primaryColor),
                         ),
                       )
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: _searchResults.length,
-                        itemBuilder: (context, index) {
-                          final podcast = _searchResults[index];
-                          return Card(
-                            color: AppTheme.surfaceColor,
-                            margin: const EdgeInsets.only(bottom: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+                    : errorMessage != null
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Text(
+                                'Erreur de recherche : $errorMessage',
+                                style: const TextStyle(
+                                    color: AppTheme.dangerColor),
+                                textAlign: TextAlign.center,
+                              ),
                             ),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.all(12),
-                              leading: Container(
-                                width: 60,
-                                height: 60,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(12),
-                                  color: AppTheme.bgColor,
-                                  image: podcast.artworkUrl.isNotEmpty
-                                      ? DecorationImage(
-                                          image:
-                                              NetworkImage(podcast.artworkUrl),
-                                          fit: BoxFit.cover,
-                                        )
-                                      : null,
-                                ),
-                                child: podcast.artworkUrl.isEmpty
-                                    ? const Icon(Icons.podcasts)
-                                    : null,
-                              ),
-                              title: Text(
-                                podcast.collectionName,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              subtitle: Text(
-                                podcast.artistName,
-                                style: const TextStyle(
-                                    color: AppTheme.textSecondary),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              trailing: const Icon(
-                                Icons.chevron_right,
-                                color: AppTheme.primaryColor,
-                              ),
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => PodcastDetailsScreen(
-                                      podcast: podcast.toMap(),
-                                    ),
+                          )
+                        : searchResults.isEmpty
+                            ? Center(
+                                child: Text(
+                                  query.isEmpty
+                                      ? 'Saisissez un terme pour rechercher.'
+                                      : 'Aucun résultat trouvé pour "$query".',
+                                  style: const TextStyle(
+                                    color: AppTheme.textSecondary,
+                                    fontStyle: FontStyle.italic,
                                   ),
-                                );
-                              },
-                            ),
-                          );
-                        },
-                      ),
-          ),
-        ],
+                                ),
+                              )
+                            : ListView.builder(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 16),
+                                itemCount: searchResults.length,
+                                itemBuilder: (context, index) {
+                                  final podcast = searchResults[index];
+                                  return Card(
+                                    color: AppTheme.surfaceColor,
+                                    margin: const EdgeInsets.only(bottom: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: ListTile(
+                                      contentPadding: const EdgeInsets.all(12),
+                                      leading: Container(
+                                        width: 60,
+                                        height: 60,
+                                        decoration: BoxDecoration(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          color: AppTheme.bgColor,
+                                          image: podcast.artworkUrl.isNotEmpty
+                                              ? DecorationImage(
+                                                  image: NetworkImage(
+                                                      podcast.artworkUrl),
+                                                  fit: BoxFit.cover,
+                                                )
+                                              : null,
+                                        ),
+                                        child: podcast.artworkUrl.isEmpty
+                                            ? const Icon(Icons.podcasts)
+                                            : null,
+                                      ),
+                                      title: Text(
+                                        podcast.collectionName,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      subtitle: Text(
+                                        podcast.artistName,
+                                        style: const TextStyle(
+                                            color: AppTheme.textSecondary),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      trailing: const Icon(
+                                        Icons.chevron_right,
+                                        color: AppTheme.primaryColor,
+                                      ),
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                PodcastDetailsScreen(
+                                              podcast: podcast.toMap(),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  );
+                                },
+                              ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

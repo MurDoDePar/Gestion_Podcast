@@ -72,14 +72,7 @@ class AudioService {
 
   Future<void> playNextEpisode() async {
     if (globalAudioHandler == null) return;
-    if (currentPlaylistIndex != -1 &&
-        currentPlaylistIndex < currentPlaylist.length - 1) {
-      final nextEpisode = currentPlaylist[currentPlaylistIndex + 1];
-      await playEpisode(nextEpisode, playlist: currentPlaylist);
-    } else {
-      isPlayingNotifier.value = false;
-      await globalAudioHandler!.stop();
-    }
+    await globalAudioHandler!.skipToNext();
   }
 
   /// Jouer un nouvel épisode

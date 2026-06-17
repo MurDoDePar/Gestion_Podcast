@@ -10,14 +10,28 @@ Future<List<PodcastModel>> simulateGetPodcastsByThemeWithCache({
   required Future<void> Function(String, List<PodcastModel>, int) mockSaveCache,
   required int currentTime,
   required bool forceApiError,
+  String currentLang = 'en',
+  String lastThemeLang = 'en',
+  void Function()? mockClearCache,
 }) async {
   try {
     const int sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
 
+    var cacheTime = mockCacheTime;
+    var cacheData = mockCacheData;
+
+    if (currentLang != lastThemeLang) {
+      if (mockClearCache != null) {
+        mockClearCache();
+      }
+      cacheTime = null;
+      cacheData = [];
+    }
+
     // 1. Vérification : Si le cache existe et est valide (moins de 7 jours)
-    if (mockCacheTime != null && (currentTime - mockCacheTime) < sevenDaysMs) {
-      if (mockCacheData.isNotEmpty) {
-        return mockCacheData;
+    if (cacheTime != null && (currentTime - cacheTime) < sevenDaysMs) {
+      if (cacheData.isNotEmpty) {
+        return cacheData;
       }
     }
 
@@ -36,7 +50,7 @@ Future<List<PodcastModel>> simulateGetPodcastsByThemeWithCache({
     return freshPodcasts;
   } catch (e) {
     // 3. Fallback : Si l'API échoue (hors-ligne), on retourne le cache expiré s'il existe
-    if (mockCacheData.isNotEmpty) {
+    if (mockCacheData.isNotEmpty && currentLang == lastThemeLang) {
       return mockCacheData;
     }
     return [];
@@ -181,6 +195,44 @@ void main() {
       // Retourne le cache obsolète au lieu de crasher
       expect(result.length, 1);
       expect(result.first.collectionName, 'Podcast Tech Cache');
+    });
+
+    test(
+        '5. Changement de langue : Invalide le cache même s\'il est récent, appelle l\'API et efface le cache existant',
+        () async {
+      bool apiCalled = false;
+      bool cacheSaved = false;
+      bool cacheCleared = false;
+      final int now = DateTime.now().millisecondsSinceEpoch;
+      final int cacheTime =
+          now - (2 * 24 * 60 * 60 * 1000); // 2 jours (normalement valide)
+
+      final result = await simulateGetPodcastsByThemeWithCache(
+        theme: testTheme,
+        mockCacheTime: cacheTime,
+        mockCacheData: cachedPodcasts,
+        currentTime: now,
+        forceApiError: false,
+        currentLang: 'fr', // Nouvelle langue
+        lastThemeLang: 'en', // Langue du cache
+        mockClearCache: () {
+          cacheCleared = true;
+        },
+        mockFetchApi: (theme) async {
+          apiCalled = true;
+          return freshPodcasts;
+        },
+        mockSaveCache: (theme, list, time) async {
+          cacheSaved = true;
+        },
+      );
+
+      // La langue ayant changé, le cache récent doit être invalidé
+      expect(cacheCleared, isTrue);
+      expect(apiCalled, isTrue);
+      expect(cacheSaved, isTrue);
+      expect(result.length, 1);
+      expect(result.first.collectionName, 'Podcast Tech Fresh');
     });
   });
 }

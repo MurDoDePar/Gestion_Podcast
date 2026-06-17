@@ -1,13 +1,17 @@
 import 'dart:io';
-import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
-import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:connectivity_plus/connectivity_plus.dart'
+    show ConnectivityResult;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'database_repository.dart';
-import 'database_helper.dart';
+import '../core/services/service_locator.dart';
+import 'podcast_cache_manager.dart';
+import 'app_state_notifier.dart';
 import '../models/app_settings.dart';
+import 'itunes_gateway.dart';
+import 'network_service.dart';
 
 enum DownloadStatus {
   idle,
@@ -17,38 +21,47 @@ enum DownloadStatus {
 }
 
 class DownloadManager {
+  static DownloadManager? mockInstance;
   static final DownloadManager _instance = DownloadManager._internal();
-  factory DownloadManager() => _instance;
+  factory DownloadManager() => mockInstance ?? _instance;
+
+  @visibleForTesting
+  DownloadManager.forTesting();
+
   DownloadManager._internal() {
     // Initialiser la file de téléchargement persistante au démarrage de l'app
     _initQueue();
-    // Écouter les changements de connexion réseau pour relancer les téléchargements en attente si nécessaire
-    Connectivity().onConnectivityChanged.listen((results) {
+    // Écouter les changements de connexion réseau via notre service centralisé NetworkService
+    NetworkService().onConnectivityChanged.listen((results) {
       _onConnectivityChanged(results);
     });
   }
 
-  final Dio _dio = Dio();
-  final Map<String, CancelToken> _cancelTokens = {};
+  final Map<String, GatewayCancelToken> _cancelTokens = {};
   final Map<String, ValueNotifier<double>> _progressNotifiers = {};
   final Map<String, ValueNotifier<DownloadStatus>> _statusNotifiers = {};
 
   /// Charge et relance la queue persistante SQLite au démarrage
   Future<void> _initQueue() async {
     try {
-      final tasks = await DatabaseRepository().getDownloadQueueTasks();
-      for (var task in tasks) {
-        final episodeId = task['episodeId'] as String;
-        final audioUrl = task['audioUrl'] as String;
-        // Relancer le téléchargement de manière asynchrone
-        downloadEpisode(episodeId, audioUrl);
-      }
-      // Effectuer aussi un nettoyage des vieux épisodes téléchargés (> 7 jours et lus)
+      // 1. Exécuter d'abord toutes les routines de maintenance/nettoyage du stockage (v6/v8)
+      // Effectuer un nettoyage des vieux épisodes téléchargés (> 7 jours et lus)
       await cleanupOldDownloads();
       // Exécuter l'audit anti-zombie au démarrage (v6)
       await auditStorage();
       // Exécuter la réparation des tailles de fichiers nulles (v6)
       await DatabaseRepository().repairZeroSizeEpisodes();
+      // Synchroniser le système de fichiers vers SQLite au démarrage
+      await DatabaseRepository().syncFileSystemToDatabase();
+
+      // 2. Relancer ensuite la file d'attente de téléchargement persistante
+      final tasks = await DatabaseRepository().getDownloadQueueTasks();
+      for (var task in tasks) {
+        final episodeId = task.episodeId;
+        final audioUrl = task.audioUrl;
+        // Relancer le téléchargement de manière asynchrone
+        downloadEpisode(episodeId, audioUrl);
+      }
     } catch (e) {
 //       debugPrint("DownloadManager: Erreur d'initialisation de la queue : $e");
     }
@@ -65,8 +78,8 @@ class DownloadManager {
       final allowed = await isDownloadAllowed(policy);
       if (allowed) {
         for (var task in tasks) {
-          final episodeId = task['episodeId'] as String;
-          final audioUrl = task['audioUrl'] as String;
+          final episodeId = task.episodeId;
+          final audioUrl = task.audioUrl;
           if (getStatusNotifier(episodeId).value !=
               DownloadStatus.downloading) {
             downloadEpisode(episodeId, audioUrl);
@@ -83,7 +96,7 @@ class DownloadManager {
 
   /// Détermine si un téléchargement est autorisé selon la politique réseau de l'utilisateur
   Future<bool> isDownloadAllowed(String policy) async {
-    final connectivityResult = await Connectivity().checkConnectivity();
+    final connectivityResult = await NetworkService().checkConnectivity();
     if (connectivityResult.contains(ConnectivityResult.none)) {
       return false;
     }
@@ -125,35 +138,31 @@ class DownloadManager {
   /// Supprime les fichiers téléchargés d'épisodes marqués comme "lus" depuis plus de 7 jours
   Future<void> cleanupOldDownloads() async {
     try {
-      final helper = DatabaseHelper();
-      final db = await helper.database;
       final sevenDaysAgo = DateTime.now()
           .subtract(const Duration(days: 7))
           .millisecondsSinceEpoch;
 
-      final List<Map<String, dynamic>> toClean = await db.query(
-        'episodes_status',
-        columns: ['episodeId', 'localPath'],
-        where: 'isRead = 1 AND readAt < ? AND localPath IS NOT NULL',
-        whereArgs: [sevenDaysAgo],
-      );
+      final List<EpisodeCacheInfo> toClean =
+          await DatabaseRepository().getOldReadEpisodes(sevenDaysAgo);
 
       if (toClean.isEmpty) return;
 
       for (var row in toClean) {
-        final episodeId = row['episodeId'] as String;
-        final dbPath = row['localPath'] as String;
+        final episodeId = row.episodeId;
+        final dbPath = row.localPath;
         try {
           // 1. Mettre à jour la base de données en premier pour conserver la cohérence de la SSOT
           await DatabaseRepository().updateEpisodeLocalPath(episodeId, null);
 
           // 2. Supprimer ensuite le fichier physique. Si cela échoue (ex: verrouillé),
           // le fichier devenu orphelin (zombie) sera supprimé par auditStorage() au démarrage suivant.
-          final resolvedPath = await _resolveToAbsolutePath(dbPath);
-          if (resolvedPath != null) {
-            final file = File(resolvedPath);
-            if (await file.exists()) {
-              await file.delete();
+          if (dbPath != null) {
+            final resolvedPath = await _resolveToAbsolutePath(dbPath);
+            if (resolvedPath != null) {
+              final file = File(resolvedPath);
+              if (await file.exists()) {
+                await file.delete();
+              }
             }
           }
 //           debugPrint(
@@ -205,6 +214,9 @@ class DownloadManager {
     final hashSuffix = episodeId.hashCode.toRadixString(16);
     return 'ep_${hashSuffix}_$shortName.mp3';
   }
+
+  /// Expose le nom de fichier généré de manière sécurisée
+  String getSafeFileName(String episodeId) => _getSafeFileName(episodeId);
 
   /// Résout un chemin stocké en base (qu'il soit absolu ou relatif) en chemin absolu valide
   Future<String?> _resolveToAbsolutePath(String? dbPath) async {
@@ -267,31 +279,13 @@ class DownloadManager {
 
 //       debugPrint("DownloadManager: Démarrage de l'audit de stockage (v6)...");
 
-      final helper = DatabaseHelper();
-      final db = await helper.database;
-
       // 1. Récupérer tous les localPath valides dans episodes_status
-      final List<Map<String, dynamic>> statusResults = await db.query(
-        'episodes_status',
-        columns: ['localPath'],
-        where: 'localPath IS NOT NULL',
-      );
-      final Set<String> dbPaths = statusResults
-          .map((row) => row['localPath'] as String?)
-          .where((path) => path != null && path.isNotEmpty)
-          .cast<String>()
-          .toSet();
+      final Set<String> dbPaths =
+          await DatabaseRepository().getAllCachedLocalPaths();
 
       // 2. Récupérer tous les tempPath de la queue de téléchargement
-      final List<Map<String, dynamic>> queueResults = await db.query(
-        'download_queue',
-        columns: ['tempPath'],
-      );
-      final Set<String> queuePaths = queueResults
-          .map((row) => row['tempPath'] as String?)
-          .where((path) => path != null && path.isNotEmpty)
-          .cast<String>()
-          .toSet();
+      final Set<String> queuePaths =
+          await DatabaseRepository().getAllQueuedTempPaths();
 
       // 3. Extraire les basenames de tous les fichiers autorisés
       final Set<String> allowedFilenames = {
@@ -370,7 +364,7 @@ class DownloadManager {
       return;
     }
 
-    final cancelToken = CancelToken();
+    final cancelToken = GatewayCancelToken();
     _cancelTokens[episodeId] = cancelToken;
 
     try {
@@ -392,7 +386,7 @@ class DownloadManager {
 
 //       debugPrint(
 //           "DownloadManager: Début du téléchargement de $url vers $tempPath");
-      await _dio.download(
+      await ITunesGateway().downloadFile(
         url,
         tempPath,
         cancelToken: cancelToken,
@@ -448,8 +442,11 @@ class DownloadManager {
 
       // Appliquer la limite de stockage LRU de manière active et asynchrone
       await enforceCacheLimit();
+
+      // Émettre le signal de mise à jour globale du cache
+      AppStateNotifier().notifyCacheUpdate();
     } catch (e) {
-      if (CancelToken.isCancel(e as DioException)) {
+      if (e is GatewayCancelException) {
 //         debugPrint(
 //             "DownloadManager: Téléchargement annulé par l'utilisateur pour $episodeId");
         statusNotifier.value = DownloadStatus.idle;
@@ -492,12 +489,21 @@ class DownloadManager {
       }
       await DatabaseRepository().updateEpisodeLocalPath(episodeId, null);
       await DatabaseRepository().dequeueDownloadTask(episodeId);
+      AppStateNotifier().notifyCacheUpdate();
     } catch (e) {
 //       debugPrint(
 //           "DownloadManager: Erreur lors de la suppression de l'épisode $episodeId: $e");
     } finally {
-      _progressNotifiers[episodeId]?.value = 0.0;
-      _statusNotifiers[episodeId]?.value = DownloadStatus.idle;
+      final progressNotifier = _progressNotifiers.remove(episodeId);
+      final statusNotifier = _statusNotifiers.remove(episodeId);
+      if (progressNotifier != null) {
+        progressNotifier.value = 0.0;
+        Future.delayed(Duration.zero, () => progressNotifier.dispose());
+      }
+      if (statusNotifier != null) {
+        statusNotifier.value = DownloadStatus.idle;
+        Future.delayed(Duration.zero, () => statusNotifier.dispose());
+      }
     }
   }
 
@@ -534,24 +540,26 @@ class DownloadManager {
                 filename != safeTempName) {
               try {
                 await file.delete();
-                // Chercher l'ID de l'épisode correspondant au nom de fichier pour mettre à jour SQLite si nécessaire
-                // (Optionnel car clearCacheExcept est un nettoyage du cache temporaire de lecture)
               } catch (_) {}
             }
           }
         }
       }
 
-      _statusNotifiers.forEach((key, notifier) {
-        if (key != episodeId && notifier.value != DownloadStatus.idle) {
-          notifier.value = DownloadStatus.idle;
+      final keysToRemove =
+          _statusNotifiers.keys.where((k) => k != episodeId).toList();
+      for (var key in keysToRemove) {
+        final statusNotifier = _statusNotifiers.remove(key);
+        final progressNotifier = _progressNotifiers.remove(key);
+        if (statusNotifier != null) {
+          statusNotifier.value = DownloadStatus.idle;
+          Future.delayed(Duration.zero, () => statusNotifier.dispose());
         }
-      });
-      _progressNotifiers.forEach((key, notifier) {
-        if (key != episodeId && notifier.value != 0.0) {
-          notifier.value = 0.0;
+        if (progressNotifier != null) {
+          progressNotifier.value = 0.0;
+          Future.delayed(Duration.zero, () => progressNotifier.dispose());
         }
-      });
+      }
     } catch (e) {
 //       debugPrint("DownloadManager error [clearCacheExcept]: $e");
     }
@@ -561,48 +569,9 @@ class DownloadManager {
   Future<void> enforceCacheLimit() async {
     try {
       final maxSizeBytes = await AppSettings.getMaxCacheSize();
-      final helper = DatabaseHelper();
-      final db = await helper.database;
-
-      // 1. Calculer la taille totale actuelle via SQL
-      final List<Map<String, dynamic>> sizeResult = await db.rawQuery('''
-        SELECT SUM(fileSize) as totalSize 
-        FROM episodes_status 
-        WHERE localPath IS NOT NULL
-      ''');
-
-      int currentBytes = 0;
-      if (sizeResult.isNotEmpty && sizeResult.first['totalSize'] != null) {
-        currentBytes = sizeResult.first['totalSize'] as int;
-      }
-
-      if (currentBytes <= maxSizeBytes) {
-        return; // Le cache respecte déjà la limite
-      }
-
-      // 2. Récupérer les candidats à la suppression (triés par isRead DESC (lus d'abord) et pubDate ASC (anciens d'abord))
-      final List<Map<String, dynamic>> candidates = await db.rawQuery('''
-        SELECT s.episodeId, s.fileSize
-        FROM episodes_status s
-        LEFT JOIN episodes_metadata m ON s.episodeId = m.episodeId
-        WHERE s.localPath IS NOT NULL
-        ORDER BY s.isRead DESC, m.pubDate ASC
-      ''');
-
-      for (var row in candidates) {
-        if (currentBytes <= maxSizeBytes) break;
-
-        final episodeId = row['episodeId'] as String;
-        final fileSize = row['fileSize'] as int? ?? 0;
-
-        // Supprimer physiquement et mettre à jour la base de données + UI notifiers
-        await deleteDownloadedEpisode(episodeId);
-
-        currentBytes -= fileSize;
-      }
-    } catch (e) {
-      // Échec silencieux
-    }
+      final maxStorageMB = maxSizeBytes ~/ (1024 * 1024);
+      await locator<PodcastCacheManager>().enforceCacheLimit(maxStorageMB);
+    } catch (_) {}
   }
 
   /// Supprime absolument tous les fichiers téléchargés (cache complet) de manière robuste.
@@ -626,50 +595,47 @@ class DownloadManager {
         }
       }
 
-      // Mettre à jour SQLite de manière cohérente pour les fichiers réellement supprimés
-      final helper = DatabaseHelper();
-      final db = await helper.database;
+      // Récupérer tous les épisodes avec un localPath de manière centralisée
+      final List<EpisodeCacheInfo> results =
+          await DatabaseRepository().getAllCachedEpisodes();
 
-      // Récupérer tous les épisodes avec un localPath
-      final List<Map<String, dynamic>> results = await db.query(
-        'episodes_status',
-        columns: ['episodeId', 'localPath'],
-        where: 'localPath IS NOT NULL',
-      );
+      final List<String> deletedEpisodeIds = [];
+      for (var row in results) {
+        final episodeId = row.episodeId;
+        final dbPath = row.localPath;
+        final resolvedPath = await _resolveToAbsolutePath(dbPath);
 
-      await db.transaction((txn) async {
-        for (var row in results) {
-          final episodeId = row['episodeId'] as String;
-          final dbPath = row['localPath'] as String;
-          final resolvedPath = await _resolveToAbsolutePath(dbPath);
+        bool stillExists = false;
+        if (resolvedPath != null) {
+          stillExists = await File(resolvedPath).exists();
+        }
 
-          bool stillExists = false;
-          if (resolvedPath != null) {
-            stillExists = await File(resolvedPath).exists();
+        if (!stillExists) {
+          // Le fichier a bien été supprimé
+          deletedEpisodeIds.add(episodeId);
+
+          // Réinitialiser les notificateurs en mémoire correspondants
+          final statusNotifier = _statusNotifiers.remove(episodeId);
+          final progressNotifier = _progressNotifiers.remove(episodeId);
+          if (statusNotifier != null) {
+            statusNotifier.value = DownloadStatus.idle;
+            Future.delayed(Duration.zero, () => statusNotifier.dispose());
           }
-
-          if (!stillExists) {
-            // Le fichier a bien été supprimé
-            await txn.update(
-              'episodes_status',
-              {
-                'localPath': null,
-                'status': 0,
-                'fileSize': 0,
-              },
-              where: 'episodeId = ?',
-              whereArgs: [episodeId],
-            );
-
-            // Réinitialiser les notificateurs en mémoire correspondants
-            _statusNotifiers[episodeId]?.value = DownloadStatus.idle;
-            _progressNotifiers[episodeId]?.value = 0.0;
+          if (progressNotifier != null) {
+            progressNotifier.value = 0.0;
+            Future.delayed(Duration.zero, () => progressNotifier.dispose());
           }
         }
-      });
+      }
+
+      // Appliquer les mises à jour SQLite de manière atomique (transactionnelle) et centralisée
+      if (deletedEpisodeIds.isNotEmpty) {
+        await DatabaseRepository().removeEpisodesFromCache(deletedEpisodeIds);
+      }
 
       // Invalider le cache des statistiques
       DatabaseRepository.invalidateCacheStats();
+      AppStateNotifier().notifyCacheUpdate();
     } catch (e) {
       // Échec silencieux global
     }
@@ -678,5 +644,13 @@ class DownloadManager {
   /// Alias asynchrone pour télécharger un épisode
   Future<void> download(String episodeId, String url) async {
     await downloadEpisode(episodeId, url);
+  }
+
+  /// Libère tous les notificateurs et efface les tables mémoire
+  void dispose() {
+    _progressNotifiers.forEach((_, notifier) => notifier.dispose());
+    _statusNotifiers.forEach((_, notifier) => notifier.dispose());
+    _progressNotifiers.clear();
+    _statusNotifiers.clear();
   }
 }

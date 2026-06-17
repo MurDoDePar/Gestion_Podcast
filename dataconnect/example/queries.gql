@@ -1,4 +1,4 @@
-query FindUserByGoogleId($googleId: String!) @auth(level: USER) {
+query FindUserByGoogleId($googleId: String!) @auth(expr: "auth != null && auth.uid == vars.googleId") {
   users(where: { googleId: { eq: $googleId } }, limit: 1) {
     id
     googleId
@@ -7,7 +7,10 @@ query FindUserByGoogleId($googleId: String!) @auth(level: USER) {
   }
 }
 
-query GetMySubscriptions($userId: UUID!) @auth(level: USER) {
+query GetMySubscriptions($userId: UUID!) @auth(expr: "auth != null") {
+  user(id: $userId) {
+    googleId @check(expr: "this == auth.uid", message: "Unauthorized")
+  }
   subscriptionTypes(where: { userId: { eq: $userId } }) {
     user @redact {
       googleId

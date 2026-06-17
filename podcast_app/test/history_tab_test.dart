@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:podcast_app/screens/tabs/history_tab.dart';
-import 'package:podcast_app/services/database_repository.dart';
+import 'package:podcast_app/services/history_tab_service.dart';
 import 'package:podcast_app/models/episode_model.dart';
 
-// Un mock simple de DatabaseRepository pour éviter de charger SQLite et Firestore réels
-class MockDatabaseRepository extends DatabaseRepository {
+// Un mock simple de HistoryTabService pour éviter de charger SQLite et Firestore réels
+class MockHistoryTabService extends HistoryTabService {
   final List<EpisodeModel> mockEpisodes;
 
-  MockDatabaseRepository({this.mockEpisodes = const []});
+  MockHistoryTabService({this.mockEpisodes = const []});
 
   @override
   Future<List<EpisodeModel>> getReadEpisodesHistory({
@@ -29,13 +29,13 @@ void main() {
     testWidgets(
         'Affiche "Aucun épisode lu pour le moment" si l\'historique est vide',
         (WidgetTester tester) async {
-      // 1. Initialiser le mock repository avec une liste vide
-      final mockRepo = MockDatabaseRepository(mockEpisodes: []);
+      // 1. Initialiser le mock service avec une liste vide
+      final mockService = MockHistoryTabService(mockEpisodes: []);
 
       // 2. Dessiner le widget
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(
-          body: HistoryTab(repository: mockRepo),
+          body: HistoryTab(service: mockService),
         ),
       ));
 
@@ -77,12 +77,12 @@ void main() {
         ),
       ];
 
-      final mockRepo = MockDatabaseRepository(mockEpisodes: mockEpisodes);
+      final mockService = MockHistoryTabService(mockEpisodes: mockEpisodes);
 
       // 2. Dessiner le widget
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(
-          body: HistoryTab(repository: mockRepo),
+          body: HistoryTab(service: mockService),
         ),
       ));
 

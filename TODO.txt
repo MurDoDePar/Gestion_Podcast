@@ -1,6 +1,38 @@
 
-- verifier le l'affichage du de l'utilistaion du cache il reste a 0%
+[DIRECTIVE DE MAINTIEN ARCHITECTURAL - PODSTREAM 2.0]
+1. Architecture Réactive (Priorité) :
+    L'état est géré exclusivement dans les Services (domain) héritant de ChangeNotifier.
+    L'UI ne doit jamais stocker d'état local via setState ou FutureBuilder pour les données métier. 
+    Utilise ListenableBuilder (ou AnimatedBuilder) pour écouter les changements des Services.
+    La méthode refresh() des Services est la seule source de vérité. 
+    Toute mise à jour de données doit passer par elle et déclencher un notifyListeners().
+2. Règle DRY & Isolation :
+    Séparation stricte : Widgets (UI) -> Services (Domain) -> Repositories (Data).
+    Aucune requête SQL ou HTTP directe dans les Widgets ou Services. Tout passe par les Repositories dédiés.
+3. Mémoire des corrections & Stabilité :
+    Maintien du filtrage linguistique strict (normalizeLanguage et AppSettings.getLanguage()) dans ITunesGateway.
+    Maintien de la logique de cache intelligent (maxCacheSize et getEpisodeFileSize).
+4. Documentation & Maintenance :
+    Documentation en français obligatoire : Utilité, Point d'entrée, Maintenance.
+    Pour la section Maintenance, spécifie toujours l'impact potentiel 
+    sur les ListenableBuilder associés si la structure des données change.
+5. Intégrité de la structure (Non-Altération) :
+    Ne jamais casser la réactivité des Services. Si une méthode métier est ajoutée, 
+    elle doit respecter le pattern refresh() + notifyListeners().
+    Nettoyage rigoureux des imports après chaque modification (aucun import orphelin).
+    Maintien des 38+ tests unitaires existants. Toute évolution doit 
+    garantir que les tests passent sans modification de leur logique de base.
+6. Gestion des erreurs et feedback UI :
+    Chaque Service doit posséder une propriété String? errorMessage (ou équivalente).
+    En cas d'échec d'une opération réseau ou base de données, la méthode métier doit :
+        Capter l'exception.
+        Mettre à jour errorMessage avec un message clair en français.
+        Appeler notifyListeners() pour que l'UI affiche l'erreur (via un SnackBar ou un message d'alerte).
+        Ne jamais laisser l'état isLoading bloqué à true indéfiniment.
+Tâche : [INSÈRE TA DEMANDE DE CORRECTION OU ÉVOLUTION ICI]
+-------------------------------------------------------------------------------------------------------------------
 
+- vider le cache
 
 - sauvegarde de la liste 'mes podcasts'
     - sqlite local
@@ -30,8 +62,8 @@ A tester :
     - une table themes avec le liste de podcasts de l'onglet 'par theme' qui sera rafaichie chaque semaine
 
 -------------------------------------------------------------------------------------------------------------------
-"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" logcat | findstr AA_DEBUG
 "%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" logcat | findstr /I "flutter"
+"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" logcat | findstr AA_DEBUG
 "%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" logcat | findstr DEBUG
 
 "C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" -printcert -jarfile "podcast_app\build\app\outputs\bundle\release\app-release.aab"
@@ -49,6 +81,14 @@ Pour afficher les détails de chaque fichier en plus de la simulation :
 
 Fait
 
+- verifier le l'affichage du de l'utilistaion du cache il reste a 0%
+
+- comment fonctionne le cache des episodes ?
+    - nombre d'episodes en cache
+    - espace pris par les episodes en cache
+    - comment est nettoyer le cache des episodes ?
+    - si l'ordre de la liste 'Mes podcasts' change, il faut rafraichir la liste 'a écouter'
+    - si l'ordre de la liste 'Mes podcasts' change, il faut rafraichir le cache des episodes
 - l'onglet decouerte doit obligatoirement proposer de podcasts dans la langue de parrametre
 
 - question sur la gestion des episodes en cache

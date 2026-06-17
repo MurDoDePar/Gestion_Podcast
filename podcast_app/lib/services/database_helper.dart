@@ -20,6 +20,13 @@ class DatabaseHelper {
     return _database!;
   }
 
+  Future<void> closeDatabase() async {
+    if (_database != null) {
+      await _database!.close();
+      _database = null;
+    }
+  }
+
   Future<Database> _initDatabase() async {
     final dbPath = await getDatabasesPath();
     final pathString = join(dbPath, 'podstream.db');
@@ -32,15 +39,16 @@ class DatabaseHelper {
 
     // Vérification de diagnostic au démarrage pour s'assurer que la migration v8 est intègre
     try {
-      final tables = await db.rawQuery(
-          "SELECT name FROM sqlite_master WHERE type='table' AND name='recommended_podcasts'");
-      final hasRecommendedTable = tables.isNotEmpty;
-      final columns = await db.rawQuery("PRAGMA table_info(my_podcasts)");
-      final hasGenresColumn = columns.any((c) => c['name'] == 'genres');
-      print(
-          'DATABASE STATUS CHECK: hasRecommendedTable=$hasRecommendedTable, hasGenresColumn=$hasGenresColumn');
+      // final tables = await db.rawQuery(// ignore: unused_local_variable
+      //    "SELECT name FROM sqlite_master WHERE type='table' AND name='recommended_podcasts'");
+      // final hasRecommendedTable = tables.isNotEmpty;
+      // final columns = await db.rawQuery(
+      //    "PRAGMA table_info(my_podcasts)"); // ignore: unused_local_variable
+      // final hasGenresColumn = columns.any((c) => c['name'] == 'genres');
+//       print(
+//           'DATABASE STATUS CHECK: hasRecommendedTable=$hasRecommendedTable, hasGenresColumn=$hasGenresColumn');
     } catch (e) {
-      print('DATABASE STATUS CHECK ERROR: $e');
+//       print('DATABASE STATUS CHECK ERROR: $e');
     }
 
     return db;
@@ -178,8 +186,8 @@ class DatabaseHelper {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    print(
-        'DATABASE MIGRATION: Upgrading database from version $oldVersion to $newVersion...');
+//     print(
+//         'DATABASE MIGRATION: Upgrading database from version $oldVersion to $newVersion...');
     if (oldVersion < 2) {
       try {
         await _safeAddColumn(db, 'episodes_status', 'readAt', 'INTEGER');
@@ -236,9 +244,6 @@ class DatabaseHelper {
             isSynced INTEGER DEFAULT 1
           )
         ''');
-        await db.execute(
-            'CREATE INDEX IF NOT EXISTS idx_podcasts_sortOrder ON my_podcasts(sortOrder)');
-
         if (await _tableExists(db, 'my_podcasts_old')) {
           final List<Map<String, dynamic>> oldRows =
               await db.query('my_podcasts_old');
@@ -267,6 +272,11 @@ class DatabaseHelper {
           }
           await db.execute('DROP TABLE IF EXISTS my_podcasts_old');
         }
+
+        // Créer l'index après avoir supprimé la table old pour éviter le conflit d'index
+        await db.execute('DROP INDEX IF EXISTS idx_podcasts_sortOrder');
+        await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_podcasts_sortOrder ON my_podcasts(sortOrder)');
       } catch (e) {
         rethrow;
       }
@@ -347,10 +357,6 @@ class DatabaseHelper {
             localPath TEXT
           )
         ''');
-        // Recréer l'index sur readAt
-        await db.execute(
-            'CREATE INDEX IF NOT EXISTS idx_episodes_status_readAt ON episodes_status(readAt)');
-
         // 5. Copier les données de comportement depuis la table temporaire
         if (await _tableExists(db, 'episodes_status_old')) {
           final List<Map<String, dynamic>> oldStatusRows =
@@ -372,6 +378,11 @@ class DatabaseHelper {
           // 6. Supprimer la table temporaire
           await db.execute('DROP TABLE IF EXISTS episodes_status_old');
         }
+
+        // Recréer l'index sur readAt après avoir supprimé la table old pour éviter le conflit d'index
+        await db.execute('DROP INDEX IF EXISTS idx_episodes_status_readAt');
+        await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_episodes_status_readAt ON episodes_status(readAt)');
       } catch (e) {
         rethrow;
       }
@@ -393,13 +404,13 @@ class DatabaseHelper {
       }
     }
     if (oldVersion < 8) {
-      print('DATABASE MIGRATION (v8): Starting migration...');
+//       print('DATABASE MIGRATION (v8): Starting migration...');
       try {
         await _safeAddColumn(db, 'my_podcasts', 'genres', "TEXT DEFAULT ''");
-        print(
-            'DATABASE MIGRATION (v8): genres column successfully added to my_podcasts.');
+//         print(
+//             'DATABASE MIGRATION (v8): genres column successfully added to my_podcasts.');
       } catch (e) {
-        print('DATABASE MIGRATION ERROR (v8): genres column failed: $e');
+//         print('DATABASE MIGRATION ERROR (v8): genres column failed: $e');
       }
       try {
         await db.execute('''
@@ -414,11 +425,11 @@ class DatabaseHelper {
             cachedAt INTEGER
           )
         ''');
-        print(
-            'DATABASE MIGRATION (v8): recommended_podcasts table successfully created.');
+//         print(
+//             'DATABASE MIGRATION (v8): recommended_podcasts table successfully created.');
       } catch (e) {
-        print(
-            'DATABASE MIGRATION ERROR (v8): recommended_podcasts table failed: $e');
+//         print(
+//             'DATABASE MIGRATION ERROR (v8): recommended_podcasts table failed: $e');
       }
     }
   }

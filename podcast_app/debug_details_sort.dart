@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:http/http.dart' as http;
+import 'package:podcast_app/services/itunes_gateway.dart';
 import 'package:xml/xml.dart' as xml;
 
 class ParsedEpisode {
@@ -15,7 +15,7 @@ class ParsedEpisode {
 
 void main() async {
   const feedUrl = 'https://feed.ausha.co/omN08urqM3Yx';
-  final response = await http.get(Uri.parse(feedUrl));
+  final response = await ITunesGateway().fetchUrl(feedUrl);
   final document = xml.XmlDocument.parse(utf8.decode(response.bodyBytes));
   final items = document.findAllElements('item');
 

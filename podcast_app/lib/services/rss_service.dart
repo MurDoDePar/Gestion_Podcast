@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:xml/xml.dart' as xml;
 import 'package:html/parser.dart' as html_parser;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/episode_model.dart';
+import 'itunes_gateway.dart';
 
 class RssService {
   /// Télécharge et parse le flux RSS pour en extraire la liste des épisodes réels.
@@ -30,8 +30,8 @@ class RssService {
         headers['If-Modified-Since'] = cachedLastModified;
       }
 
-      final response = await http
-          .get(Uri.parse(feedUrl), headers: headers)
+      final response = await ITunesGateway()
+          .fetchUrl(feedUrl, headers: headers)
           .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 304) {

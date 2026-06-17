@@ -6,7 +6,6 @@ import '../services/database_repository.dart';
 import 'tabs/my_podcasts_tab.dart';
 import 'tabs/themes_tab.dart';
 import 'tabs/discover_tab.dart';
-import 'tabs/discover_screen.dart';
 import 'tabs/history_tab.dart';
 import 'tabs/search_tab.dart';
 import 'settings_screen.dart';
@@ -23,8 +22,8 @@ class _MainScreenState extends State<MainScreen> {
   String?
       _updateRequiredMessage; // Stocke le message d'erreur si la version est obsolète
 
-  final List<Widget> _screens = const [
-    _AccueilView(),
+  final List<Widget> _screens = [
+    const _AccueilView(),
     SearchTab(),
     SettingsScreen(),
   ];
@@ -249,7 +248,7 @@ class _AccueilView extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child: DefaultTabController(
-        length: 5,
+        length: 4,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -289,7 +288,6 @@ class _AccueilView extends StatelessWidget {
                   Tab(text: "Mes podcasts"),
                   Tab(text: "Par thème"),
                   Tab(text: "Affinités"),
-                  Tab(text: "Découvertes"),
                   Tab(text: "Historique"),
                 ],
               ),
@@ -298,10 +296,9 @@ class _AccueilView extends StatelessWidget {
             Expanded(
               child: TabBarView(
                 children: [
-                  const MyPodcastsTab(),
+                  MyPodcastsTab(),
                   ThemesTab(),
-                  const DiscoverTab(),
-                  const DiscoverScreen(),
+                  DiscoverTab(),
                   HistoryTab(),
                 ],
               ),
