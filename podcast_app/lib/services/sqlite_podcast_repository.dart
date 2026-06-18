@@ -63,8 +63,8 @@ class SqlitePodcastRepository {
       if (maps.isEmpty) return null;
 
       final String genresRaw = maps.first['genres'] as String? ?? '';
-      print(
-          '[DEBUG_TAGS] Podcast ID : $podcastId | Données genres brutes : $genresRaw');
+//       print(
+//           '[DEBUG_TAGS] Podcast ID : $podcastId | Données genres brutes : $genresRaw');
       if (genresRaw.trim().isEmpty) return null;
 
       List<String> parsedGenres = [];
@@ -84,7 +84,7 @@ class SqlitePodcastRepository {
 
       // Filtrer les chaînes vides
       parsedGenres = parsedGenres.where((g) => g.isNotEmpty).toList();
-      print('[DEBUG_TAGS] Liste des catégories identifiées : $parsedGenres');
+//       print('[DEBUG_TAGS] Liste des catégories identifiées : $parsedGenres');
 
       // Retourner le premier genre qui n'est pas dans la liste noire
       final blacklist = {
@@ -103,7 +103,7 @@ class SqlitePodcastRepository {
         if (!blacklist.contains(genre.toLowerCase())) {
           return genre;
         } else {
-          print('[DEBUG_TAGS] Catégorie ignorée (Blacklist) : $genre');
+//           print('[DEBUG_TAGS] Catégorie ignorée (Blacklist) : $genre');
         }
       }
 

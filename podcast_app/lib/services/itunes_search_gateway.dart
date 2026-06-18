@@ -262,13 +262,13 @@ class ITunesSearchGateway {
         queryParams['genreId'] = genreId;
       }
 
-      final String generatedUrl = Uri.https(
-        'itunes.apple.com',
-        '/search',
-        queryParams.map((k, v) => MapEntry(k, v.toString())),
-      ).toString();
-      print('[DEBUG_ITUNES_REQ] URL générée : $generatedUrl');
-      print('[DEBUG_ITUNES_REQ] Langue cible injectée : $targetLang');
+      // final String generatedUrl = Uri.https(
+      // 'itunes.apple.com',
+      // '/search',
+      // queryParams.map((k, v) => MapEntry(k, v.toString())),
+      // ).toString();
+//       print('[DEBUG_ITUNES_REQ] URL générée : $generatedUrl');
+//       print('[DEBUG_ITUNES_REQ] Langue cible injectée : $targetLang');
 
       final response = await _dio
           .get(
@@ -316,13 +316,13 @@ class ITunesSearchGateway {
               }
             }
 
-            print(
-                '[DEBUG_ITUNES_RES] Podcast reçu : ${item['collectionName'] ?? 'Sans nom'} | Pays détecté : $rawItemCountry | Langue résolue : $normalizedLang');
+//             print(
+//                 '[DEBUG_ITUNES_RES] Podcast reçu : ${item['collectionName'] ?? 'Sans nom'} | Pays détecté : $rawItemCountry | Langue résolue : $normalizedLang');
 
             // Filtrage de langue strict (Normalisation Hardcore)
             if (targetLang != 'all' && normalizedLang != targetLang) {
-              print(
-                  '[DEBUG_ITUNES_FILTER] Podcast exclus : ${item['collectionName'] ?? 'Sans nom'} (Raison : Langue $normalizedLang != $targetLang)');
+//               print(
+//                   '[DEBUG_ITUNES_FILTER] Podcast exclus : ${item['collectionName'] ?? 'Sans nom'} (Raison : Langue $normalizedLang != $targetLang)');
               continue;
             }
 

@@ -1,5 +1,5 @@
 {
-  "version": "3.4.3",
-  "build_number": 343,
-  "release_notes": "mise à jour 3.4.3 (17/06/2026) - correction feedback UI"
+  "version": "3.4.4",
+  "build_number": 344,
+  "release_notes": "mise à jour 3.4.4 (18/06/2026) - feedback UI et correction d'affichage"
 }
